@@ -16,13 +16,13 @@ import { compromisos as selCompromisos, hoyISO, proyectoPorId, reunionesDe, dias
 import { DIAS_PERIODICIDAD } from '../../datos/catalogos.js';
 import { fecha as fFecha, numero, textoVencimiento } from '../../utilidades/formato.js';
 import { useBD } from '../../estado/tienda.js';
-import { CONFIG_TIPO } from './Mesas.jsx';
+import { configDe } from './tipos.js';
 
 export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar }) {
   const bd = useBD();
   const navegar = useNavigate();
   const hoy = hoyISO();
-  const cfg = CONFIG_TIPO[mesa.tipo] ?? CONFIG_TIPO['temática'];
+  const cfg = configDe(mesa.tipo);
 
   const reuniones = useMemo(() => (bd ? reunionesDe(bd, mesa.id) : []), [bd, mesa.id]);
   // Los compromisos de la mesa se leen de la lista GENERAL filtrando por origen:

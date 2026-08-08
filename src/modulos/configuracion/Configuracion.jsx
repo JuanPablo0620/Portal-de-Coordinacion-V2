@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Database, Plus, Save, Trash2, Undo2, UserRound } from 'lucide-react';
+import { Database, Plus, Save, Trash2, Undo2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Aviso, Boton, Chip, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';

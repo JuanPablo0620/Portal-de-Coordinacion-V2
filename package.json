@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test \"pruebas/*.test.mjs\"",
+    "humo": "node scripts/humo.mjs",
     "verificar": "node scripts/verificar.mjs"
   },
   "dependencies": {

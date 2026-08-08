@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Building, CalendarPlus, MapPin, Pencil, Plus, Users } from 'lucide-react';
+import { CalendarPlus, Pencil, Plus } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Boton, Chip, Pestanias, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { FichaMesa } from './FichaMesa.jsx';
 import { FormularioMesa } from './FormularioMesa.jsx';
 import { RegistrarReunion } from './RegistrarReunion.jsx';
+import { CONFIG_TIPO, configDe } from './tipos.js';
 import { TIPOS_MESA } from '../../datos/catalogos.js';
 import { hoyISO, mesas as selMesas, mesasSinReunion } from '../../datos/selectores.js';
 import { fecha as fFecha } from '../../utilidades/formato.js';
@@ -17,12 +17,6 @@ import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
  * pestaña y su color. Es criterio de aceptación que se vean separadas sin que
  * el usuario tenga que aplicar nada.
  */
-export const CONFIG_TIPO = {
-  temática: { titulo: 'Temáticas', color: 'var(--color-serie-1)', icono: Users, descripcion: 'Espacios intersectoriales por tema de gestión.' },
-  barrial: { titulo: 'Barriales', color: 'var(--color-serie-2)', icono: MapPin, descripcion: 'Espacios de participación territorial con referentes del barrio.' },
-  'otros proyectos': { titulo: 'Otros proyectos', color: 'var(--color-serie-4)', icono: Building, descripcion: 'Convenios, planes y proyectos con seguimiento propio.' },
-};
-
 const DEFAULTS = { tipo: 'temática', mesa: '' };
 
 export default function Mesas() {
@@ -44,7 +38,7 @@ export default function Mesas() {
   }));
 
   const delTipo = todas.filter((m) => m.tipo === filtros.tipo);
-  const cfg = CONFIG_TIPO[filtros.tipo] ?? CONFIG_TIPO['temática'];
+  const cfg = configDe(filtros.tipo);
   const mesaAbierta = filtros.mesa ? todas.find((m) => m.id === filtros.mesa) : null;
 
   return (
