@@ -1,3 +1,197 @@
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Database, FolderKanban, Plus, Upload, X } from 'lucide-react';
+import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
+import { Tabla } from '../../componentes/Tabla.jsx';
+import { BarraAvance, Boton, Chip, EstadoProyecto, Prioridad, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
+import { CampoSelect } from '../../componentes/Campo.jsx';
+import { FormularioProyecto } from './FormularioProyecto.jsx';
+import { ImportarProyectos } from './ImportarProyectos.jsx';
+import { ESTADOS_PROYECTO, PRIORIDADES } from '../../datos/catalogos.js';
+import { proyectos as selProyectos, hoyISO } from '../../datos/selectores.js';
+import { fecha as fFecha, haceCuanto, moneda, numero } from '../../utilidades/formato.js';
+import { acciones, useBD } from '../../estado/tienda.js';
+import { useOpciones } from '../../utilidades/catalogos.js';
+import { contarFiltros, useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
+
+const DEFAULTS = {
+  area: '',
+  programa: '',
+  eje: '',
+  tipo: '',
+  estado: '',
+  prioridad: '',
+  es_obra: false,
+  solo_activos: false,
+  solo_prioritarios: false,
+};
+
 export default function Proyectos() {
-  return null;
+  const bd = useBD();
+  const navegar = useNavigate();
+  const [filtros, setFiltros, limpiarFiltros] = useFiltrosUrl(DEFAULTS);
+  const [formulario, setFormulario] = useState(null);
+  const [importando, setImportando] = useState(false);
+
+  const opcionesArea = useOpciones('areas');
+  const opcionesPrograma = useOpciones('programas');
+  const opcionesEje = useOpciones('ejes');
+  const opcionesTipo = useOpciones('tipos');
+
+  const filas = useMemo(() => (bd ? selProyectos(bd, filtros) : []), [bd, filtros]);
+  const cantidadFiltros = contarFiltros(filtros, DEFAULTS);
+  const hayProyectos = (bd?.proyectos ?? []).some((p) => p.activo !== false);
+
+  const columnas = [
+    { clave: 'id_proyecto', titulo: 'ID', ancho: 130, render: (f) => <Chip tono="acento">{f.id_proyecto}</Chip> },
+    {
+      clave: 'proyecto',
+      titulo: 'Proyecto',
+      render: (f) => (
+        <div className="min-w-40">
+          <p className="font-medium leading-tight text-tinta">{f.proyecto}</p>
+          <p className="text-[11px] text-tenue">{f.programa || 'Sin programa'}</p>
+        </div>
+      ),
+    },
+    { clave: 'area', titulo: 'Área', ancho: 180 },
+    { clave: 'eje', titulo: 'Eje', ancho: 150 },
+    { clave: 'tipo', titulo: 'Tipo', ancho: 120 },
+    { clave: 'estado', titulo: 'Estado', ancho: 120, render: (f) => <EstadoProyecto estado={f.estado} /> },
+    { clave: 'prioridad', titulo: 'Prioridad', ancho: 95, render: (f) => <Prioridad nivel={f.prioridad} /> },
+    {
+      clave: 'porcentaje_avance',
+      titulo: 'Avance',
+      ancho: 150,
+      render: (f) => (
+        <div>
+          <BarraAvance valor={f.porcentaje_avance} />
+          <p className="tabular mt-0.5 text-[11px] text-tenue">
+            {numero(f.avance)} / {numero(f.objetivo)} {f.unidad}
+          </p>
+        </div>
+      ),
+    },
+    { clave: 'responsable', titulo: 'Responsable', ancho: 130 },
+    {
+      clave: 'fecha_fin_prevista',
+      titulo: 'Fin previsto',
+      ancho: 110,
+      render: (f) => <span className="tabular text-xs">{fFecha(f.fecha_fin_prevista)}</span>,
+      formatoCSV: (v) => fFecha(v),
+    },
+    {
+      clave: 'ultima_actualizacion',
+      titulo: 'Últ. actualización',
+      ancho: 130,
+      render: (f) => <span className="text-xs text-gris">{f.ultima_actualizacion ? haceCuanto(f.ultima_actualizacion) : '—'}</span>,
+      formatoCSV: (v) => (v ? fFecha(v) : ''),
+    },
+    {
+      clave: 'monto_planificado',
+      titulo: 'Planificado',
+      ancho: 120,
+      alinear: 'derecha',
+      render: (f) => <span className="text-xs">{moneda(f.monto_planificado)}</span>,
+    },
+  ];
+
+  return (
+    <>
+      <EncabezadoPagina
+        titulo="Base maestra de proyectos"
+        descripcion="Se carga una sola vez y alimenta todos los módulos del sistema."
+        acciones={
+          <>
+            <Boton icono={Upload} onClick={() => setImportando(true)}>
+              Importar CSV
+            </Boton>
+            <Boton variante="primario" icono={Plus} onClick={() => setFormulario({})}>
+              Nuevo proyecto
+            </Boton>
+          </>
+        }
+      />
+
+      <Pagina className="flex flex-col gap-4">
+        <Tarjeta
+          titulo="Filtros"
+          descripcion="Se reflejan en la dirección: podés compartir esta vista pegando el enlace."
+          acciones={
+            cantidadFiltros > 0 && (
+              <Boton tamanio="sm" variante="fantasma" icono={X} onClick={limpiarFiltros}>
+                Limpiar ({cantidadFiltros})
+              </Boton>
+            )
+          }
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
+            <CampoSelect etiqueta="Programa" opciones={opcionesPrograma} value={filtros.programa} onChange={(e) => setFiltros({ programa: e.target.value })} placeholder="Todos" />
+            <CampoSelect etiqueta="Eje" opciones={opcionesEje} value={filtros.eje} onChange={(e) => setFiltros({ eje: e.target.value })} placeholder="Todos" />
+            <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={filtros.tipo} onChange={(e) => setFiltros({ tipo: e.target.value })} placeholder="Todos" />
+            <CampoSelect etiqueta="Estado" opciones={ESTADOS_PROYECTO} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
+            <CampoSelect etiqueta="Prioridad" opciones={PRIORIDADES} value={filtros.prioridad} onChange={(e) => setFiltros({ prioridad: e.target.value })} placeholder="Todas" />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {[
+              ['solo_activos', 'Sólo activos'],
+              ['es_obra', 'Sólo obras'],
+              ['solo_prioritarios', 'Sólo prioritarios'],
+            ].map(([clave, titulo]) => (
+              <button
+                key={clave}
+                type="button"
+                onClick={() => setFiltros({ [clave]: !filtros[clave] })}
+                className={`rounded-chip border px-2.5 py-1.5 text-xs font-medium transition ${
+                  filtros[clave]
+                    ? 'border-acento bg-acento-suave text-acento-fuerte'
+                    : 'border-borde-fuerte bg-card text-gris hover:bg-paper'
+                }`}
+              >
+                {titulo}
+              </button>
+            ))}
+          </div>
+        </Tarjeta>
+
+        <Tarjeta sinPadding className="min-h-0">
+          <Tabla
+            columnas={columnas}
+            filas={filas}
+            nombreExport="proyectos"
+            claveFila={(f) => f.id_proyecto}
+            alHacerClicFila={(f) => navegar(`/proyectos/${f.id_proyecto}`)}
+            ordenInicial={{ clave: 'id_proyecto', direccion: 'asc' }}
+            vacio={
+              hayProyectos ? undefined : (
+                <Vacio
+                  icono={FolderKanban}
+                  titulo="La base maestra está vacía"
+                  descripcion="Cargá el primer proyecto, importá una planilla CSV o usá los datos de demostración para ver el sistema funcionando."
+                  accion={{ texto: 'Cargar primer proyecto', icono: Plus, alHacerClic: () => setFormulario({}) }}
+                />
+              )
+            }
+            acciones={
+              !hayProyectos ? null : (
+                <Boton
+                  tamanio="sm"
+                  variante="fantasma"
+                  icono={Database}
+                  onClick={() => acciones.cargarDemo(hoyISO())}
+                  title="Reemplaza el contenido por un set de prueba"
+                >
+                  Demo
+                </Boton>
+              )
+            }
+          />
+        </Tarjeta>
+      </Pagina>
+
+      {formulario && <FormularioProyecto abierto alCerrar={() => setFormulario(null)} proyecto={formulario.id_proyecto ? formulario : null} />}
+      {importando && <ImportarProyectos abierto alCerrar={() => setImportando(false)} />}
+    </>
+  );
 }
