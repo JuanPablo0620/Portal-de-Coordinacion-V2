@@ -49,7 +49,27 @@ export function useFiltrosUrl(defaults = {}) {
 
   const limpiar = useCallback(() => setParams(new URLSearchParams(), { replace: true }), [setParams]);
 
-  return [filtros, setFiltros, limpiar];
+  /**
+   * Reemplaza TODOS los filtros de una sola vez, descartando los anteriores.
+   * `setFiltros` hace merge; esto no. Lo usa el aplicado de configuraciones
+   * guardadas, donde limpiar y volver a setear en dos pasos dejaría un estado
+   * intermedio visible.
+   */
+  const reemplazar = useCallback(
+    (nuevos) => {
+      const params = new URLSearchParams();
+      for (const [clave, valor] of Object.entries(nuevos ?? {})) {
+        const esVacio = valor === '' || valor === null || valor === undefined;
+        if (esVacio || valor === defaults[clave]) continue;
+        params.set(clave, typeof valor === 'boolean' ? (valor ? '1' : '0') : String(valor));
+      }
+      setParams(params, { replace: true });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [setParams, JSON.stringify(defaults)],
+  );
+
+  return [filtros, setFiltros, limpiar, reemplazar];
 }
 
 /** Cuenta los filtros efectivamente aplicados, para mostrarlo en la interfaz. */
