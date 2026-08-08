@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────────────
+   TOKENS DE DISEÑO — fuente única de verdad del sistema visual.
+   Cambiar un valor acá propaga a toda la aplicación vía Tailwind 4.
+   NO hardcodear color, radio ni sombra en componentes.
+   ───────────────────────────────────────────────────────────────────── */
+@theme {
+  /* Superficies */
+  --color-paper: #f4f6f9;
+  --color-card: #ffffff;
+  --color-borde: #e2e6eb;
+  --color-borde-fuerte: #ccd3dc;
+  --color-tinta: #1b2430;
+  --color-gris: #5b6672;
+  --color-tenue: #8a94a0;
+
+  /* Acento institucional */
+  --color-acento: #1d5fa8;
+  --color-acento-suave: #e8f0f9;
+  --color-acento-medio: #b9d2ec;
+  --color-acento-fuerte: #164a82;
+
+  /* Semáforo diferencial — 4 niveles distinguibles de un vistazo.
+     Los niveles claros llevan texto oscuro, nunca blanco. */
+  --color-vencido: #d64550;
+  --color-vencido-suave: #fbeaec;
+  --color-proximo: #e8974a;
+  --color-proximo-suave: #fdf1e5;
+  --color-atencion: #d9b02f;
+  --color-atencion-suave: #fbf5e0;
+  --color-enregla: #3f9068;
+  --color-enregla-suave: #e7f4ed;
+  --color-sindato: #b6bfc9;
+  --color-sindato-suave: #eef1f4;
+
+  /* Capas del calendario */
+  --color-capa-seguimiento: #1d5fa8;
+  --color-capa-evento: #8b5cb8;
+  --color-capa-mesa: #3f9068;
+  --color-capa-vencimiento: #d64550;
+
+  /* Series de gráficos (Recharts las lee vía var(), nunca hex inline) */
+  --color-serie-1: #1d5fa8;
+  --color-serie-2: #3f9068;
+  --color-serie-3: #e8974a;
+  --color-serie-4: #8b5cb8;
+  --color-serie-5: #d64550;
+  --color-serie-6: #4aa3b8;
+  --color-serie-7: #9a8c3f;
+  --color-serie-8: #7a8794;
+
+  /* Tipografía */
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  /* Radios y sombras */
+  --radius-card: 10px;
+  --radius-chip: 6px;
+  --shadow-card: 0 1px 2px rgb(27 36 48 / 0.06), 0 1px 8px rgb(27 36 48 / 0.04);
+  --shadow-flotante: 0 8px 28px rgb(27 36 48 / 0.14);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────── */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Números tabulares en tablas y métricas: las columnas quedan alineadas */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Utilidades compuestas de uso frecuente ───────────────────────── */
+@utility tarjeta {
+  background: var(--color-card);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+@utility campo-base {
+  width: 100%;
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: var(--radius-chip);
+  background: var(--color-card);
+  padding: 0.5rem 0.625rem;
+  font-size: 0.875rem;
+  color: var(--color-tinta);
+  outline: none;
+}
+
+.campo-base:focus {
+  border-color: var(--color-acento);
+  box-shadow: 0 0 0 3px var(--color-acento-suave);
+}
+
+.campo-base:disabled {
+  background: var(--color-sindato-suave);
+  color: var(--color-gris);
+}
+
+/* Scrollbar discreta en paneles internos */
+.scroll-fino::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-fino::-webkit-scrollbar-thumb {
+  background: var(--color-borde-fuerte);
+  border-radius: 4px;
+}
+.scroll-fino::-webkit-scrollbar-track {
+  background: transparent;
+}

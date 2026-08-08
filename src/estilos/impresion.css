@@ -1,0 +1,106 @@
+/* ─────────────────────────────────────────────────────────────────────
+   HOJA DE IMPRESIÓN — la exportación a PDF se resuelve con el diálogo
+   de impresión del navegador. Todo lo que no sea contenido del reporte
+   se oculta acá.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Fuera de impresión, los bloques exclusivos del PDF no se ven */
+.solo-impresion {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm 16mm 12mm;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto;
+    background: #fff !important;
+  }
+
+  /* Navegación, filtros, botones y todo control interactivo */
+  .no-imprimir {
+    display: none !important;
+  }
+
+  .solo-impresion {
+    display: block;
+  }
+
+  /* El layout deja de ser sidebar + contenido */
+  .layout-app {
+    display: block !important;
+  }
+
+  .area-contenido {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  /* Los bloques del reporte no se parten entre páginas */
+  .bloque-reporte {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 10mm;
+    box-shadow: none !important;
+    border: 1px solid #d5dae1 !important;
+  }
+
+  .salto-pagina {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* Tablas legibles en papel */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  th,
+  td {
+    border: 1px solid #d5dae1;
+    padding: 3pt 5pt;
+    text-align: left;
+  }
+
+  /* Los fondos de color del semáforo deben imprimirse */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  /* Encabezado institucional y pie de filtros */
+  .encabezado-impresion {
+    border-bottom: 2px solid #1d5fa8;
+    padding-bottom: 6pt;
+    margin-bottom: 10pt;
+  }
+
+  .pie-impresion {
+    border-top: 1px solid #d5dae1;
+    padding-top: 6pt;
+    margin-top: 10pt;
+    font-size: 8.5pt;
+    color: #5b6672;
+  }
+}
