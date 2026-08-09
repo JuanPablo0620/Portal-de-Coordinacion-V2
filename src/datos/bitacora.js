@@ -9,8 +9,20 @@
  * del sistema requiere restaurar una versión anterior.
  */
 import { nuevoId } from './ids.js';
+import { ahoraISO } from './tiempo.js';
 
 const IGNORAR_POR_DEFECTO = ['creado_en', 'creado_por', 'id'];
+
+/**
+ * Secuencia monotónica.
+ *
+ * `creado_en` tiene resolución de milisegundo, y una operación que escribe
+ * varios asientos seguidos (dar de alta un tema y su compromiso, importar un
+ * lote) los produce dentro del mismo milisegundo. Ordenar sólo por fecha deja
+ * esos asientos en orden arbitrario y el historial muestra la baja antes que el
+ * alta. La secuencia rompe el empate.
+ */
+let secuencia = 0;
 
 /** Campos que cambiaron entre dos versiones de un registro. */
 export function diffCampos(antes, despues, ignorar = IGNORAR_POR_DEFECTO) {
@@ -33,6 +45,7 @@ export function diffCampos(antes, despues, ignorar = IGNORAR_POR_DEFECTO) {
  * una entidad vinculada (un seguimiento, un compromiso).
  */
 export function crearAsiento({ entidad, id_entidad, accion, cambios = [], usuario, id_proyecto = null }) {
+  secuencia += 1;
   return {
     id: nuevoId('h'),
     entidad,
@@ -41,6 +54,16 @@ export function crearAsiento({ entidad, id_entidad, accion, cambios = [], usuari
     cambios,
     id_proyecto,
     creado_por: usuario,
-    creado_en: new Date().toISOString(),
+    creado_en: ahoraISO(),
+    secuencia,
   };
+}
+
+/**
+ * Comparador de asientos, del más reciente al más antiguo. Lo usan todas las
+ * vistas de historial: tenerlo en un solo lugar evita que una ordene distinto.
+ */
+export function masRecientePrimero(a, b) {
+  const porFecha = String(b.creado_en).localeCompare(String(a.creado_en));
+  return porFecha !== 0 ? porFecha : (b.secuencia ?? 0) - (a.secuencia ?? 0);
 }

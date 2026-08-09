@@ -20,8 +20,9 @@ function desplazar(iso, dias) {
   return new Date(Date.parse(`${iso}T00:00:00Z`) + dias * MS_DIA).toISOString().slice(0, 10);
 }
 
+/** Marca de tiempo local, con el mismo formato que produce `ahoraISO()`. */
 function marcaTiempo(iso, hora = 10) {
-  return `${iso}T${String(hora).padStart(2, '0')}:${String((hora * 7) % 60).padStart(2, '0')}:00.000Z`;
+  return `${iso}T${String(hora).padStart(2, '0')}:${String((hora * 7) % 60).padStart(2, '0')}:00.000`;
 }
 
 /** Generador pseudoaleatorio con semilla: el set es el mismo en cada carga. */
@@ -152,7 +153,9 @@ export function generarDemo(hoy) {
   bd.config.usuario = usuario;
 
   /** Asiento de bitácora con fecha explícita, para poder fabricar antigüedad. */
+  let secuencia = 0;
   const asentar = (entidad, id_entidad, accion, cambios, cuando, id_proyecto = null) => {
+    secuencia += 1;
     bd.historial.push({
       id: nuevoId('h'),
       entidad,
@@ -162,6 +165,7 @@ export function generarDemo(hoy) {
       id_proyecto,
       creado_por: usuario,
       creado_en: cuando,
+      secuencia,
     });
   };
 
@@ -692,8 +696,11 @@ export function generarDemo(hoy) {
     creado_en: marcaTiempo(desplazar(hoy, -7), 9),
   });
 
-  // La bitácora se ordena por fecha para que el feed del dashboard salga coherente.
-  bd.historial.sort((a, b) => String(a.creado_en).localeCompare(String(b.creado_en)));
+  // La bitácora se ordena por fecha (y secuencia, para desempatar) de modo que
+  // el feed del inicio salga coherente.
+  bd.historial.sort(
+    (a, b) => String(a.creado_en).localeCompare(String(b.creado_en)) || a.secuencia - b.secuencia,
+  );
 
   return bd;
 }

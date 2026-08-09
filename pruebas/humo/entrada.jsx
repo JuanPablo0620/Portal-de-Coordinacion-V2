@@ -16,6 +16,24 @@ import { generarDemo } from '../../src/datos/demo.js';
 import { bdVacia } from '../../src/datos/esquema.js';
 import { hoyISO } from '../../src/datos/selectores.js';
 
+/**
+ * React avisa por consola de cosas que el build no considera errores pero que
+ * en el navegador sí lo son: anidamiento de DOM inválido (`<div>` dentro de
+ * `<p>`), listas sin `key`, props desconocidas. Se capturan y se tratan como
+ * fallos, que es lo que son.
+ */
+const avisos = [];
+
+function capturarAvisos() {
+  for (const canal of ['error', 'warn']) {
+    const original = console[canal];
+    console[canal] = (...args) => {
+      avisos.push(String(args[0]).replace(/%s/g, () => args.shift() ?? ''));
+      original.apply(console, args);
+    };
+  }
+}
+
 function render(ruta) {
   return renderToString(
     <StaticRouter location={ruta}>
@@ -51,6 +69,7 @@ function probar(entradas, etiqueta, fallos) {
  */
 export function correr(rutasDemo, rutasVacio, rutasProfundas = []) {
   const fallos = [];
+  capturarAvisos();
   const demo = generarDemo(hoyISO());
 
   // 1 · Con datos de demostración: todas las pantallas con contenido.
@@ -73,6 +92,9 @@ export function correr(rutasDemo, rutasVacio, rutasProfundas = []) {
   // 3 · Con el sistema vacío: los estados vacíos tienen que renderizar igual.
   establecerBD(bdVacia());
   probar(rutasVacio, 'vacío', fallos);
+
+  // 4 · Ningún aviso de React queda sin atender.
+  for (const aviso of [...new Set(avisos)]) fallos.push(`[React] ${aviso}`);
 
   return fallos;
 }

@@ -11,6 +11,13 @@
  * Al elegir un marcador: React inserta `<!-- -->` entre texto estático e
  * interpolación, así que `Total: {n}` NO se encuentra como «Total: 5». Usar
  * cadenas literales completas, no frases que crucen una llave.
+ *
+ * Se compila en modo desarrollo a propósito: en producción React elimina sus
+ * avisos, y la captura de avisos de `entrada.jsx` no encontraría nada nunca.
+ *
+ * Lo que NO cubre: el anidamiento inválido de DOM (`<div>` dentro de `<p>`),
+ * que React valida al hidratar en el navegador y no al renderizar en Node; y
+ * todo lo que dependa de interacción o de efectos, que no corren en SSR.
  */
 import { execSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
@@ -85,7 +92,7 @@ const RUTAS_PROFUNDAS = [
 try {
   execSync(
     `npx vite build --config pruebas/humo/vite.config.js --ssr pruebas/humo/entrada.jsx ` +
-      `--outDir ${SALIDA} --emptyOutDir --logLevel error`,
+      `--mode development --outDir ${SALIDA} --emptyOutDir --logLevel error`,
     { stdio: ['ignore', 'ignore', 'inherit'] },
   );
 } catch {

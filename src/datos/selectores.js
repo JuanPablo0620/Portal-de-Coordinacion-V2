@@ -6,17 +6,15 @@
  * del reloj adentro— porque es lo que hace verificables los vencimientos.
  */
 import { ESTADOS_ACTIVOS, DIAS_PERIODICIDAD } from './catalogos.js';
+import { masRecientePrimero } from './bitacora.js';
+import { hoyISO } from './tiempo.js';
 
 const MS_DIA = 86_400_000;
 
 /* ── Fechas ─────────────────────────────────────────────────────────── */
 
-/** Fecha de hoy en ISO corto, en hora local. */
-export function hoyISO() {
-  const d = new Date();
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 10);
-}
+// Se reexporta para no romper los muchos módulos que ya la importan de acá.
+export { hoyISO };
 
 /**
  * Días calendario entre `hoy` y `fechaISO`. Negativo si ya pasó.
@@ -286,21 +284,17 @@ export function resumenRequerimientos(bd, idEvento) {
 /* ── Bitácora ───────────────────────────────────────────────────────── */
 
 export function feedBitacora(bd, n = 10) {
-  return [...(bd.historial ?? [])]
-    .sort((a, b) => String(b.creado_en).localeCompare(String(a.creado_en)))
-    .slice(0, n);
+  return [...(bd.historial ?? [])].sort(masRecientePrimero).slice(0, n);
 }
 
 export function historialDe(bd, entidad, idEntidad) {
   return (bd.historial ?? [])
     .filter((h) => h.entidad === entidad && h.id_entidad === idEntidad)
-    .sort((a, b) => String(b.creado_en).localeCompare(String(a.creado_en)));
+    .sort(masRecientePrimero);
 }
 
 export function historialProyecto(bd, idProyecto) {
-  return (bd.historial ?? [])
-    .filter((h) => h.id_proyecto === idProyecto)
-    .sort((a, b) => String(b.creado_en).localeCompare(String(a.creado_en)));
+  return (bd.historial ?? []).filter((h) => h.id_proyecto === idProyecto).sort(masRecientePrimero);
 }
 
 /** Línea de tiempo completa de un área: seguimientos, compromisos y proyectos. */
