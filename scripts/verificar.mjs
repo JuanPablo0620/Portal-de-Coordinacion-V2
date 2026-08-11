@@ -81,6 +81,47 @@ if (ciclos.length) {
 }
 console.log('✓ sin importaciones circulares');
 
+/**
+ * Importaciones sin uso.
+ *
+ * No rompen nada —el bundler las descarta— pero mienten sobre de qué depende
+ * cada archivo, y son lo primero que queda atrás después de mover código de
+ * lugar: una tanda de refactor dejó once. Se detectan comparando cada nombre
+ * importado contra el cuerpo del archivo, que es todo lo que hace falta acá
+ * y evita meter un linter entero como dependencia.
+ */
+const muertas = [];
+for (const ruta of [...archivosFuente('src'), ...archivosFuente('pruebas')]) {
+  const lineas = readFileSync(ruta, 'utf8').split('\n');
+  let finImports = -1;
+  for (let i = 0; i < Math.min(lineas.length, 60); i += 1) {
+    if (/^import\s/.test(lineas[i]) || /^\s*}\s*from\s+['"]/.test(lineas[i])) finImports = i;
+  }
+  if (finImports < 0) continue;
+
+  const encabezado = lineas.slice(0, finImports + 1).join('\n');
+  const cuerpo = lineas.slice(finImports + 1).join('\n');
+
+  for (const declaracion of encabezado.matchAll(/import\s+([^;]*?)\s+from\s+['"][^'"]+['"]/gs)) {
+    for (const bruto of declaracion[1].replace(/[{}]/g, ' ').split(',')) {
+      // `x as y`: lo que se usa en el cuerpo es el alias.
+      const nombre = bruto.trim().split(/\s+as\s+/).pop().trim();
+      if (!/^[A-Za-z_$][\w$]*$/.test(nombre)) continue;
+      if (!new RegExp(`\\b${nombre}\\b`).test(cuerpo)) {
+        muertas.push(`${normalizar(ruta)} → ${nombre}`);
+      }
+    }
+  }
+}
+
+if (muertas.length) {
+  console.error('\n✗ Importaciones sin uso:');
+  for (const m of muertas) console.error('    ' + m);
+  console.error('');
+  process.exit(1);
+}
+console.log('✓ sin importaciones sin uso');
+
 try {
   execSync('npm run test', { stdio: 'inherit' });
   console.log('✓ tests');

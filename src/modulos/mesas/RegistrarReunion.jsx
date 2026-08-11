@@ -3,7 +3,6 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton, Chip } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoFecha, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
-import { CampoSelect } from '../../componentes/Campo.jsx';
 import { hoyISO } from '../../datos/selectores.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones } from '../../estado/tienda.js';
@@ -97,17 +96,20 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
                 <input
                   className="campo-base py-1.5 text-sm"
                   placeholder="Acción comprometida"
+                  aria-label="Acción comprometida"
                   value={fila.descripcion}
                   onChange={(e) => actualizarFila(fila.clave, 'descripcion', e.target.value)}
                 />
                 <input
                   className="campo-base py-1.5 text-sm"
                   placeholder="Responsable"
+                  aria-label="Responsable del compromiso"
                   value={fila.responsable}
                   onChange={(e) => actualizarFila(fila.clave, 'responsable', e.target.value)}
                 />
                 <select
                   className="campo-base py-1.5 text-sm"
+                  aria-label="Área responsable del compromiso"
                   value={fila.area}
                   onChange={(e) => actualizarFila(fila.clave, 'area', e.target.value)}
                 >
@@ -121,6 +123,7 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
                 <input
                   type="date"
                   className="campo-base py-1.5 text-sm"
+                  aria-label="Fecha límite del compromiso"
                   min={hoy}
                   value={fila.fecha_limite}
                   onChange={(e) => actualizarFila(fila.clave, 'fecha_limite', e.target.value)}
@@ -128,7 +131,7 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
                 <button
                   type="button"
                   onClick={() => setCompromisos((f) => f.filter((x) => x.clave !== fila.clave))}
-                  className="shrink-0 self-start rounded-chip p-2 text-tenue transition hover:bg-vencido-suave hover:text-vencido"
+                  className="shrink-0 self-start rounded-chip p-2 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
                   aria-label="Quitar compromiso"
                 >
                   <Trash2 size={15} />

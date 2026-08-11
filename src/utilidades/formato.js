@@ -82,9 +82,14 @@ export function textoVencimiento(dias) {
   return `vence en ${dias} días`;
 }
 
-export function capitalizar(texto) {
-  if (!texto) return '';
-  return texto.charAt(0).toUpperCase() + texto.slice(1);
+/** Nombre legible → sufijo de archivo exportado («Secretaría de Salud» → «secretaria-de-salud»). */
+export function sufijoArchivo(texto) {
+  return String(texto ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .toLowerCase();
 }
 
 /** Nombre del mes con año, para encabezados de calendario. */

@@ -15,7 +15,7 @@ import { Boton } from './Basicos.jsx';
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
 /** Rango ISO [primero, ultimo] del mes, para pedir los items. */
-export function rangoDelMes(anio, mes) {
+function rangoDelMes(anio, mes) {
   const ultimoDia = new Date(Date.UTC(anio, mes + 1, 0)).getUTCDate();
   const dosDigitos = (n) => String(n).padStart(2, '0');
   return [`${anio}-${dosDigitos(mes + 1)}-01`, `${anio}-${dosDigitos(mes + 1)}-${dosDigitos(ultimoDia)}`];
@@ -36,7 +36,15 @@ export function useMesVisible(hoy) {
     setMes(inicial.getUTCMonth());
   };
 
-  return { anio, mes, mover, volverAHoy, rango: rangoDelMes(anio, mes) };
+  /**
+   * El rango se memoriza porque es dependencia de los `useMemo` que arman los
+   * items del calendario: devolver un arreglo nuevo en cada render hacía que
+   * esos memos no sirvieran para nada y el recorrido de la base entera se
+   * repitiera con cada tecla que se tocara en la pantalla.
+   */
+  const rango = useMemo(() => rangoDelMes(anio, mes), [anio, mes]);
+
+  return { anio, mes, mover, volverAHoy, rango };
 }
 
 export function Calendario({ anio, mes, items = [], hoy, capas, alCambiarCapas, alMover, alVolverAHoy, compacto = false }) {

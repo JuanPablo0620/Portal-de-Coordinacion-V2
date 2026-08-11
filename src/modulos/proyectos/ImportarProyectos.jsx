@@ -12,32 +12,18 @@ import { Aviso, Boton, Chip, Vacio } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoSelect } from '../../componentes/Campo.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { filasAObjetos, parsearCSV } from '../../datos/csv.js';
-import { ESTADOS_PROYECTO, PRIORIDADES } from '../../datos/catalogos.js';
+import {
+  CAMPOS_PROYECTO as CAMPOS,
+  PLANTILLA_PROYECTOS,
+  proponerMapeo,
+  validarFilasProyecto,
+} from '../../datos/importacion.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { acciones } from '../../estado/tienda.js';
 import { useItems } from '../../utilidades/catalogos.js';
 
-/** Campos importables. Los marcados como requeridos rechazan la fila si faltan. */
-const CAMPOS = [
-  { clave: 'proyecto', titulo: 'Nombre del proyecto', requerido: true },
-  { clave: 'area', titulo: 'Área', requerido: true, catalogo: 'areas' },
-  { clave: 'programa', titulo: 'Programa', catalogo: 'programas' },
-  { clave: 'eje', titulo: 'Eje', catalogo: 'ejes' },
-  { clave: 'tipo', titulo: 'Tipo', requerido: true, catalogo: 'tipos' },
-  { clave: 'unidad', titulo: 'Unidad', requerido: true, catalogo: 'unidades' },
-  { clave: 'objetivo', titulo: 'Objetivo', requerido: true, numerico: true },
-  { clave: 'avance', titulo: 'Avance', numerico: true },
-  { clave: 'cantidad', titulo: 'Cantidad', numerico: true },
-  { clave: 'estado', titulo: 'Estado', lista: ESTADOS_PROYECTO },
-  { clave: 'prioridad', titulo: 'Prioridad', lista: PRIORIDADES },
-  { clave: 'responsable', titulo: 'Responsable' },
-  { clave: 'fecha_inicio', titulo: 'Fecha de inicio', fecha: true },
-  { clave: 'fecha_fin_prevista', titulo: 'Fin previsto', fecha: true },
-  { clave: 'monto_planificado', titulo: 'Monto planificado', numerico: true },
-  { clave: 'monto_ejecutado', titulo: 'Monto ejecutado', numerico: true },
-];
-
-const PLANTILLA = CAMPOS.map((c) => c.clave).join(',');
+/** Encabezados que el importador reconoce, para mostrarlos como ayuda. */
+const PLANTILLA = PLANTILLA_PROYECTOS;
 
 export function ImportarProyectos({ abierto, alCerrar }) {
   const [texto, setTexto] = useState('');
@@ -59,15 +45,7 @@ export function ImportarProyectos({ abierto, alCerrar }) {
   function alCargarTexto(contenido) {
     setTexto(contenido);
     setResultado(null);
-    const { encabezados } = parsearCSV(contenido);
-    const propuesto = {};
-    for (const campo of CAMPOS) {
-      const indice = encabezados.findIndex(
-        (e) => e.toLowerCase().replace(/[\s_]/g, '') === campo.clave.toLowerCase().replace(/[\s_]/g, ''),
-      );
-      if (indice >= 0) propuesto[campo.clave] = String(indice);
-    }
-    setMapeo(propuesto);
+    setMapeo(proponerMapeo(parsearCSV(contenido).encabezados));
   }
 
   async function alSubirArchivo(e) {
@@ -77,66 +55,10 @@ export function ImportarProyectos({ abierto, alCerrar }) {
   }
 
   /** Valida cada fila contra los catálogos y devuelve aceptadas y rechazadas. */
+  /** Valida cada fila contra los catálogos. La lógica vive en la capa de datos. */
   const validadas = useMemo(() => {
     if (!parseado) return null;
-    const objetos = filasAObjetos(parseado.filas, mapeo);
-    const aceptadas = [];
-    const rechazadas = [];
-
-    objetos.forEach((crudo, i) => {
-      const motivos = [];
-      const limpio = { ...crudo };
-
-      for (const campo of CAMPOS) {
-        const valor = (crudo[campo.clave] ?? '').trim();
-
-        if (campo.requerido && !valor) {
-          motivos.push(`falta ${campo.titulo.toLowerCase()}`);
-          continue;
-        }
-        if (!valor) continue;
-
-        if (campo.catalogo) {
-          const item = catalogos[campo.catalogo].find(
-            (x) => x.nombre.toLowerCase() === valor.toLowerCase(),
-          );
-          if (!item) motivos.push(`«${valor}» no está en el catálogo de ${campo.titulo.toLowerCase()}`);
-          else limpio[campo.clave] = item.nombre;
-        }
-        if (campo.lista && !campo.lista.includes(valor.toLowerCase())) {
-          motivos.push(`«${valor}» no es un valor válido de ${campo.titulo.toLowerCase()}`);
-        }
-        if (campo.numerico) {
-          const n = Number(String(valor).replace(/\./g, '').replace(',', '.'));
-          if (!Number.isFinite(n)) motivos.push(`${campo.titulo.toLowerCase()} no es un número`);
-          else limpio[campo.clave] = n;
-        }
-        if (campo.fecha && !/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
-          // Se acepta DD/MM/AAAA y se normaliza a ISO.
-          const m = valor.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-          if (m) limpio[campo.clave] = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-          else motivos.push(`${campo.titulo.toLowerCase()} debe ser DD/MM/AAAA o AAAA-MM-DD`);
-        }
-      }
-
-      if (motivos.length) {
-        rechazadas.push({ id: `r${i}`, fila: i + 2, proyecto: crudo.proyecto || '(sin nombre)', motivo: motivos.join(' · ') });
-      } else {
-        const area = catalogos.areas.find((a) => a.nombre === limpio.area);
-        const tipo = catalogos.tipos.find((t) => t.nombre === limpio.tipo);
-        aceptadas.push({
-          id: `a${i}`,
-          ...limpio,
-          id_area: area?.id,
-          es_obra: Boolean(tipo?.es_obra),
-          estado: limpio.estado || 'planificado',
-          prioridad: limpio.prioridad || 'media',
-          fecha_carga: limpio.fecha_inicio || hoyISO(),
-        });
-      }
-    });
-
-    return { aceptadas, rechazadas };
+    return validarFilasProyecto(filasAObjetos(parseado.filas, mapeo), catalogos, hoyISO());
   }, [parseado, mapeo, catalogos]);
 
   async function importar() {
@@ -177,13 +99,13 @@ export function ImportarProyectos({ abierto, alCerrar }) {
       }
     >
       {resultado ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3" role="status" aria-live="polite">
           <Aviso tono={resultado.errores.length ? 'alerta' : 'info'} titulo="Importación terminada">
             Se crearon <strong>{resultado.importados}</strong> proyectos.
             {resultado.rechazadas > 0 && ` Quedaron ${resultado.rechazadas} filas sin importar por errores de validación.`}
           </Aviso>
           {resultado.errores.length > 0 && (
-            <ul className="flex flex-col gap-1 text-xs text-vencido">
+            <ul className="flex flex-col gap-1 text-xs text-vencido-texto">
               {resultado.errores.map((e) => (
                 <li key={e.fila}>
                   Fila {e.fila}: {e.motivo}
@@ -241,7 +163,7 @@ export function ImportarProyectos({ abierto, alCerrar }) {
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <div className="tarjeta overflow-hidden">
                   <div className="flex items-center gap-2 border-b border-borde bg-enregla-suave px-3 py-2">
-                    <Check size={15} className="text-enregla" />
+                    <Check size={15} className="text-enregla-texto" />
                     <span className="text-xs font-semibold text-tinta">
                       {validadas.aceptadas.length} filas listas para importar
                     </span>
@@ -265,7 +187,7 @@ export function ImportarProyectos({ abierto, alCerrar }) {
 
                 <div className="tarjeta overflow-hidden">
                   <div className="flex items-center gap-2 border-b border-borde bg-vencido-suave px-3 py-2">
-                    <AlertTriangle size={15} className="text-vencido" />
+                    <AlertTriangle size={15} className="text-vencido-texto" />
                     <span className="text-xs font-semibold text-tinta">
                       {validadas.rechazadas.length} filas rechazadas
                     </span>
@@ -279,7 +201,7 @@ export function ImportarProyectos({ abierto, alCerrar }) {
                       columnas={[
                         { clave: 'fila', titulo: 'Fila', ancho: 50, alinear: 'derecha' },
                         { clave: 'proyecto', titulo: 'Proyecto' },
-                        { clave: 'motivo', titulo: 'Motivo', render: (f) => <span className="text-xs text-vencido">{f.motivo}</span> },
+                        { clave: 'motivo', titulo: 'Motivo', render: (f) => <span className="text-xs text-vencido-texto">{f.motivo}</span> },
                       ]}
                     />
                   ) : (

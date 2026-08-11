@@ -25,6 +25,22 @@ que puebla los siete módulos, incluidos los casos de borde (compromisos vencido
 sin actualizar hace más de 30 días, un evento con requerimientos incompletos). El botón
 **Vaciar sistema** deja todo limpio y navegable.
 
+Al lado hay un segundo botón, **Cargar base completa**: el mismo set ficticio pero a escala
+real —catorce áreas, tres años de proyectos, veinticuatro meses de seguimiento y monitoreo,
+más de ocho mil registros contando la bitácora—. Sirve para lo que el set chico no puede
+mostrar: cómo se comportan las tablas, los filtros, los tableros y la impresión con el
+volumen que van a tener en uso. Los dos se generan con azar de semilla fija, así que dos
+cargas producen exactamente la misma base.
+
+| | Demostración | Base completa |
+|---|---|---|
+| Áreas | 8 | 14 |
+| Proyectos | ~30 (1 año) | ~270 (3 años) |
+| Seguimientos · monitoreos | ~30 · ~12 | ~250 · ~190 |
+| Compromisos | ~70 | ~900 |
+| Total con bitácora | ~700 | ~8.500 |
+| Para qué | mostrar el sistema | probarlo con carga |
+
 ### Comandos
 
 | Comando | Qué hace |
@@ -32,11 +48,12 @@ sin actualizar hace más de 30 días, un evento con requerimientos incompletos).
 | `npm run dev` | Servidor de desarrollo |
 | `npm run build` | Build de producción |
 | `npm run test` | Tests de los módulos de lógica pura (`node --test`) |
-| `npm run humo` | Renderiza todas las rutas en Node, con datos y con el sistema vacío |
+| `npm run humo` | Renderiza todas las rutas en Node —con la demo, con la base completa y con el sistema vacío— y audita accesibilidad |
 | `npm run verificar` | **Antes de cerrar cualquier tanda:** todo lo anterior más los chequeos estructurales |
 
 `npm run verificar` corre, en este orden: aislamiento de la capa de datos · ausencia de
-importaciones circulares · 115 tests · build · 51 comprobaciones de render.
+importaciones circulares · ausencia de importaciones sin uso · 257 tests · build ·
+78 comprobaciones de render · 16 rutas auditadas por accesibilidad.
 
 ---
 
@@ -66,7 +83,12 @@ src/
     repositorio.js            ← API pública de datos, toda async
     selectores.js             ← derivación pura sobre la base
     alertas.js                ← motor único de alertas
-    catalogos.js · ids.js · bitacora.js · csv.js · demo.js · reportes.js
+    demo.js                   ← set chico para mostrar el sistema
+    base-completa.js          ← set a escala real: cuánto y cómo se genera
+    base-completa-vocabulario.js ← y qué: áreas, plantillas, frases de minuta
+    sintetico.js              ← piezas comunes de los dos sets
+    importacion.js            ← forma de los CSV importables, para ambos lados
+    catalogos.js · ids.js · bitacora.js · csv.js · reportes.js
     minutas/separarMinuta.js  ← aislado, reemplazable por un modelo real
   estado/tienda.js            ← caché Zustand hidratada desde el repositorio
   componentes/                ← UI compartida
@@ -113,6 +135,11 @@ cumplido. El paso a persistencia real es un cambio localizado:
    menciona `localStorage`, y `npm run verificar` falla si aparece en cualquier otro.
 3. **No tocar ningún componente.** Ninguno importa el almacenamiento ni muta la base: leen
    del store y escriben llamando al repositorio.
+
+Un detalle a tener en cuenta al hacerlo: `enLote(fn)` agrupa varias operaciones en una sola
+escritura y una sola notificación —lo usan la importación de planillas, el guardado de una
+minuta con sus compromisos y la carga de un tema con acción—. Contra una API real es el punto
+natural para una transacción o un endpoint de alta masiva, en lugar de una llamada por fila.
 
 El chequeo de aislamiento está automatizado, así que el contrato no se degrada en silencio.
 

@@ -9,11 +9,16 @@
   /* Superficies */
   --color-paper: #f4f6f9;
   --color-card: #ffffff;
+  /* `borde` separa; `borde-fuerte` DELIMITA un control. Por eso el segundo
+     llega a 3:1 contra el fondo —lo pide la pauta 1.4.11 para el contorno de un
+     campo o un botón— y el primero, que es decoración, se queda suave. */
   --color-borde: #e2e6eb;
-  --color-borde-fuerte: #ccd3dc;
+  --color-borde-fuerte: #898d93;
   --color-tinta: #1b2430;
   --color-gris: #5b6672;
-  --color-tenue: #8a94a0;
+  /* Antes #8a94a0: 3,08 contra la tarjeta, por debajo del 4,5 que pide un texto
+     de 11px, que es justo el tamaño en el que se usa. */
+  --color-tenue: #6a727b;
 
   /* Acento institucional */
   --color-acento: #1d5fa8;
@@ -22,31 +27,50 @@
   --color-acento-fuerte: #164a82;
 
   /* Semáforo diferencial — 4 niveles distinguibles de un vistazo.
-     Los niveles claros llevan texto oscuro, nunca blanco. */
+     Los niveles claros llevan texto oscuro, nunca blanco.
+
+     Cada nivel tiene DOS colores, y no es redundancia: el relleno pinta puntos,
+     barras y series de gráfico —le alcanza con 3:1, que es lo que pide un
+     objeto gráfico— y la variante `-texto` escribe, donde hace falta 4,5:1. Con
+     un solo color pasaba lo que se midió: el naranja daba 2,34 y el amarillo
+     2,06 sobre blanco, así que «vence en 3 días» y «requiere atención» eran las
+     dos frases más importantes del sistema y las menos legibles. Oscurecer el
+     relleno hasta 4,5 habría convertido el naranja en marrón y el amarillo en
+     oliva, y el semáforo dejaba de leerse de un vistazo, que es su razón de ser. */
   --color-vencido: #d64550;
+  --color-vencido-texto: #be3d47;
   --color-vencido-suave: #fbeaec;
-  --color-proximo: #e8974a;
+  --color-proximo: #cc8541;
+  --color-proximo-texto: #976230;
   --color-proximo-suave: #fdf1e5;
-  --color-atencion: #d9b02f;
+  --color-atencion: #b29027;
+  --color-atencion-texto: #876d1d;
   --color-atencion-suave: #fbf5e0;
   --color-enregla: #3f9068;
+  --color-enregla-texto: #367a58;
   --color-enregla-suave: #e7f4ed;
-  --color-sindato: #b6bfc9;
+  --color-sindato: #8e959d;
+  --color-sindato-texto: #6a727b;
   --color-sindato-suave: #eef1f4;
 
-  /* Capas del calendario */
+  /* Capas del calendario y del historial de proyecto */
   --color-capa-seguimiento: #1d5fa8;
   --color-capa-evento: #8b5cb8;
   --color-capa-mesa: #3f9068;
   --color-capa-vencimiento: #d64550;
+  --color-capa-monitoreo: #cc8541;
+  --color-capa-hito: #9a8c3f;
+  --color-capa-cambio: #7a8794;
 
-  /* Series de gráficos (Recharts las lee vía var(), nunca hex inline) */
+  /* Series de gráficos (Recharts las lee vía var(), nunca hex inline).
+     También llegan a 3:1 contra la tarjeta: una barra o una porción de torta es
+     un objeto gráfico que hay que poder distinguir, no decoración. */
   --color-serie-1: #1d5fa8;
   --color-serie-2: #3f9068;
-  --color-serie-3: #e8974a;
+  --color-serie-3: #cc8541;
   --color-serie-4: #8b5cb8;
   --color-serie-5: #d64550;
-  --color-serie-6: #4aa3b8;
+  --color-serie-6: #3f8b9d;
   --color-serie-7: #9a8c3f;
   --color-serie-8: #7a8794;
 
@@ -101,6 +125,62 @@ body {
 .campo-base:focus {
   border-color: var(--color-acento);
   box-shadow: 0 0 0 3px var(--color-acento-suave);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   FOCO VISIBLE — todo lo que se puede alcanzar con el teclado tiene que
+   verse alcanzado.
+
+   El anillo por defecto del navegador desaparece sobre los botones de color
+   —es del mismo tono en varios sistemas operativos— y en la barra lateral, que
+   es oscura. Se define uno propio, con un contorno y un halo claro detrás para
+   que funcione sobre cualquier fondo. Va en `:focus-visible` y no en `:focus`
+   para que no aparezca al hacer clic con el mouse, que es ruido.
+   ───────────────────────────────────────────────────────────────────── */
+:where(a, button, [role='button'], summary, [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline: 2px solid var(--color-acento);
+  outline-offset: 2px;
+  border-radius: var(--radius-chip);
+}
+
+/* Sobre fondos oscuros —la barra lateral— el acento no contrasta: ahí el
+   anillo es blanco. */
+.barra-lateral :where(a, button):focus-visible {
+  outline-color: #ffffff;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   MOVIMIENTO REDUCIDO — el sistema usa transiciones en casi todos los
+   elementos interactivos. Para quien pidió menos movimiento en su sistema
+   operativo, se apagan: es una preferencia declarada, no una opción estética.
+   ───────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Enlace de salto: invisible hasta que el teclado lo alcanza. */
+.saltar-al-contenido {
+  position: absolute;
+  left: -9999px;
+  z-index: 100;
+}
+
+.saltar-al-contenido:focus {
+  left: 0.75rem;
+  top: 0.75rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--color-card);
+  color: var(--color-tinta);
+  border: 1px solid var(--color-acento);
+  border-radius: var(--radius-chip);
+  box-shadow: var(--shadow-flotante);
 }
 
 .campo-base:disabled {

@@ -36,14 +36,29 @@ export default function Dashboard() {
   const mes = useMesVisible(hoy);
   const [filtros, setFiltros] = useFiltrosUrl(CAPAS_DEFAULT);
 
-  const capas = {
-    seguimientos: filtros.seguimientos !== false,
-    eventos: filtros.eventos !== false,
-    mesas: filtros.mesas !== false,
-    vencimientos: filtros.vencimientos !== false,
-  };
+  // Objeto memorizado, no literal: es dependencia del `useMemo` que arma los
+  // items del calendario, y uno nuevo por render lo invalidaba siempre.
+  const capas = useMemo(
+    () => ({
+      seguimientos: filtros.seguimientos !== false,
+      eventos: filtros.eventos !== false,
+      mesas: filtros.mesas !== false,
+      vencimientos: filtros.vencimientos !== false,
+    }),
+    [filtros.seguimientos, filtros.eventos, filtros.mesas, filtros.vencimientos],
+  );
 
   const vencimientos = useMemo(() => (bd ? vencimientosProximos(bd, hoy, 15) : []), [bd, hoy]);
+  /**
+   * Lo atrasado y lo que viene se separan.
+   *
+   * La lista mezclaba las dos cosas ordenadas por fecha, así que con la base
+   * cargada las catorce filas visibles eran todas deuda de hace meses y lo que
+   * vencía esta semana —el motivo por el que existe la tarjeta— no entraba en
+   * pantalla. El arrastre no se esconde: se resume arriba y linkea a las alertas.
+   */
+  const atrasados = useMemo(() => vencimientos.filter((v) => v.dias < 0), [vencimientos]);
+  const porVenir = useMemo(() => vencimientos.filter((v) => v.dias >= 0), [vencimientos]);
   const proximosSeguimientos = useMemo(() => {
     if (!bd) return [];
     return selSeguimientos(bd, { tipo: 'programado' })
@@ -51,10 +66,19 @@ export default function Dashboard() {
       .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))
       .slice(0, 6);
   }, [bd, hoy]);
-  const prioritarios = useMemo(
-    () => (bd ? selProyectos(bd, { solo_prioritarios: true, solo_activos: true }).slice(0, 6) : []),
+  /**
+   * El contador y la lista son dos cosas distintas.
+   *
+   * Estaban en una: el contador mostraba el largo de la lista YA recortada a
+   * seis, así que el tablero decía «6 prioritarios activos» hubiera seis o
+   * cuarenta y seis. Con el set chico el recorte no llegaba a activarse y el
+   * número parecía correcto.
+   */
+  const prioritariosTodos = useMemo(
+    () => (bd ? selProyectos(bd, { solo_prioritarios: true, solo_activos: true }) : []),
     [bd],
   );
+  const prioritarios = useMemo(() => prioritariosTodos.slice(0, 6), [prioritariosTodos]);
   const feed = useMemo(() => (bd ? feedBitacora(bd, 10) : []), [bd]);
   const items = useMemo(() => (bd ? itemsCalendario(bd, capas, mes.rango[0], mes.rango[1]) : []), [bd, capas, mes.rango]);
 
@@ -109,14 +133,14 @@ export default function Dashboard() {
           <Metrica
             icono={AlertTriangle}
             tono="vencido"
-            valor={vencimientos.filter((v) => v.dias < 0).length}
+            valor={atrasados.length}
             etiqueta="Vencidos"
             detalle="compromisos, hitos y fines previstos"
             alHacerClic={() => navegar('/monitoreo?tab=alertas')}
           />
           <Metrica
             icono={Star}
-            valor={prioritarios.length}
+            valor={prioritariosTodos.length}
             etiqueta="Prioritarios activos"
             detalle="proyectos de prioridad alta"
             alHacerClic={() => navegar('/proyectos?solo_prioritarios=1&solo_activos=1')}
@@ -131,11 +155,27 @@ export default function Dashboard() {
               descripcion="Compromisos, hitos y fines previstos de los próximos 15 días."
               sinPadding
             >
-              {vencimientos.length === 0 ? (
-                <Vacio compacto titulo="Nada vence en los próximos 15 días" descripcion="Todo al día por ahora." />
+              {atrasados.length > 0 && (
+                <Link
+                  to="/monitoreo?tab=alertas"
+                  className="flex items-center gap-2 border-b border-borde bg-vencido-suave/60 px-4 py-2 transition hover:bg-vencido-suave"
+                >
+                  <AlertTriangle size={14} className="shrink-0 text-vencido-texto" />
+                  <span className="text-xs text-tinta">
+                    <span className="tabular font-semibold">{atrasados.length}</span> vencidos de antes, todavía sin cerrar
+                  </span>
+                  <span className="ml-auto shrink-0 text-[11px] text-acento">Ver alertas</span>
+                </Link>
+              )}
+              {porVenir.length === 0 ? (
+                <Vacio
+                  compacto
+                  titulo="Nada vence en los próximos 15 días"
+                  descripcion={atrasados.length ? 'Lo que figura arriba ya está vencido.' : 'Todo al día por ahora.'}
+                />
               ) : (
                 <ul className="scroll-fino max-h-80 overflow-y-auto">
-                  {vencimientos.slice(0, 14).map((v, i) => (
+                  {porVenir.slice(0, 14).map((v, i) => (
                     <li key={`${v.clase}-${i}`}>
                       <Link
                         to={v.ruta}
@@ -160,6 +200,11 @@ export default function Dashboard() {
                       </Link>
                     </li>
                   ))}
+                  {porVenir.length > 14 && (
+                    <li className="px-4 py-2 text-[11px] text-tenue">
+                      y {porVenir.length - 14} vencimiento{porVenir.length - 14 === 1 ? '' : 's'} más en la quincena
+                    </li>
+                  )}
                 </ul>
               )}
             </Tarjeta>

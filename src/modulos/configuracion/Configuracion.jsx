@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Database, Plus, Save, Trash2, Undo2 } from 'lucide-react';
+import { Database, Layers, Plus, Save, Trash2, Undo2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Aviso, Boton, Chip, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
-import { CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
+import { CampoTexto } from '../../componentes/Campo.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { CATALOGOS_ADMINISTRABLES } from '../../datos/catalogos.js';
 import { hoyISO } from '../../datos/selectores.js';
@@ -54,7 +54,12 @@ function SeccionUsuario() {
         <Boton variante="primario" icono={Save} onClick={guardar} disabled={valor === usuario}>
           Guardar
         </Boton>
-        {guardado && <Chip tono="enregla">Guardado</Chip>}
+        {/* `role="status"` lo anuncia sin robar el foco: el chip aparece y
+            desaparece solo, y sin esto un lector de pantalla no se entera de
+            que la carga se guardó. */}
+        <span role="status" aria-live="polite">
+          {guardado && <Chip tono="enregla">Guardado</Chip>}
+        </span>
       </div>
       <div className="mt-3">
         <Aviso tono="info">
@@ -138,6 +143,7 @@ function PanelCatalogo({ cfg }) {
           onChange={(e) => setNombre(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && agregar()}
           placeholder="Nuevo ítem…"
+          aria-label={`Nuevo ítem de ${cfg.titulo}`}
           className="campo-base min-w-32 flex-1 py-1.5 text-xs"
         />
         {cfg.conPrefijo && (
@@ -146,6 +152,7 @@ function PanelCatalogo({ cfg }) {
             onChange={(e) => setPrefijo(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === 'Enter' && agregar()}
             placeholder="PREF"
+            aria-label={`Prefijo del nuevo ítem de ${cfg.titulo}`}
             maxLength={4}
             title="Prefijo del id de proyecto (SEC-AAAA-NNN)"
             className="campo-base w-20 py-1.5 text-xs uppercase"
@@ -165,13 +172,16 @@ function PanelCatalogo({ cfg }) {
               <input
                 defaultValue={item.nombre}
                 onBlur={(e) => e.target.value.trim() && e.target.value !== item.nombre && renombrar(item.id, e.target.value.trim())}
-                className="min-w-0 flex-1 bg-transparent text-sm text-tinta outline-none focus:underline"
+                // Sin esto son ochenta y nueve campos idénticos y sin nombre en
+                // esta pantalla: un lector de pantalla no puede decir cuál es cuál.
+                aria-label={`Nombre de «${item.nombre}» en ${cfg.titulo}`}
+                className="min-w-0 flex-1 rounded bg-transparent px-1 text-sm text-tinta focus:bg-paper focus:outline-2 focus:outline-acento"
               />
               {cfg.conPrefijo && item.prefijo && <Chip tono="acento">{item.prefijo}</Chip>}
               <button
                 type="button"
                 onClick={() => cambiarEstado(item.id, false)}
-                className="shrink-0 rounded p-1 text-tenue transition hover:bg-vencido-suave hover:text-vencido"
+                className="shrink-0 rounded p-1 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
                 title="Dar de baja (el borrado es lógico: los registros existentes se conservan)"
               >
                 <Trash2 size={14} />
@@ -228,11 +238,13 @@ function SeccionDatos() {
     : [];
 
   const hayDatos = conteos.some(([, n]) => n > 0);
+  const totalRegistros = conteos.reduce((suma, [, n]) => suma + n, 0);
 
   async function ejecutar(accion) {
     setTrabajando(true);
     try {
       if (accion === 'demo') await acciones.cargarDemo(hoyISO());
+      else if (accion === 'completa') await acciones.cargarBaseCompleta(hoyISO());
       else await acciones.vaciarSistema();
     } finally {
       setTrabajando(false);
@@ -250,21 +262,38 @@ function SeccionDatos() {
         ))}
       </div>
 
+      {hayDatos && (
+        <p className="mb-3 text-xs text-tenue">
+          <span className="tabular font-semibold text-gris">{totalRegistros.toLocaleString('es-AR')}</span>{' '}
+          registros cargados en total.
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <Boton variante="primario" icono={Database} onClick={() => setConfirmando('demo')} disabled={trabajando}>
           Cargar datos de demostración
+        </Boton>
+        <Boton icono={Layers} onClick={() => setConfirmando('completa')} disabled={trabajando}>
+          Cargar base completa
         </Boton>
         <Boton variante="peligro" icono={Trash2} onClick={() => setConfirmando('vaciar')} disabled={trabajando || !hayDatos}>
           Vaciar sistema
         </Boton>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 flex flex-col gap-2">
         <Aviso tono="info" titulo="Sobre los datos de demostración">
           El set es sintético y evidentemente ficticio: áreas y proyectos inventados, nunca datos
           reales del municipio. Incluye a propósito compromisos vencidos, proyectos sin actualizar
           hace más de 30 días y un evento con requerimientos incompletos, para que se vean
           funcionando las alertas.
+        </Aviso>
+        <Aviso tono="info" titulo="Sobre la base completa">
+          Es el mismo set ficticio pero a escala real: catorce áreas, tres años de proyectos,
+          veinticuatro meses de seguimiento y monitoreo, y más de ocho mil registros contando la
+          bitácora. Sirve para probar las tablas, los filtros, los tableros y la impresión con el
+          volumen que van a tener en uso, en lugar de con treinta registros. Tarda un instante en
+          generarse y reemplaza todo lo cargado.
         </Aviso>
       </div>
 
@@ -275,6 +304,14 @@ function SeccionDatos() {
         titulo="Cargar datos de demostración"
         mensaje="Se reemplaza todo el contenido actual del sistema por un set de prueba. Lo que hayas cargado se pierde. ¿Confirmás?"
         textoConfirmar="Cargar demostración"
+      />
+      <ModalConfirmacion
+        abierto={confirmando === 'completa'}
+        alCerrar={() => setConfirmando(null)}
+        alConfirmar={() => ejecutar('completa')}
+        titulo="Cargar la base completa"
+        mensaje="Se reemplaza todo el contenido actual por un set sintético de escala real: más de ocho mil registros, incluidos los catálogos, que pasan a ser los del set completo. Lo que hayas cargado se pierde. ¿Confirmás?"
+        textoConfirmar="Cargar base completa"
       />
       <ModalConfirmacion
         abierto={confirmando === 'vaciar'}

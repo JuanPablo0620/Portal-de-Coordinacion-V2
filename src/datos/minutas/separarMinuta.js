@@ -68,6 +68,25 @@ const MARCADORES_PROBLEMA = [
   /\bfrenad[oa]\b/i,
   /\breclamo[s]?\b/i,
   /\bfaltante[s]?\b/i,
+  /**
+   * Discrepancias.
+   *
+   * Se agregaron después de pasar el separador por un corpus de doscientas
+   * veintiséis minutas: la única familia de trabas que se le escapaba entera
+   * era ésta —«el certificado presenta diferencias con lo ejecutado en el
+   * frente»—, que no tiene ningún marcador de los de arriba y terminaba
+   * clasificada como avance. Es, además, de las trabas más comunes en el
+   * seguimiento de obra, así que perderla no era un detalle.
+   *
+   * Van sin la palabra «observaciones», que es ambigua: «se aprobó sin
+   * observaciones» es un avance, y el separador prefiere no clasificar antes
+   * que clasificar mal.
+   */
+  /\bdiferencias?\b/i,
+  /\bdiscrepancias?\b/i,
+  /\binconsistencias?\b/i,
+  /\bno\s+coinciden?\b/i,
+  new RegExp(`\\brechaz(?:ó${FIN}|aron\\b|ad[oa]\\b)`, 'i'),
 ];
 
 const MARCADORES_AVANCE = [
@@ -138,7 +157,7 @@ function armar(anio, mes, dia) {
  * Primera fecha reconocible de la oración, resuelta a ISO contra `hoy`.
  * Devuelve cadena vacía si no hay ninguna: no se inventan fechas límite.
  */
-export function extraerFecha(oracion, hoy) {
+function extraerFecha(oracion, hoy) {
   const anioActual = Number(hoy.slice(0, 4));
   const mesActual = Number(hoy.slice(5, 7));
 
@@ -202,7 +221,7 @@ export function extraerFecha(oracion, hoy) {
  * Responsable candidato: nombre propio de la oración que no sea el arranque
  * genérico ni una palabra institucional capitalizada.
  */
-export function extraerResponsable(oracion) {
+function extraerResponsable(oracion) {
   // «Apellido va a…» — el nombre encabeza la oración seguido de la perífrasis
   const alInicio = oracion.match(/^\s*((?:[A-ZÁÉÍÓÚÑ]\.\s*)?[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)\s+(?:va\s+a|tiene\s+que|deberá|debe)/);
   if (alInicio && !MAYUSCULAS_NO_PERSONA.has(alInicio[1].trim())) return alInicio[1].trim();

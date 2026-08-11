@@ -7,6 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { armarReporte, describirFiltros, resolverRango } from '../src/datos/reportes.js';
 import { generarDemo } from '../src/datos/demo.js';
+import { compromisos } from '../src/datos/selectores.js';
 
 const HOY = '2026-08-08';
 const bd = generarDemo(HOY);
@@ -112,4 +113,53 @@ test('las alertas del reporte salen del motor central, filtradas por el recorte'
 test('armarReporte sin base no rompe', () => {
   const r = armarReporte(null, {}, HOY);
   assert.deepEqual(r.proyectos, []);
+});
+
+/* ── Lo que salió a la luz con la base a escala real ──────────────── */
+
+/**
+ * Estos tres se escribieron después de auditar el constructor con la base
+ * completa cargada. Ninguno se veía con treinta registros: los tres producían
+ * documentos que decían algo distinto de lo que el usuario pidió.
+ */
+
+test('el período no esconde la deuda vencida que viene de antes', () => {
+  const semanal = armarReporte(bd, { rango: 'semana' }, HOY);
+  const vencidosDelSistema = compromisos(bd, {}, HOY).filter((c) => c.estado_efectivo === 'vencido').length;
+
+  // Filtrando sólo por fecha de vencimiento, un informe semanal contaba cero
+  // vencidos mientras el bloque de alertas del mismo documento los listaba.
+  assert.equal(semanal.resumen.compromisosVencidos, vencidosDelSistema);
+  assert.ok(
+    semanal.compromisos.length < armarReporte(bd, {}, HOY).compromisos.length,
+    'el período tiene que seguir recortando lo que no está vencido',
+  );
+});
+
+test('el módulo de origen recorta también los proyectos y los gráficos', () => {
+  const soloMesas = armarReporte(bd, { modulo: 'mesas' }, HOY);
+  assert.equal(soloMesas.proyectos.length, 0, 'un informe de mesas traía la tabla de proyectos entera');
+  assert.equal(soloMesas.resumen.proyectos, 0);
+  assert.deepEqual(soloMesas.agregados.porArea, []);
+  assert.ok(soloMesas.mesas.length > 0, 'el módulo pedido sí tiene que venir');
+
+  const soloProyectos = armarReporte(bd, { modulo: 'proyectos' }, HOY);
+  assert.ok(soloProyectos.proyectos.length > 0);
+  assert.equal(soloProyectos.mesas.length, 0);
+});
+
+test('las mesas del reporte respetan el período por sus reuniones', () => {
+  const sinRango = armarReporte(bd, {}, HOY);
+  const semanal = armarReporte(bd, { rango: 'semana' }, HOY);
+  assert.ok(sinRango.mesas.length > 0);
+  assert.ok(
+    semanal.mesas.length <= sinRango.mesas.length,
+    'un informe de una semana listaba mesas que no se reunían hacía meses',
+  );
+  for (const m of semanal.mesas) {
+    const enVentana = bd.reuniones_mesa.some(
+      (r) => r.id_mesa === m.id && r.fecha >= semanal.rango.desde && r.fecha <= semanal.rango.hasta,
+    );
+    assert.ok(enVentana, `la mesa ${m.nombre} no sesionó en el período`);
+  }
 });

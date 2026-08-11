@@ -4,6 +4,10 @@
  * Es exactamente el marcado que se imprime: lo que se ve en pantalla es lo que
  * sale en el PDF. El encabezado institucional y el pie con los filtros
  * aplicados sólo aparecen al imprimir (`.solo-impresion`).
+ *
+ * Sus tablas van `sinTope`, al revés que las del resto del sistema: acá el
+ * recorte de filas no sería un alivio de render sino un documento mutilado, y
+ * un PDF al que le faltan filas sin decirlo es peor que uno largo.
  */
 import { Building2, FileBarChart } from 'lucide-react';
 import { BarraAvance, Chip, Criticidad, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
@@ -165,6 +169,7 @@ function BloqueProyectos({ filas }) {
   return (
     <Tarjeta titulo={`Proyectos (${filas.length})`} sinPadding>
       <Tabla
+        sinTope
         nombreExport="reporte-proyectos"
         filas={filas}
         claveFila={(f) => f.id_proyecto}
@@ -189,6 +194,7 @@ function BloqueCompromisos({ filas }) {
   return (
     <Tarjeta titulo={`Compromisos (${filas.length})`} sinPadding>
       <Tabla
+        sinTope
         nombreExport="reporte-compromisos"
         filas={filas}
         conBusqueda={false}
@@ -220,6 +226,7 @@ function BloqueAlertas({ alertas }) {
   return (
     <Tarjeta titulo={`Alertas activas (${alertas.length})`} sinPadding>
       <Tabla
+        sinTope
         nombreExport="reporte-alertas"
         filas={alertas}
         conBusqueda={false}
@@ -246,6 +253,7 @@ function BloqueTemas({ filas }) {
   return (
     <Tarjeta titulo={`Temas de monitoreo (${filas.length})`} sinPadding>
       <Tabla
+        sinTope
         nombreExport="reporte-temas"
         filas={filas}
         conBusqueda={false}
@@ -283,7 +291,7 @@ function BloqueMinutas({ seguimientos }) {
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {s.avances?.length > 0 && (
                     <div>
-                      <p className="mb-1 text-[11px] font-semibold text-enregla">Avances informados</p>
+                      <p className="mb-1 text-[11px] font-semibold text-enregla-texto">Avances informados</p>
                       <ul className="list-inside list-disc text-[11px] text-gris">
                         {s.avances.map((a, i) => (
                           <li key={i}>{a}</li>
@@ -293,7 +301,7 @@ function BloqueMinutas({ seguimientos }) {
                   )}
                   {s.problemas?.length > 0 && (
                     <div>
-                      <p className="mb-1 text-[11px] font-semibold text-vencido">Problemas / trabas</p>
+                      <p className="mb-1 text-[11px] font-semibold text-vencido-texto">Problemas / trabas</p>
                       <ul className="list-inside list-disc text-[11px] text-gris">
                         {s.problemas.map((p, i) => (
                           <li key={i}>{p}</li>
@@ -315,6 +323,7 @@ function BloqueMesas({ filas }) {
   return (
     <Tarjeta titulo={`Mesas de trabajo (${filas.length})`} sinPadding>
       <Tabla
+        sinTope
         nombreExport="reporte-mesas"
         filas={filas}
         conBusqueda={false}
@@ -337,6 +346,7 @@ function BloqueEventos({ filas }) {
   return (
     <Tarjeta titulo={`Eventos (${filas.length})`} sinPadding>
       <Tabla
+        sinTope
         nombreExport="reporte-eventos"
         filas={filas}
         conBusqueda={false}

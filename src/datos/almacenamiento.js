@@ -10,7 +10,7 @@
  * ─────────────────────────────────────────────────────────────────────
  */
 
-export const CLAVE = 'coord3f_bd_v1';
+const CLAVE = 'coord3f_bd_v1';
 
 /**
  * Hay entornos sin almacenamiento: Node (tests y prueba de humo) y los modos

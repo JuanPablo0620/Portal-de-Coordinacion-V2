@@ -3,6 +3,11 @@
  * bloque @theme: ningún hex hardcodeado.
  */
 import { AlertCircle, Info } from 'lucide-react';
+import { nivelPorDias } from '../datos/selectores.js';
+
+// La escala de días vive en la capa de datos —la comparten las alertas y los
+// tableros—; se reexporta acá porque es de donde la importan los módulos.
+export { nivelPorDias };
 
 /* ── Tarjeta ────────────────────────────────────────────────────────── */
 
@@ -64,10 +69,10 @@ export function Boton({
 const TONOS_CHIP = {
   neutro: 'bg-sindato-suave text-gris border-borde',
   acento: 'bg-acento-suave text-acento-fuerte border-acento-medio',
-  vencido: 'bg-vencido-suave text-vencido border-vencido/30',
-  proximo: 'bg-proximo-suave text-proximo border-proximo/30',
-  atencion: 'bg-atencion-suave text-atencion border-atencion/40',
-  enregla: 'bg-enregla-suave text-enregla border-enregla/30',
+  vencido: 'bg-vencido-suave text-vencido-texto border-vencido/30',
+  proximo: 'bg-proximo-suave text-proximo-texto border-proximo/30',
+  atencion: 'bg-atencion-suave text-atencion-texto border-atencion/40',
+  enregla: 'bg-enregla-suave text-enregla-texto border-enregla/30',
 };
 
 export function Chip({ tono = 'neutro', children, className = '' }) {
@@ -88,7 +93,10 @@ export function Chip({ tono = 'neutro', children, className = '' }) {
  * Los niveles claros llevan texto oscuro, nunca blanco: es lo que sostiene el
  * contraste cuando se imprime o se proyecta.
  */
-export const NIVELES = {
+const NIVELES = {
+  /* `color` pinta el punto —un objeto gráfico, le alcanza con 3:1— y el texto
+     del semáforo va en tinta sobre el fondo suave, que da 15:1. Por eso acá va
+     el relleno y no la variante `-texto`. */
   vencido: { color: 'var(--color-vencido)', fondo: 'var(--color-vencido-suave)', texto: 'Vencido' },
   proximo: { color: 'var(--color-proximo)', fondo: 'var(--color-proximo-suave)', texto: 'Próximo' },
   atencion: { color: 'var(--color-atencion)', fondo: 'var(--color-atencion-suave)', texto: 'Atención' },
@@ -116,15 +124,6 @@ export function Semaforo({ nivel = 'sindato', texto, soloPunto = false }) {
       {texto ?? cfg.texto}
     </span>
   );
-}
-
-/** Semáforo de días restantes: rojo vencido · naranja ≤3 · amarillo ≤15 · verde el resto. */
-export function nivelPorDias(dias) {
-  if (dias === null || dias === undefined) return 'sindato';
-  if (dias < 0) return 'vencido';
-  if (dias <= 3) return 'proximo';
-  if (dias <= 15) return 'atencion';
-  return 'enregla';
 }
 
 /* ── Estados de proyecto y criticidades ─────────────────────────────── */

@@ -67,3 +67,39 @@ export function masRecientePrimero(a, b) {
   const porFecha = String(b.creado_en).localeCompare(String(a.creado_en));
   return porFecha !== 0 ? porFecha : (b.secuencia ?? 0) - (a.secuencia ?? 0);
 }
+
+/* ── Redacción de un asiento ────────────────────────────────────────── */
+
+const ETIQUETA_ACCION = { alta: 'creó', edicion: 'editó', baja: 'dio de baja' };
+
+const ETIQUETA_ENTIDAD = {
+  proyectos: 'el proyecto',
+  seguimientos: 'un seguimiento',
+  compromisos: 'un compromiso',
+  temas_monitoreo: 'un tema de monitoreo',
+  monitoreos: 'un monitoreo',
+  eventos: 'un evento',
+  planificacion_anual: 'la planificación',
+  mesas: 'una mesa',
+  reuniones_mesa: 'una reunión de mesa',
+  requerimientos_evento: 'un requerimiento',
+};
+
+/**
+ * Frase de un asiento («Coordinación editó el proyecto»). Vive acá para que la
+ * ficha del proyecto y la línea de tiempo unificada la redacten igual.
+ */
+export function redactarAsiento(asiento) {
+  const accion = ETIQUETA_ACCION[asiento.accion] ?? asiento.accion;
+  const entidad = ETIQUETA_ENTIDAD[asiento.entidad] ?? asiento.entidad;
+  return `${asiento.creado_por} ${accion} ${entidad}`;
+}
+
+/** Valor de un campo listo para mostrar en el detalle de un cambio. */
+export function formatoValor(v) {
+  if (v === null || v === undefined || v === '') return '(vacío)';
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No';
+  if (Array.isArray(v)) return v.length ? v.join(', ') : '(vacío)';
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}

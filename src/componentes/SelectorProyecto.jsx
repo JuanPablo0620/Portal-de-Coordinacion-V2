@@ -33,15 +33,22 @@ export function SelectorProyecto({
 
   const todos = useMemo(() => (bd ? selProyectos(bd, {}) : []), [bd]);
 
-  const filtrados = useMemo(() => {
-    if (!texto.trim()) return todos.slice(0, 40);
+  /**
+   * Se listan cuarenta como mucho. El tope está bien —la lista es para elegir,
+   * no para leer—, pero antes no se decía: con la base cargada el usuario veía
+   * cuarenta de doscientos sesenta proyectos sin ninguna señal de que faltaban
+   * los otros, y podía concluir que el suyo no estaba cargado.
+   */
+  const coincidencias = useMemo(() => {
+    if (!texto.trim()) return todos;
     const t = texto.toLowerCase();
-    return todos
-      .filter((p) =>
-        `${p.proyecto} ${p.id_proyecto} ${p.area} ${p.responsable ?? ''}`.toLowerCase().includes(t),
-      )
-      .slice(0, 40);
+    return todos.filter((p) =>
+      `${p.proyecto} ${p.id_proyecto} ${p.area} ${p.responsable ?? ''}`.toLowerCase().includes(t),
+    );
   }, [todos, texto]);
+
+  const filtrados = useMemo(() => coincidencias.slice(0, 40), [coincidencias]);
+  const ocultos = coincidencias.length - filtrados.length;
 
   const mapa = useMemo(() => new Map(todos.map((p) => [p.id_proyecto, p])), [todos]);
 
@@ -59,7 +66,7 @@ export function SelectorProyecto({
       {etiqueta && (
         <label className="mb-1 block text-xs font-medium text-gris">
           {etiqueta}
-          {requerido && <span className="ml-0.5 text-vencido">*</span>}
+          {requerido && <span className="ml-0.5 text-vencido-texto">*</span>}
           {ayuda && <span className="ml-1.5 font-normal text-tenue">{ayuda}</span>}
         </label>
       )}
@@ -97,7 +104,8 @@ export function SelectorProyecto({
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             placeholder={placeholder}
-            className="w-full bg-card py-2 pl-8 pr-2.5 text-sm text-tinta outline-none placeholder:text-tenue"
+            aria-label={etiqueta ? `Buscar en ${etiqueta.toLowerCase()}` : 'Buscar proyecto'}
+            className="w-full bg-card py-2 pl-8 pr-2.5 text-sm text-tinta placeholder:text-tenue focus:outline-2 focus:outline-offset-[-2px] focus:outline-acento"
           />
         </div>
 
@@ -143,6 +151,13 @@ export function SelectorProyecto({
             })
           )}
         </div>
+
+        {ocultos > 0 && (
+          <p className="border-t border-borde bg-paper/60 px-2.5 py-1.5 text-[11px] text-tenue">
+            {filtrados.length} de {coincidencias.length}
+            {texto.trim() ? ' coincidencias' : ' proyectos'} · afiná la búsqueda para ver el resto
+          </p>
+        )}
       </div>
     </div>
   );

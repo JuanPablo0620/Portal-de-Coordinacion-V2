@@ -36,8 +36,14 @@ const CON_DEMO = [
   ['/seguimiento?tab=compromisos', 'Compromiso'],
   ['/seguimiento?tab=historial', 'Elegí un área'],
   ['/monitoreo', 'Panel de alertas'],
-  ['/monitoreo', 'Criticidad máxima'],
-  ['/monitoreo?tab=cobertura', 'Áreas sin cobertura'],
+  ['/monitoreo', 'Secretarías en la hoja'],
+  ['/monitoreo', 'Criticidad de los temas'],
+  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras%20P%C3%BAblicas', 'Temas del período'],
+  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras%20P%C3%BAblicas', 'Compromisos vigentes'],
+  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras%20P%C3%BAblicas', 'Ejecución presupuestaria'],
+  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras%20P%C3%BAblicas', 'Proyectos de la secretaría'],
+  ['/monitoreo?tab=ultimos', 'Criticidad máxima'],
+  ['/monitoreo?tab=cobertura', 'Secretarías sin cobertura'],
   ['/monitoreo?tab=cargar', 'Iniciar monitoreo'],
   ['/monitoreo?tab=alertas', 'Compromisos vencidos'],
   ['/planificacion', 'Ejecución presupuestaria'],
@@ -56,6 +62,31 @@ const CON_DEMO = [
   ['/configuracion', 'Cargar datos de demostración'],
 ];
 
+/**
+ * Con la base a escala real —catorce áreas, miles de registros—. Se repiten las
+ * pantallas que agregan y ordenan, que son las que sólo fallan con volumen: el
+ * tablero de secretarías, el comparativo de planificación, el panel de alertas
+ * y el reporte imprimible.
+ */
+const CON_BASE_COMPLETA = [
+  ['/', 'Próximos vencimientos importantes'],
+  ['/', 'Proyectos activos'],
+  ['/proyectos', 'Base maestra de proyectos'],
+  ['/proyectos?solo_activos=1&es_obra=1', 'Sólo obras'],
+  ['/seguimiento?tab=compromisos', 'Compromiso'],
+  ['/seguimiento?vista=lista', 'Temas a tratar'],
+  ['/monitoreo', 'Secretarías en la hoja'],
+  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras%20P%C3%BAblicas', 'Proyectos de la secretaría'],
+  ['/monitoreo?tab=cobertura', 'Secretarías sin cobertura'],
+  ['/monitoreo?tab=alertas', 'Compromisos vencidos'],
+  ['/planificacion', 'Ejecución presupuestaria'],
+  ['/planificacion?tab=comparativo', 'Comparativo al T'],
+  ['/mesas', 'Ver ficha'],
+  ['/eventos?tab=checklist', 'Requerimientos sin confirmar'],
+  ['/reportes', 'Filtros aplicados'],
+  ['/configuracion', 'Cargar base completa'],
+];
+
 /** Con el sistema vacío: se espera el estado vacío, no un error ni una pantalla en blanco. */
 const CON_SISTEMA_VACIO = [
   ['/', 'El sistema está vacío'],
@@ -66,8 +97,10 @@ const CON_SISTEMA_VACIO = [
   ['/seguimiento?tab=historial', 'Elegí un área'],
   ['/monitoreo', 'Sin alertas activas'],
   // Vaciar el sistema no vacía los catálogos: las 8 áreas semilla siguen ahí,
-  // así que la cobertura las muestra todas en cero. Es lo correcto.
-  ['/monitoreo?tab=cobertura', 'Áreas sin cobertura'],
+  // así que la hoja las muestra todas en cero y sin monitorear. Es lo correcto.
+  ['/monitoreo', 'Nunca monitoreada'],
+  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Salud', 'Sin temas en el período'],
+  ['/monitoreo?tab=cobertura', 'Secretarías sin cobertura'],
   ['/monitoreo?tab=cargar', 'Iniciar monitoreo'],
   ['/monitoreo?tab=alertas', 'Sin alertas activas'],
   ['/planificacion', 'Sin proyectos para analizar'],
@@ -89,6 +122,17 @@ const RUTAS_PROFUNDAS = [
   ['/proyectos/INEXISTENTE-0000-000', 'Proyecto no encontrado'],
 ];
 
+/**
+ * La pestaña de historial de la ficha no se alcanza por URL —es estado local—,
+ * así que se comprueba montando el componente directamente. Es la única forma
+ * de que la línea de tiempo unificada entre en la prueba de humo.
+ */
+const COMPONENTES = [
+  ['HistorialProyecto', 'Historial del proyecto'],
+  ['HistorialProyecto', 'Cambios de ficha'],
+  ['HistorialProyecto', 'Hitos planificados'],
+];
+
 try {
   execSync(
     `npx vite build --config pruebas/humo/vite.config.js --ssr pruebas/humo/entrada.jsx ` +
@@ -101,7 +145,7 @@ try {
 }
 
 const { correr } = await import(`../${SALIDA}/entrada.js`);
-const fallos = correr(CON_DEMO, CON_SISTEMA_VACIO, RUTAS_PROFUNDAS);
+const fallos = correr(CON_DEMO, CON_SISTEMA_VACIO, RUTAS_PROFUNDAS, COMPONENTES, CON_BASE_COMPLETA);
 
 rmSync(SALIDA, { recursive: true, force: true });
 
@@ -112,5 +156,10 @@ if (fallos.length) {
   process.exit(1);
 }
 
-const total = CON_DEMO.length + CON_SISTEMA_VACIO.length + RUTAS_PROFUNDAS.length;
-console.log(`✓ humo · ${total} comprobaciones de render (con demo, sistema vacío y rutas profundas)`);
+const total =
+  CON_DEMO.length + CON_SISTEMA_VACIO.length + RUTAS_PROFUNDAS.length + COMPONENTES.length + CON_BASE_COMPLETA.length;
+console.log(
+  `✓ humo · ${total} comprobaciones de render (con demo, base completa, sistema vacío, rutas profundas y componentes sueltos)` +
+    `
+✓ accesibilidad · ${CON_BASE_COMPLETA.length} rutas auditadas (etiquetas, nombres accesibles, teclado, foco, encabezados)`,
+);

@@ -178,6 +178,9 @@ export function SeccionRequerimientos({ idEvento, bd }) {
                 <span className="w-40 shrink-0 truncate text-[11px] text-tenue">{r.area_responsable || 'sin área'}</span>
                 <select
                   className="campo-base w-32 shrink-0 py-1 text-xs"
+                  // Son varios selectores idénticos en la misma lista: sin el
+                  // nombre del ítem, ninguno dice de qué requerimiento es.
+                  aria-label={`Estado de ${r.item}`}
                   value={r.estado}
                   onChange={(e) => acciones.actualizarRequerimiento(r.id, { estado: e.target.value })}
                 >
@@ -190,7 +193,7 @@ export function SeccionRequerimientos({ idEvento, bd }) {
                 <button
                   type="button"
                   onClick={() => acciones.actualizarRequerimiento(r.id, { activo: false })}
-                  className="shrink-0 rounded p-1 text-tenue transition hover:bg-vencido-suave hover:text-vencido"
+                  className="shrink-0 rounded p-1 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
                   aria-label="Quitar requerimiento"
                 >
                   <Trash2 size={14} />

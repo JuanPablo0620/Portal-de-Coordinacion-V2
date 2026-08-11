@@ -107,10 +107,12 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     solo_prioritarios: filtros.solo_prioritarios || undefined,
   };
 
-  let proyectos = selProyectos(bd, filtroProyecto);
-  if (filtros.solo_con_alertas) proyectos = proyectos.filter((p) => conAlerta.has(p.id_proyecto));
+  let proyectosFiltrados = selProyectos(bd, filtroProyecto);
+  if (filtros.solo_con_alertas) proyectosFiltrados = proyectosFiltrados.filter((p) => conAlerta.has(p.id_proyecto));
 
-  const idsProyecto = new Set(proyectos.map((p) => p.id_proyecto));
+  // El recorte por proyecto se aplica igual aunque el reporte sea de otro
+  // módulo: es lo que ata las entidades vinculadas al mismo universo.
+  const idsProyecto = new Set(proyectosFiltrados.map((p) => p.id_proyecto));
   // Cuando hay un recorte de proyectos activo, las entidades vinculadas se
   // limitan a esos proyectos; si no, sólo se filtran por área y fecha.
   const hayRecorteProyecto = Boolean(
@@ -121,10 +123,37 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
 
   const enModulo = (nombre) => !filtros.modulo || filtros.modulo === nombre;
 
+  /**
+   * El módulo de origen recorta TAMBIÉN los proyectos.
+   *
+   * Vaciaba compromisos, seguimientos, monitoreos y eventos pero dejaba la tabla
+   * de proyectos entera: pedir «sólo mesas» devolvía un informe de mesas con
+   * doscientos sesenta proyectos adentro y un resumen que hablaba del sistema
+   * completo. Con treinta proyectos no se notaba; con la base cargada, el
+   * documento decía otra cosa que la que el usuario pidió.
+   */
+  const proyectos = enModulo('proyectos') ? proyectosFiltrados : [];
+
+  const dentroDelPeriodo = (fecha) => {
+    const f = String(fecha ?? '').slice(0, 10);
+    if (!f) return !desde && !hasta;
+    return (!desde || f >= desde) && (!hasta || f <= hasta);
+  };
+
+  /**
+   * Los compromisos del período MÁS la deuda abierta que viene de antes.
+   *
+   * Filtrando sólo por fecha de vencimiento, un informe semanal contaba cero
+   * compromisos vencidos mientras el sistema arrastraba treinta y uno: los que
+   * vencieron hace un mes y siguen abiertos caían fuera de la ventana. El bloque
+   * de alertas del mismo documento sí los mostraba, así que el informe se
+   * contradecía consigo mismo. Un vencimiento impago no deja de existir porque
+   * se acorte el período: se arrastra hasta que se cumple.
+   */
   const compromisos = enModulo('compromisos')
-    ? selCompromisos(bd, { area: filtros.area, responsable: filtros.responsable, desde, hasta }, hoy).filter(
-        (c) => !hayRecorteProyecto || !c.id_proyecto || idsProyecto.has(c.id_proyecto),
-      )
+    ? selCompromisos(bd, { area: filtros.area, responsable: filtros.responsable }, hoy)
+        .filter((c) => dentroDelPeriodo(c.fecha_limite) || c.estado_efectivo === 'vencido')
+        .filter((c) => !hayRecorteProyecto || !c.id_proyecto || idsProyecto.has(c.id_proyecto))
     : [];
 
   const seguimientos = enModulo('seguimientos')
@@ -139,7 +168,21 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     .flatMap((m) => m.temas.map((t) => ({ ...t, area: m.area, fecha: m.fecha })))
     .filter((t) => !hayRecorteProyecto || !t.id_proyecto || idsProyecto.has(t.id_proyecto));
 
-  const mesas = enModulo('mesas') ? selMesas(bd, {}) : [];
+  /**
+   * Las mesas también respetan el período: se quedan las que sesionaron dentro
+   * de la ventana. Antes salían las dieciséis en cualquier recorte, así que un
+   * informe de la última semana listaba mesas que no se reunían hacía meses.
+   * Una mesa no tiene una fecha propia; la que la ubica en el tiempo es la de
+   * sus reuniones.
+   */
+  const mesas = enModulo('mesas')
+    ? selMesas(bd, {}).filter((m) => {
+        if (!desde && !hasta) return true;
+        return activos(bd.reuniones_mesa).some(
+          (r) => r.id_mesa === m.id && dentroDelPeriodo(r.fecha),
+        );
+      })
+    : [];
 
   const eventos = enModulo('eventos')
     ? selEventos(bd, { area: filtros.area, desde, hasta }).filter(
@@ -151,13 +194,18 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     (a) => !hayRecorteProyecto || !a.id_proyecto || idsProyecto.has(a.id_proyecto),
   );
 
-  const agregados = {
-    porArea: porDimension(bd, 'area', filtroProyecto),
-    porEje: porDimension(bd, 'eje', filtroProyecto),
-    porEstado: porDimension(bd, 'estado', filtroProyecto),
-    avancePorArea: avancePorDimension(bd, 'area', filtroProyecto),
-    gastoPorArea: gastoPorDimension(bd, 'area', filtroProyecto),
-  };
+  // Los gráficos son de proyectos: si el reporte no es de proyectos, no hay
+  // agregado que dibujar. Devolverlos igual pintaba el sistema entero al lado
+  // de una tabla de mesas.
+  const agregados = enModulo('proyectos')
+    ? {
+        porArea: porDimension(bd, 'area', filtroProyecto),
+        porEje: porDimension(bd, 'eje', filtroProyecto),
+        porEstado: porDimension(bd, 'estado', filtroProyecto),
+        avancePorArea: avancePorDimension(bd, 'area', filtroProyecto),
+        gastoPorArea: gastoPorDimension(bd, 'area', filtroProyecto),
+      }
+    : { porArea: [], porEje: [], porEstado: [], avancePorArea: [], gastoPorArea: [] };
 
   const resumen = {
     proyectos: proyectos.length,

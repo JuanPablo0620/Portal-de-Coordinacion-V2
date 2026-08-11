@@ -96,10 +96,14 @@ function Estadisticas({ bd, filtros, setFiltros }) {
 
   const anio = Number(filtros.anio) || Number(hoyISO().slice(0, 4));
   const trimestre = trimestreDe(hoyISO());
-  const ranking = useMemo(
-    () => (bd ? desvioTrimestral(bd, anio, trimestre, base).slice(0, 12) : []),
+  // El ranking muestra los doce peores, pero el total tiene que decirse: con la
+  // base cargada son ochenta y seis proyectos comparados, y un gráfico de doce
+  // barras sin ese dato se lee como si fueran todos los que hay.
+  const comparados = useMemo(
+    () => (bd ? desvioTrimestral(bd, anio, trimestre, base) : []),
     [bd, anio, trimestre, filtros.area, filtros.eje],
   );
+  const ranking = useMemo(() => comparados.slice(0, 12), [comparados]);
 
   if (!proyectos.length) {
     return (
@@ -190,7 +194,11 @@ function Estadisticas({ bd, filtros, setFiltros }) {
 
         <Tarjeta
           titulo={`Ranking de desvío · T${trimestre} ${anio}`}
-          descripcion="Los que más lejos están de su meta trimestral, primero."
+          descripcion={
+            comparados.length > ranking.length
+              ? `Los ${ranking.length} más lejos de su meta trimestral, de ${comparados.length} proyectos con planificación cargada.`
+              : 'Los que más lejos están de su meta trimestral, primero.'
+          }
         >
           <GraficoBarras
             datos={ranking.map((r) => ({ nombre: r.proyecto.slice(0, 34), cumplimiento: r.cumplimiento, nivel: nivelCumplimiento(r.cumplimiento) }))}

@@ -16,7 +16,7 @@ import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { separarMinuta } from '../../datos/minutas/separarMinuta.js';
 import { ESTADOS_PROYECTO } from '../../datos/catalogos.js';
 import { hoyISO, porcentajeAvance, proyectoPorId, ultimaActualizacion } from '../../datos/selectores.js';
-import { fecha as fFecha, haceCuanto, numero } from '../../utilidades/formato.js';
+import { haceCuanto, numero } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 
@@ -78,45 +78,51 @@ export function CargarSeguimiento({ alTerminar }) {
     setError('');
     setGuardando(true);
     try {
-      const seguimiento = await acciones.crearSeguimiento({
-        ids_proyecto: ids,
-        area,
-        fecha,
-        hora,
-        tipo: 'realizado',
-        participantes,
-        temas: '',
-        texto_crudo: texto,
-        resumen: avances[0] ?? '',
-        avances,
-        problemas,
-        estado_reportado: estadoReportado,
-      });
-
-      const aCrear = compromisos
-        .filter((c) => c.descripcion.trim())
-        .map((c) => ({
-          origen_tipo: 'seguimiento',
-          id_origen: seguimiento.id,
-          id_proyecto: ids[0] ?? null,
+      // Guardar una minuta son varias escrituras —el seguimiento, sus
+      // compromisos y el avance corregido de cada proyecto— que para quien
+      // carga son un solo acto. En lote se persiste una vez y la pantalla no se
+      // repinta con la minuta a medio guardar.
+      await acciones.enLote(async () => {
+        const seguimiento = await acciones.crearSeguimiento({
+          ids_proyecto: ids,
           area,
-          descripcion: c.descripcion.trim(),
-          responsable: c.responsable.trim(),
-          fecha_limite: c.fecha_limite || null,
-        }));
-      if (aCrear.length) await acciones.crearCompromisos(aCrear);
+          fecha,
+          hora,
+          tipo: 'realizado',
+          participantes,
+          temas: '',
+          texto_crudo: texto,
+          resumen: avances[0] ?? '',
+          avances,
+          problemas,
+          estado_reportado: estadoReportado,
+        });
 
-      // Actualiza el avance de los proyectos que el usuario corrigió
-      for (const [id, valor] of Object.entries(avancesCorregidos)) {
-        if (valor === '' || valor === null) continue;
-        const previo = proyectoPorId(bd, id);
-        if (previo && Number(valor) !== Number(previo.avance)) {
-          await acciones.actualizarProyecto(id, {
-            avance: Number(valor),
-            ...(estadoReportado ? { estado: estadoReportado } : {}),
-          });
+        const aCrear = compromisos
+          .filter((c) => c.descripcion.trim())
+          .map((c) => ({
+            origen_tipo: 'seguimiento',
+            id_origen: seguimiento.id,
+            id_proyecto: ids[0] ?? null,
+            area,
+            descripcion: c.descripcion.trim(),
+            responsable: c.responsable.trim(),
+            fecha_limite: c.fecha_limite || null,
+          }));
+        if (aCrear.length) await acciones.crearCompromisos(aCrear);
+
+        // Actualiza el avance de los proyectos que el usuario corrigió
+        for (const [id, valor] of Object.entries(avancesCorregidos)) {
+          if (valor === '' || valor === null) continue;
+          const previo = proyectoPorId(bd, id);
+          if (previo && Number(valor) !== Number(previo.avance)) {
+            await acciones.actualizarProyecto(id, {
+              avance: Number(valor),
+              ...(estadoReportado ? { estado: estadoReportado } : {}),
+            });
+          }
         }
-      }
+      });
 
       alTerminar?.();
     } finally {
@@ -170,8 +176,11 @@ export function CargarSeguimiento({ alTerminar }) {
                     <Chip tono="neutro">{p.estado}</Chip>
                   </div>
                   <div className="w-36 shrink-0">
-                    <label className="mb-1 block text-[11px] font-medium text-gris">Avance actual</label>
+                    <label className="mb-1 block text-[11px] font-medium text-gris" htmlFor={`avance-${p.id_proyecto}`}>
+                      Avance actual
+                    </label>
                     <input
+                      id={`avance-${p.id_proyecto}`}
                       type="number"
                       className="campo-base tabular py-1.5 text-sm"
                       placeholder={String(p.avance)}
@@ -220,6 +229,9 @@ export function CargarSeguimiento({ alTerminar }) {
           filas={8}
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
+          // El campo no lleva etiqueta visible porque el título de la tarjeta ya
+          // dice qué es; el lector de pantalla no lee ese título al enfocar.
+          aria-label="Texto de la minuta"
           placeholder={
             'Ej.: Se ejecutaron 200 metros de cordón cuneta en el sector norte. Falta la conformidad ' +
             'del área técnica para avanzar. Ferreyra va a presentar el informe actualizado antes del 15/09.'
@@ -318,12 +330,12 @@ function BloqueCompromisos({ filas, setFilas, hoy }) {
                   onChange={(e) => actualizar(fila.clave, 'fecha_limite', e.target.value)}
                   style={fechaInvalida ? { borderColor: 'var(--color-vencido)' } : undefined}
                 />
-                {fechaInvalida && <p className="mt-0.5 text-[10px] text-vencido">Anterior a hoy</p>}
+                {fechaInvalida && <p className="mt-0.5 text-[10px] text-vencido-texto">Anterior a hoy</p>}
               </div>
               <button
                 type="button"
                 onClick={() => setFilas((f) => f.filter((x) => x.clave !== fila.clave))}
-                className="shrink-0 self-start rounded-chip p-2 text-tenue transition hover:bg-vencido-suave hover:text-vencido"
+                className="shrink-0 self-start rounded-chip p-2 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
                 aria-label="Quitar compromiso"
               >
                 <Trash2 size={15} />
@@ -356,12 +368,13 @@ function BloqueTexto({ titulo, tono, items, setItems, placeholder }) {
               className="campo-base min-h-9 resize-y py-1.5 text-sm"
               value={item}
               placeholder={placeholder}
+              aria-label={`${titulo} ${i + 1}`}
               onChange={(e) => setItems((xs) => xs.map((x, j) => (j === i ? e.target.value : x)))}
             />
             <button
               type="button"
               onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
-              className="shrink-0 rounded-chip p-2 text-tenue transition hover:bg-vencido-suave hover:text-vencido"
+              className="shrink-0 rounded-chip p-2 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
               aria-label={`Quitar de ${titulo}`}
             >
               <Trash2 size={15} />

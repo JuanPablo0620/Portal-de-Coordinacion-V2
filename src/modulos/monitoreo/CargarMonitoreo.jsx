@@ -27,12 +27,13 @@ const TEMA_VACIO = {
   fecha_limite: '',
 };
 
-export function CargarMonitoreo({ alTerminar }) {
+/** `areaInicial` viene de la hoja de una secretaría: llegar con el área ya elegida. */
+export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
   const hoy = hoyISO();
   const opcionesArea = useOpciones('areas');
   const opcionesCategoria = useOpciones('categorias_tema');
 
-  const [cabecera, setCabecera] = useState({ fecha: hoy, area: '' });
+  const [cabecera, setCabecera] = useState({ fecha: hoy, area: areaInicial });
   const [monitoreo, setMonitoreo] = useState(null);
   const [temasCargados, setTemasCargados] = useState([]);
   const [tema, setTema] = useState({ ...TEMA_VACIO });
@@ -161,7 +162,7 @@ export function CargarMonitoreo({ alTerminar }) {
           {temasCargados.map((t, i) => (
             <article key={t.id} className="tarjeta flex flex-col gap-2 p-3.5">
               <div className="flex items-center gap-2">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-enregla-suave text-enregla">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-enregla-suave text-enregla-texto">
                   <CheckCircle2 size={14} />
                 </span>
                 <span className="text-xs font-semibold text-tinta">Tema {i + 1}</span>

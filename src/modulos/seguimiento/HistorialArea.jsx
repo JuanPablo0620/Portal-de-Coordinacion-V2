@@ -3,13 +3,11 @@
  * compromisos cumplidos y pendientes, y evolución del avance de sus proyectos.
  */
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { Building2, Download } from 'lucide-react';
 import {
   BarraAvance,
   Boton,
   Chip,
-  Criticidad,
   EstadoProyecto,
   Metrica,
   Semaforo,
@@ -18,11 +16,12 @@ import {
   nivelPorDias,
 } from '../../componentes/Basicos.jsx';
 import { CampoSelect } from '../../componentes/Campo.jsx';
+import { ListaAlertas } from '../../componentes/ListaAlertas.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { descargarCSV } from '../../datos/csv.js';
 import { calcularAlertas, filtrarAlertas } from '../../datos/alertas.js';
 import { historialArea, hoyISO } from '../../datos/selectores.js';
-import { fecha as fFecha, haceCuanto, numero } from '../../utilidades/formato.js';
+import { fecha as fFecha, haceCuanto, numero, sufijoArchivo } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 
 export function HistorialArea({ bd, filtros, setFiltros }) {
@@ -95,7 +94,7 @@ export function HistorialArea({ bd, filtros, setFiltros }) {
 
   function exportar() {
     descargarCSV(
-      `historial-${area.replace(/\s+/g, '-').toLowerCase()}`,
+      `historial-${sufijoArchivo(area)}`,
       linea,
       [
         { clave: 'fecha', titulo: 'Fecha', formatoCSV: fFecha },
@@ -135,26 +134,13 @@ export function HistorialArea({ bd, filtros, setFiltros }) {
 
       {alertas.length > 0 && (
         <Tarjeta titulo="Alertas activas del área" descripcion="Calculadas por el motor central, las mismas que ve el inicio." sinPadding>
-          <ul className="divide-y divide-borde/60">
-            {alertas.slice(0, 8).map((a) => (
-              <li key={a.id}>
-                <Link to={a.ruta_origen} className="flex items-start gap-2.5 px-4 py-2.5 transition hover:bg-paper">
-                  <Semaforo nivel={a.severidad === 'critica' ? 'vencido' : a.severidad === 'alta' ? 'proximo' : 'atencion'} soloPunto />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm leading-tight text-tinta">{a.titulo}</p>
-                    <p className="truncate text-[11px] text-tenue">{a.detalle}</p>
-                  </div>
-                  {a.dias_atraso > 0 && <Chip tono="vencido">{a.dias_atraso} d</Chip>}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <ListaAlertas alertas={alertas} limite={8} />
         </Tarjeta>
       )}
 
       <Tarjeta titulo="Evolución del avance de sus proyectos" sinPadding>
         <Tabla
-          nombreExport={`proyectos-${area.replace(/\s+/g, '-').toLowerCase()}`}
+          nombreExport={`proyectos-${sufijoArchivo(area)}`}
           filas={datos.proyectos}
           claveFila={(f) => f.id_proyecto}
           columnas={[

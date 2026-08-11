@@ -9,13 +9,32 @@
  * `columnas`: [{ clave, titulo, ancho?, alinear?, render?, formatoCSV?,
  *               sinExportar?, sinOrdenar?, valorOrden? }]
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronsUpDown, Download, Search, Table2 } from 'lucide-react';
 import { descargarCSV } from '../datos/csv.js';
 import { Boton, Vacio } from './Basicos.jsx';
 
+/**
+ * Filas que se pintan de entrada.
+ *
+ * Con la base cargada de verdad, la lista de compromisos pasa de las
+ * novecientas filas: son unos cinco mil nodos de DOM que el navegador rearma
+ * ENTEROS con cada tecla de la búsqueda y con cada clic en un encabezado. El
+ * tope corta eso sin esconder nada —el contador siempre dice el total, el CSV
+ * exporta todo lo filtrado y hay un botón para traer el resto—.
+ */
+const TOPE_INICIAL = 150;
+
 export function Tabla({
   columnas,
+  /**
+   * Columnas con las que se exporta, si el archivo tiene que decir más que la
+   * pantalla. La tabla maestra de proyectos la usa para que su CSV se pueda
+   * volver a importar: en pantalla muestra el avance como porcentaje, pero un
+   * archivo que va a volver a entrar necesita la cantidad absoluta y los campos
+   * obligatorios que la tabla no dibuja.
+   */
+  columnasCSV,
   filas,
   nombreExport,
   claveFila = (f, i) => f.id ?? f.id_proyecto ?? i,
@@ -26,17 +45,36 @@ export function Tabla({
   acciones,
   densidad = 'normal',
   maxAltura,
+  /** Sin tope: lo usan las tablas que se imprimen, donde recortar mutila el PDF. */
+  sinTope = false,
 }) {
   const [texto, setTexto] = useState('');
   const [orden, setOrden] = useState(ordenInicial ?? null);
+  const [tope, setTope] = useState(TOPE_INICIAL);
+
+  /** Texto de una celda tal como se ve, para que la búsqueda encuentre eso. */
+  const textoDeCelda = (fila, columna) => {
+    const valor = fila[columna.clave];
+    // Las fechas se guardan en ISO y se muestran en dd/mm/aaaa: sin esto,
+    // buscar «10/08» en una columna de vencimientos no encuentra nada.
+    if (columna.formatoCSV) {
+      try {
+        return String(columna.formatoCSV(valor) ?? '');
+      } catch {
+        return '';
+      }
+    }
+    return valor === null || valor === undefined ? '' : String(valor);
+  };
 
   const filasFiltradas = useMemo(() => {
     if (!texto.trim()) return filas;
     const t = texto.toLowerCase();
     return filas.filter((f) =>
       columnas.some((c) => {
-        const v = f[c.clave];
-        return v !== null && v !== undefined && String(v).toLowerCase().includes(t);
+        const crudo = f[c.clave];
+        if (crudo !== null && crudo !== undefined && String(crudo).toLowerCase().includes(t)) return true;
+        return textoDeCelda(f, c).toLowerCase().includes(t);
       }),
     );
   }, [filas, texto, columnas]);
@@ -56,6 +94,42 @@ export function Tabla({
       return String(va).localeCompare(String(vb), 'es') * factor;
     });
   }, [filasFiltradas, orden, columnas]);
+
+  // Cualquier cambio de recorte vuelve a empezar por arriba: si el usuario
+  // filtra, lo que quiere ver son las primeras filas del resultado nuevo.
+  useEffect(() => {
+    setTope(TOPE_INICIAL);
+  }, [filas, texto, orden]);
+
+  /**
+   * Al imprimir se pinta TODO.
+   *
+   * El tope es un alivio de render, no un recorte de contenido: una hoja de
+   * secretaría o un listado que sale en papel con las filas cortadas —y sin
+   * decirlo— es peor que una pantalla lenta. El CSS no puede resolverlo, porque
+   * las filas que faltan no están en el DOM.
+   */
+  useEffect(() => {
+    if (sinTope || typeof window === 'undefined') return undefined;
+    const expandir = () => setTope(Number.POSITIVE_INFINITY);
+    const restaurar = () => setTope(TOPE_INICIAL);
+
+    window.addEventListener('beforeprint', expandir);
+    window.addEventListener('afterprint', restaurar);
+    // Safari no dispara `beforeprint`: ahí el aviso llega por el media query.
+    const consulta = window.matchMedia?.('print');
+    const alCambiar = (e) => (e.matches ? expandir() : restaurar());
+    consulta?.addEventListener?.('change', alCambiar);
+
+    return () => {
+      window.removeEventListener('beforeprint', expandir);
+      window.removeEventListener('afterprint', restaurar);
+      consulta?.removeEventListener?.('change', alCambiar);
+    };
+  }, [sinTope]);
+
+  const filasPintadas = sinTope ? filasVisibles : filasVisibles.slice(0, tope);
+  const restantes = filasVisibles.length - filasPintadas.length;
 
   function alternarOrden(clave) {
     setOrden((previo) => {
@@ -79,11 +153,16 @@ export function Tabla({
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 placeholder="Buscar…"
+                // El placeholder no es una etiqueta: desaparece al escribir y no
+                // todos los lectores de pantalla lo anuncian.
+                aria-label={nombreExport ? `Buscar en ${nombreExport}` : 'Buscar en la tabla'}
                 className="campo-base py-1.5 pl-8 text-xs"
               />
             </div>
           )}
-          <span className="tabular whitespace-nowrap text-xs text-tenue">
+          {/* Al buscar o filtrar, este número es la única respuesta que da la
+              pantalla. Se anuncia para quien no lo ve cambiar. */}
+          <span role="status" aria-live="polite" className="tabular whitespace-nowrap text-xs text-tenue">
             {filasVisibles.length} {filasVisibles.length === 1 ? 'registro' : 'registros'}
           </span>
           {acciones}
@@ -91,7 +170,7 @@ export function Tabla({
             <Boton
               tamanio="sm"
               icono={Download}
-              onClick={() => descargarCSV(nombreExport, filasVisibles, columnas)}
+              onClick={() => descargarCSV(nombreExport, filasVisibles, columnasCSV ?? columnas)}
               disabled={!filasVisibles.length}
               title="Exportar a CSV lo que se ve en la tabla"
             >
@@ -122,6 +201,7 @@ export function Tabla({
                   return (
                     <th
                       key={c.clave}
+                      scope="col"
                       style={c.ancho ? { width: c.ancho } : undefined}
                       className={`border-b border-borde ${padding} text-left text-[11px] font-semibold uppercase
                         tracking-wide text-gris ${c.alinear === 'derecha' ? 'text-right' : ''}`}
@@ -146,12 +226,29 @@ export function Tabla({
               </tr>
             </thead>
             <tbody>
-              {filasVisibles.map((fila, i) => (
+              {filasPintadas.map((fila, i) => (
                 <tr
                   key={claveFila(fila, i)}
                   onClick={alHacerClicFila ? () => alHacerClicFila(fila) : undefined}
+                  /* Una fila que se abre con el mouse tiene que abrirse con el
+                     teclado. Se hace focusable y se atiende Enter y Espacio, en
+                     lugar de ponerle `role="button"`: eso la sacaría de la
+                     semántica de tabla y el lector de pantalla dejaría de decir
+                     en qué fila y columna está. */
+                  tabIndex={alHacerClicFila ? 0 : undefined}
+                  onKeyDown={
+                    alHacerClicFila
+                      ? (e) => {
+                          if (e.key !== 'Enter' && e.key !== ' ') return;
+                          e.preventDefault();
+                          alHacerClicFila(fila);
+                        }
+                      : undefined
+                  }
                   className={`border-b border-borde/60 last:border-0 ${
-                    alHacerClicFila ? 'cursor-pointer transition hover:bg-acento-suave/50' : ''
+                    alHacerClicFila
+                      ? 'cursor-pointer transition hover:bg-acento-suave/50 focus:bg-acento-suave/50 focus:outline-2 focus:outline-offset-[-2px] focus:outline-acento'
+                      : ''
                   } ${fila._resaltar ? 'bg-vencido-suave/60' : ''}`}
                 >
                   {columnas.map((c) => (
@@ -166,6 +263,22 @@ export function Tabla({
               ))}
             </tbody>
           </table>
+
+          {restantes > 0 && (
+            <div className="no-imprimir flex flex-wrap items-center justify-center gap-2 border-t border-borde bg-paper/60 px-3 py-2">
+              <span className="tabular text-xs text-tenue">
+                Mostrando {filasPintadas.length} de {filasVisibles.length}
+              </span>
+              <Boton tamanio="sm" onClick={() => setTope((t) => t + TOPE_INICIAL)}>
+                Mostrar {Math.min(restantes, TOPE_INICIAL)} más
+              </Boton>
+              {restantes > TOPE_INICIAL && (
+                <Boton tamanio="sm" variante="fantasma" onClick={() => setTope(filasVisibles.length)}>
+                  Mostrar las {filasVisibles.length}
+                </Boton>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

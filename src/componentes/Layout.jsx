@@ -15,7 +15,7 @@ import {
   X,
 } from 'lucide-react';
 
-export const MODULOS = [
+const MODULOS = [
   { ruta: '/', titulo: 'Inicio', icono: LayoutDashboard, exacta: true },
   { ruta: '/proyectos', titulo: 'Proyectos', icono: FolderKanban },
   { ruta: '/seguimiento', titulo: 'Seguimiento', icono: CalendarCheck },
@@ -71,8 +71,15 @@ export function Layout() {
 
   return (
     <div className="layout-app flex h-full">
+      {/* Primer elemento alcanzable con el teclado: sin esto, cada pantalla
+          empieza con diez tabulaciones por la navegación antes de llegar al
+          contenido, y hay que repetirlas en cada página. */}
+      <a href="#contenido" className="saltar-al-contenido no-imprimir">
+        Saltar al contenido
+      </a>
+
       {/* Barra lateral fija — escritorio */}
-      <aside className="no-imprimir hidden w-60 shrink-0 flex-col border-r border-borde bg-card lg:flex">
+      <aside className="barra-lateral no-imprimir hidden w-60 shrink-0 flex-col border-r border-borde bg-card lg:flex">
         <Marca />
         <Navegacion />
       </aside>
@@ -103,7 +110,7 @@ export function Layout() {
           {menuAbierto ? <X size={18} /> : <Menu size={18} />}
           Menú
         </button>
-        <main className="area-contenido scroll-fino min-h-0 flex-1 overflow-y-auto">
+        <main id="contenido" tabIndex={-1} className="area-contenido scroll-fino min-h-0 flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>

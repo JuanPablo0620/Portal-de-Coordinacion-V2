@@ -21,7 +21,7 @@ import {
 } from 'recharts';
 import { Vacio } from './Basicos.jsx';
 
-export const SERIES = [
+const SERIES = [
   'var(--color-serie-1)',
   'var(--color-serie-2)',
   'var(--color-serie-3)',
@@ -32,7 +32,7 @@ export const SERIES = [
   'var(--color-serie-8)',
 ];
 
-export const colorSerie = (i) => SERIES[i % SERIES.length];
+const colorSerie = (i) => SERIES[i % SERIES.length];
 
 const EJE = { fontSize: 11, fill: 'var(--color-gris)' };
 
@@ -62,6 +62,9 @@ export function GraficoBarras({
   alto = 260,
   formato,
   anchoEtiqueta = 150,
+  // Los conteos no tienen medios temas: sin esto, seis categorías de un tema
+  // cada una dibujan un eje 0 · 0,25 · 0,5 · 0,75 · 1.
+  decimales = false,
 }) {
   return (
     <Marco alto={alto} datos={datos}>
@@ -73,13 +76,13 @@ export function GraficoBarras({
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-borde)" vertical={!horizontal} horizontal={horizontal} />
         {horizontal ? (
           <>
-            <XAxis type="number" tick={EJE} tickFormatter={formato} />
+            <XAxis type="number" tick={EJE} tickFormatter={formato} allowDecimals={decimales} />
             <YAxis type="category" dataKey={clave} width={anchoEtiqueta} tick={EJE} />
           </>
         ) : (
           <>
             <XAxis dataKey={clave} tick={EJE} angle={-35} textAnchor="end" height={70} interval={0} />
-            <YAxis tick={EJE} tickFormatter={formato} />
+            <YAxis tick={EJE} tickFormatter={formato} allowDecimals={decimales} />
           </>
         )}
         <Tooltip contentStyle={ESTILO_TOOLTIP} formatter={(v, n) => [formato ? formato(v) : v, n]} cursor={{ fill: 'var(--color-paper)' }} />
@@ -128,13 +131,19 @@ export function GraficoLineas({ datos, clave = 'fecha', series = [], alto = 260,
   );
 }
 
-export function GraficoTorta({ datos, clave = 'nombre', valor = 'cantidad', alto = 260, formato }) {
+/**
+ * `colorPorItem` existe porque en algunas tortas el color NO es decorativo: en
+ * la distribución de criticidad, rojo/naranja/verde son la información. Sin
+ * esto el color sale por posición y «media» hereda el de «alta» cuando «alta»
+ * está en cero.
+ */
+export function GraficoTorta({ datos, clave = 'nombre', valor = 'cantidad', alto = 260, formato, colorPorItem }) {
   return (
     <Marco alto={alto} datos={datos}>
       <PieChart>
         <Pie data={datos} dataKey={valor} nameKey={clave} innerRadius="45%" outerRadius="72%" paddingAngle={2}>
-          {datos.map((_, i) => (
-            <Cell key={i} fill={colorSerie(i)} stroke="var(--color-card)" strokeWidth={2} />
+          {datos.map((d, i) => (
+            <Cell key={i} fill={colorPorItem ? colorPorItem(d) : colorSerie(i)} stroke="var(--color-card)" strokeWidth={2} />
           ))}
         </Pie>
         <Tooltip contentStyle={ESTILO_TOOLTIP} formatter={(v, n) => [formato ? formato(v) : v, n]} />

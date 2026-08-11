@@ -5,7 +5,7 @@
  * criticidades: si hiciera su propia cuenta, el mismo compromiso podría figurar
  * con distinto atraso acá y en el inicio.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Chip, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
@@ -25,6 +25,16 @@ const TONO_SEVERIDAD = { critica: 'vencido', alta: 'proximo', media: 'atencion' 
 export function PanelAlertas({ compacto = false, limitePorGrupo = 6 }) {
   const bd = useBD();
   const hoy = hoyISO();
+  /**
+   * Grupos desplegados.
+   *
+   * El panel mostraba seis alertas por grupo y un «+25 más» que no era un botón
+   * ni un enlace: en la pestaña Alertas —cuyo único propósito es ver las
+   * alertas— veinticinco de los treinta y un compromisos vencidos no había
+   * forma de mirarlos. El recorte sigue estando, porque abrir con cien alertas
+   * en pantalla tampoco ayuda, pero ahora se abre.
+   */
+  const [desplegados, setDesplegados] = useState({});
 
   const alertas = useMemo(() => (bd ? calcularAlertas(bd, hoy) : []), [bd, hoy]);
   const grupos = useMemo(() => alertasPorTipo(alertas), [alertas]);
@@ -63,7 +73,10 @@ export function PanelAlertas({ compacto = false, limitePorGrupo = 6 }) {
       </header>
 
       <div className={`grid grid-cols-1 gap-px bg-borde ${compacto ? '' : 'lg:grid-cols-2'}`}>
-        {ORDEN_TIPOS.filter((tipo) => grupos[tipo]?.length).map((tipo) => (
+        {ORDEN_TIPOS.filter((tipo) => grupos[tipo]?.length).map((tipo) => {
+          const visibles = desplegados[tipo] ? grupos[tipo].length : limitePorGrupo;
+          const ocultas = grupos[tipo].length - visibles;
+          return (
           <div key={tipo} className="bg-card p-3.5">
             <div className="mb-2 flex items-center gap-2">
               <span
@@ -74,7 +87,7 @@ export function PanelAlertas({ compacto = false, limitePorGrupo = 6 }) {
               <Chip tono={TONO_SEVERIDAD[grupos[tipo][0].severidad]}>{grupos[tipo].length}</Chip>
             </div>
             <ul className="flex flex-col">
-              {grupos[tipo].slice(0, limitePorGrupo).map((a) => (
+              {grupos[tipo].slice(0, visibles).map((a) => (
                 <li key={a.id}>
                   <Link
                     to={a.ruta_origen}
@@ -88,7 +101,7 @@ export function PanelAlertas({ compacto = false, limitePorGrupo = 6 }) {
                     </div>
                     <div className="shrink-0 text-right">
                       {a.dias_atraso > 0 ? (
-                        <span className="tabular text-[11px] font-medium" style={{ color: 'var(--color-vencido)' }}>
+                        <span className="tabular text-[11px] font-medium" style={{ color: 'var(--color-vencido-texto)' }}>
                           +{a.dias_atraso} d
                         </span>
                       ) : a.dias_restantes !== undefined ? (
@@ -99,12 +112,44 @@ export function PanelAlertas({ compacto = false, limitePorGrupo = 6 }) {
                   </Link>
                 </li>
               ))}
-              {grupos[tipo].length > limitePorGrupo && (
-                <li className="pt-1 text-[11px] text-tenue">+{grupos[tipo].length - limitePorGrupo} más</li>
+              {ocultas > 0 && (
+                <li className="pt-1">
+                  {compacto ? (
+                    // En el panel compacto el resto está en la pestaña Alertas,
+                    // que es donde se trabaja: se linkea ahí en vez de desplegar
+                    // cien filas dentro de una tarjeta de resumen.
+                    <Link
+                      to="/monitoreo?tab=alertas"
+                      className="text-[11px] text-acento underline-offset-2 hover:underline"
+                    >
+                      Ver las {grupos[tipo].length} →
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setDesplegados((d) => ({ ...d, [tipo]: true }))}
+                      className="text-[11px] text-acento underline-offset-2 hover:underline"
+                    >
+                      Ver las {ocultas} restantes
+                    </button>
+                  )}
+                </li>
+              )}
+              {!compacto && desplegados[tipo] && grupos[tipo].length > limitePorGrupo && (
+                <li className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setDesplegados((d) => ({ ...d, [tipo]: false }))}
+                    className="text-[11px] text-tenue underline-offset-2 hover:underline"
+                  >
+                    Mostrar sólo las primeras {limitePorGrupo}
+                  </button>
+                </li>
               )}
             </ul>
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

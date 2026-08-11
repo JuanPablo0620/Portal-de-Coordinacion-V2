@@ -14,7 +14,7 @@ import {
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { compromisos as selCompromisos, hoyISO, proyectoPorId, reunionesDe, diasHasta } from '../../datos/selectores.js';
 import { DIAS_PERIODICIDAD } from '../../datos/catalogos.js';
-import { fecha as fFecha, numero, textoVencimiento } from '../../utilidades/formato.js';
+import { fecha as fFecha, textoVencimiento } from '../../utilidades/formato.js';
 import { useBD } from '../../estado/tienda.js';
 import { configDe } from './tipos.js';
 

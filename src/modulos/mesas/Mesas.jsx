@@ -118,7 +118,10 @@ function TarjetaMesa({ mesa, color, atrasada, alAbrir, alRegistrar, alEditar }) 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex items-start justify-between gap-2">
           <button type="button" onClick={alAbrir} className="min-w-0 text-left">
-            <h3 className="truncate text-sm font-semibold text-tinta hover:text-acento">{mesa.nombre}</h3>
+            {/* h2 y no h3: cada tarjeta de mesa cuelga directamente del título
+                de la página, sin una sección intermedia. Saltar un nivel rompe
+                la navegación por encabezados de un lector de pantalla. */}
+            <h2 className="truncate text-sm font-semibold text-tinta hover:text-acento">{mesa.nombre}</h2>
           </button>
           <button
             type="button"

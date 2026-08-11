@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Bookmark, Download, FileBarChart, Printer, Save, Trash2, X } from 'lucide-react';
+import { Bookmark, Printer, Save, Trash2, X } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
-import { Boton, Chip, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
+import { Boton, Chip, Tarjeta } from '../../componentes/Basicos.jsx';
 import { CampoCheck, CampoFecha, CampoSelect, CampoTexto } from '../../componentes/Campo.jsx';
 import { Modal } from '../../componentes/Modal.jsx';
 import { VistaPrevia } from './VistaPrevia.jsx';
@@ -192,7 +192,36 @@ function SelectorBloques({ bloques, setBloques, reporte }) {
           </div>
         ))}
       </div>
+      <TamanioDelDocumento bloques={bloques} cantidad={CANTIDAD} />
     </Tarjeta>
+  );
+}
+
+/**
+ * Aviso de tamaño.
+ *
+ * Sin filtros y con todos los bloques marcados, el documento pasa las mil
+ * doscientas filas: unas treinta páginas que salen recién al abrir el diálogo
+ * de impresión, cuando ya es tarde para acotar el recorte. Decirlo antes cuesta
+ * una línea. El umbral es alto a propósito: un informe largo puede ser
+ * exactamente lo que se pidió, así que esto avisa, no impide.
+ */
+const FILAS_POR_PAGINA = 40;
+const FILAS_QUE_PREOCUPAN = 300;
+
+function TamanioDelDocumento({ bloques, cantidad }) {
+  const filas = Object.entries(cantidad).reduce(
+    (suma, [clave, n]) => suma + (bloques[clave] ? n : 0),
+    0,
+  );
+  if (filas < FILAS_QUE_PREOCUPAN) return null;
+
+  return (
+    <p className="mt-3 text-xs text-gris">
+      El documento tiene <span className="tabular font-semibold">{filas.toLocaleString('es-AR')}</span> filas:
+      alrededor de <span className="tabular font-semibold">{Math.ceil(filas / FILAS_POR_PAGINA)}</span> páginas
+      impresas. Acotá el período o desmarcá bloques si buscabas algo más corto.
+    </p>
   );
 }
 
@@ -220,7 +249,7 @@ function ReportesGuardados({ guardados, alAplicar }) {
             <button
               type="button"
               onClick={() => acciones.borrarReporte(r.id)}
-              className="shrink-0 rounded p-1.5 text-tenue transition hover:bg-vencido-suave hover:text-vencido"
+              className="shrink-0 rounded p-1.5 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
               aria-label="Borrar configuración"
             >
               <Trash2 size={14} />

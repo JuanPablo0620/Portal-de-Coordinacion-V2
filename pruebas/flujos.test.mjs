@@ -17,7 +17,6 @@ import {
   compromisos as selCompromisos,
   historialArea,
   historialProyecto,
-  porcentajeAvance,
   proyectoPorId,
   proyectos as selProyectos,
   resumenRequerimientos,
@@ -461,4 +460,74 @@ test('vaciar el sistema deja todo limpio y vuelve a permitir cargar desde cero',
 
   const p = await repo.crearProyecto(PROYECTO_BASE);
   assert.equal(p.id_proyecto, 'OBR-2026-001', 'el correlativo arranca de nuevo');
+});
+
+/* ── Escrituras en lote ───────────────────────────────────────────── */
+
+/**
+ * Cada operación persiste la base ENTERA. Con dos años de carga eso son dos
+ * megabytes y medio por escritura, así que las operaciones en tanda tienen que
+ * agrupar: importar doscientas filas no puede costar doscientas escrituras.
+ *
+ * Lo observable desde afuera es la notificación al store —una por escritura—,
+ * y de paso es lo que garantiza que la pantalla no se repinte con una
+ * importación a medio hacer.
+ */
+test('una importación en lote escribe y notifica una sola vez', async () => {
+  await repo.vaciarSistema();
+  let notificaciones = 0;
+  const baja = repo.suscribir(() => {
+    notificaciones += 1;
+  });
+
+  const filas = Array.from({ length: 25 }, (_, i) => ({
+    area: 'Secretaría de Obras Públicas',
+    proyecto: `Proyecto importado ${i + 1}`,
+    estado: 'planificado',
+    objetivo: 100,
+    avance: 0,
+  }));
+  const resultado = await repo.importarProyectos(filas);
+  baja();
+
+  assert.equal(resultado.importados, 25);
+  assert.equal(notificaciones, 1, `se notificó ${notificaciones} veces en lugar de 1`);
+  const bd = await repo.obtenerBD();
+  assert.equal(bd.proyectos.length, 25, 'el lote tiene que dejar todas las filas guardadas');
+  assert.equal(bd.historial.filter((h) => h.entidad === 'proyectos').length, 25, 'faltan asientos de bitácora');
+});
+
+test('un tema con acción es una sola escritura, con su compromiso y el vínculo', async () => {
+  await repo.vaciarSistema();
+  const monitoreo = await repo.crearMonitoreo({ fecha: '2026-08-10', area: 'Secretaría de Salud' });
+
+  let notificaciones = 0;
+  const baja = repo.suscribir(() => {
+    notificaciones += 1;
+  });
+  const { tema, compromiso } = await repo.agregarTema(monitoreo.id, {
+    descripcion: 'Equipamiento fuera de servicio',
+    categoria: 'Operativo',
+    criticidad: 'alta',
+    requiere_accion: true,
+    responsable: 'M. Álvarez',
+    fecha_limite: '2026-09-01',
+  });
+  baja();
+
+  assert.equal(notificaciones, 1, `se notificó ${notificaciones} veces en lugar de 1`);
+  assert.ok(compromiso, 'el tema con acción tiene que crear su compromiso');
+  const bd = await repo.obtenerBD();
+  assert.equal(bd.temas_monitoreo.find((t) => t.id === tema.id).id_compromiso, compromiso.id);
+});
+
+test('un lote que falla a mitad conserva lo que alcanzó a entrar', async () => {
+  await repo.vaciarSistema();
+  const resultado = await repo.importarProyectos([
+    { area: 'Secretaría de Salud', proyecto: 'Válido', estado: 'planificado' },
+    { area: 'Secretaría de Salud', proyecto: 'También válido', estado: 'planificado' },
+  ]);
+  assert.equal(resultado.importados, 2);
+  const bd = await repo.obtenerBD();
+  assert.equal(bd.proyectos.length, 2, 'lo importado tiene que quedar persistido igual');
 });

@@ -5,9 +5,11 @@ import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { BarraAvance, Boton, Chip, EstadoProyecto, Prioridad, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { CampoSelect } from '../../componentes/Campo.jsx';
+import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { FormularioProyecto } from './FormularioProyecto.jsx';
 import { ImportarProyectos } from './ImportarProyectos.jsx';
 import { ESTADOS_PROYECTO, PRIORIDADES } from '../../datos/catalogos.js';
+import { COLUMNAS_CSV_PROYECTO } from '../../datos/importacion.js';
 import { proyectos as selProyectos, hoyISO } from '../../datos/selectores.js';
 import { fecha as fFecha, haceCuanto, moneda, numero } from '../../utilidades/formato.js';
 import { acciones, useBD } from '../../estado/tienda.js';
@@ -32,6 +34,7 @@ export default function Proyectos() {
   const [filtros, setFiltros, limpiarFiltros] = useFiltrosUrl(DEFAULTS);
   const [formulario, setFormulario] = useState(null);
   const [importando, setImportando] = useState(false);
+  const [confirmandoDemo, setConfirmandoDemo] = useState(false);
 
   const opcionesArea = useOpciones('areas');
   const opcionesPrograma = useOpciones('programas');
@@ -158,6 +161,10 @@ export default function Proyectos() {
         <Tarjeta sinPadding className="min-h-0">
           <Tabla
             columnas={columnas}
+            // El CSV de la base maestra lleva los campos del modelo, no los de
+            // la pantalla: es el archivo que se edita en planilla y se vuelve a
+            // importar, así que tiene que traer todo lo obligatorio.
+            columnasCSV={COLUMNAS_CSV_PROYECTO}
             filas={filas}
             nombreExport="proyectos"
             claveFila={(f) => f.id_proyecto}
@@ -179,7 +186,7 @@ export default function Proyectos() {
                   tamanio="sm"
                   variante="fantasma"
                   icono={Database}
-                  onClick={() => acciones.cargarDemo(hoyISO())}
+                  onClick={() => setConfirmandoDemo(true)}
                   title="Reemplaza el contenido por un set de prueba"
                 >
                   Demo
@@ -192,6 +199,19 @@ export default function Proyectos() {
 
       {formulario && <FormularioProyecto abierto alCerrar={() => setFormulario(null)} proyecto={formulario.id_proyecto ? formulario : null} />}
       {importando && <ImportarProyectos abierto alCerrar={() => setImportando(false)} />}
+
+      {/* La carga de la demo BORRA todo lo cargado. Acá se disparaba con un
+          solo clic, sin preguntar, al lado de la tabla de trabajo: el mismo
+          botón que en Configuración pide confirmación. */}
+      <ModalConfirmacion
+        abierto={confirmandoDemo}
+        alCerrar={() => setConfirmandoDemo(false)}
+        alConfirmar={() => acciones.cargarDemo(hoyISO())}
+        titulo="Cargar datos de demostración"
+        mensaje="Se reemplaza todo el contenido actual del sistema por un set de prueba: proyectos, seguimientos, compromisos, monitoreos, mesas, eventos y bitácora. Lo que hayas cargado se pierde. ¿Confirmás?"
+        textoConfirmar="Cargar demostración"
+        variante="peligro"
+      />
     </>
   );
 }

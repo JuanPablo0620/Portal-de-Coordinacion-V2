@@ -12,7 +12,7 @@ function Etiqueta({ id, children, requerido, ayuda }) {
   return (
     <label htmlFor={id} className="mb-1 block text-xs font-medium text-gris">
       {children}
-      {requerido && <span className="ml-0.5 text-vencido">*</span>}
+      {requerido && <span className="ml-0.5 text-vencido-texto">*</span>}
       {ayuda && <span className="ml-1.5 font-normal text-tenue">{ayuda}</span>}
     </label>
   );
@@ -20,7 +20,7 @@ function Etiqueta({ id, children, requerido, ayuda }) {
 
 function Error({ children }) {
   if (!children) return null;
-  return <p className="mt-1 text-[11px] text-vencido">{children}</p>;
+  return <p className="mt-1 text-[11px] text-vencido-texto">{children}</p>;
 }
 
 export function Campo({ etiqueta, requerido, ayuda, error, children, className = '' }) {
@@ -183,11 +183,6 @@ export function CampoRadios({ etiqueta, requerido, opciones = [], valor, alCambi
       </div>
     </div>
   );
-}
-
-/** Fila de acciones al pie de un formulario. */
-export function PieFormulario({ children }) {
-  return <div className="mt-5 flex items-center justify-end gap-2 border-t border-borde pt-4">{children}</div>;
 }
 
 /** Grilla responsive de campos. En tablet colapsa a una columna. */

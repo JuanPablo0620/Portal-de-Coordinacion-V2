@@ -44,7 +44,22 @@ export const ESTADOS_MESA = Object.freeze(['activa', 'latente', 'cerrada']);
 
 export const ESTADOS_EVENTO = Object.freeze(['previsto', 'confirmado', 'realizado', 'suspendido']);
 
-export const TIPOS_SEGUIMIENTO = Object.freeze(['programado', 'realizado']);
+/**
+ * Umbrales de vencimiento y cobertura, en un solo lugar.
+ *
+ * Viven acá —y no en el motor de alertas— porque los consumen los dos lados:
+ * `alertas.js` para emitir la alerta y `selectores.js` para pintar el semáforo
+ * de cada secretaría. Este módulo no importa a nadie, así que ambos pueden
+ * leerlo sin abrir un ciclo de importación.
+ */
+export const UMBRALES = Object.freeze({
+  DIAS_POR_VENCER: 7,
+  DIAS_SIN_ACTUALIZAR: 30,
+  DIAS_EVENTO: 5,
+  DIAS_VENCIMIENTOS_DASHBOARD: 15,
+  /** Días sin monitorear a partir de los cuales una secretaría queda en amarillo. */
+  DIAS_SIN_MONITOREO: 30,
+});
 
 /** Días que representa cada periodicidad de mesa, para el indicador de vencimiento. */
 export const DIAS_PERIODICIDAD = Object.freeze({

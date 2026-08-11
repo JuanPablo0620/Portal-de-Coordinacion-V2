@@ -5,11 +5,26 @@
  * devuelven valores nuevos. `hoy` siempre entra como parámetro —nunca se lee
  * del reloj adentro— porque es lo que hace verificables los vencimientos.
  */
-import { ESTADOS_ACTIVOS, DIAS_PERIODICIDAD } from './catalogos.js';
-import { masRecientePrimero } from './bitacora.js';
+import { ESTADOS_ACTIVOS, DIAS_PERIODICIDAD, UMBRALES } from './catalogos.js';
+import { masRecientePrimero, redactarAsiento } from './bitacora.js';
 import { hoyISO } from './tiempo.js';
 
 const MS_DIA = 86_400_000;
+
+/**
+ * Semáforo de días restantes: rojo vencido · naranja ≤3 · amarillo ≤15 · verde.
+ *
+ * Vive acá y no en los componentes porque lo usan las tres capas —el motor de
+ * alertas, las tablas y los tableros—, y tres copias de la misma escala son
+ * tres oportunidades de que una se desincronice.
+ */
+export function nivelPorDias(dias) {
+  if (dias === null || dias === undefined) return 'sindato';
+  if (dias < 0) return 'vencido';
+  if (dias <= 3) return 'proximo';
+  if (dias <= 15) return 'atencion';
+  return 'enregla';
+}
 
 /* ── Fechas ─────────────────────────────────────────────────────────── */
 
@@ -87,9 +102,30 @@ export function ultimaActualizacion(bd, idProyecto) {
   return maxima;
 }
 
+/**
+ * Última actualización de TODOS los proyectos, en un solo recorrido de la
+ * bitácora.
+ *
+ * `ultimaActualizacion()` recorre el historial entero por cada proyecto: con
+ * trescientos proyectos y cinco mil asientos —el volumen de un par de años de
+ * uso— eso son un millón y medio de comparaciones cada vez que se lista la
+ * tabla. Quien necesita el dato de muchos proyectos a la vez arma el índice una
+ * sola vez; la función de un proyecto solo se conserva para las fichas.
+ */
+export function mapaUltimaActualizacion(bd) {
+  const mapa = new Map();
+  for (const asiento of bd.historial ?? []) {
+    if (!asiento.id_proyecto) continue;
+    const previo = mapa.get(asiento.id_proyecto);
+    if (previo === undefined || asiento.creado_en > previo) mapa.set(asiento.id_proyecto, asiento.creado_en);
+  }
+  return mapa;
+}
+
 /** Proyectos activos con los campos derivados ya calculados. */
 export function proyectos(bd, filtros = {}) {
   const { texto, ...resto } = filtros;
+  const ultimas = mapaUltimaActualizacion(bd);
   return activos(bd.proyectos)
     .filter((p) =>
       coincide(resto.area, p.area) &&
@@ -109,7 +145,7 @@ export function proyectos(bd, filtros = {}) {
     .map((p) => ({
       ...p,
       porcentaje_avance: porcentajeAvance(p),
-      ultima_actualizacion: ultimaActualizacion(bd, p.id_proyecto),
+      ultima_actualizacion: ultimas.get(p.id_proyecto) ?? null,
     }));
 }
 
@@ -117,13 +153,6 @@ export function proyectoPorId(bd, id) {
   const p = activos(bd.proyectos).find((x) => x.id_proyecto === id);
   if (!p) return null;
   return { ...p, porcentaje_avance: porcentajeAvance(p), ultima_actualizacion: ultimaActualizacion(bd, id) };
-}
-
-/** Mapa id → nombre, para mostrar el nombre del proyecto sin recorrer la colección. */
-export function mapaProyectos(bd) {
-  const mapa = new Map();
-  for (const p of activos(bd.proyectos)) mapa.set(p.id_proyecto, p);
-  return mapa;
 }
 
 /* ── Compromisos ────────────────────────────────────────────────────── */
@@ -177,11 +206,29 @@ export function seguimientos(bd, filtros = {}) {
     .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
 }
 
+/**
+ * Índice temas por monitoreo, armado UNA vez por llamada.
+ *
+ * Filtrar la colección de temas dentro del `map` de monitoreos la recorría
+ * entera por cada fila: con un año de carga real —miles de temas y cientos de
+ * monitoreos— eso es el cuello de botella del tablero, que llama a este selector
+ * una vez por secretaría.
+ */
+function agruparTemas(bd) {
+  const mapa = new Map();
+  for (const t of activos(bd.temas_monitoreo)) {
+    if (!mapa.has(t.id_monitoreo)) mapa.set(t.id_monitoreo, []);
+    mapa.get(t.id_monitoreo).push(t);
+  }
+  return mapa;
+}
+
 export function monitoreos(bd, filtros = {}) {
+  const porMonitoreo = agruparTemas(bd);
   return activos(bd.monitoreos)
     .filter((m) => coincide(filtros.area, m.area) && dentroDelRango(m.fecha, filtros.desde, filtros.hasta))
     .map((m) => {
-      const temas = temasDe(bd, m.id);
+      const temas = porMonitoreo.get(m.id) ?? [];
       return {
         ...m,
         cantidad_temas: temas.length,
@@ -196,7 +243,7 @@ export function temasDe(bd, idMonitoreo) {
   return activos(bd.temas_monitoreo).filter((t) => t.id_monitoreo === idMonitoreo);
 }
 
-export function criticidadMaxima(temas) {
+function criticidadMaxima(temas) {
   if (temas.some((t) => t.criticidad === 'alta')) return 'alta';
   if (temas.some((t) => t.criticidad === 'media')) return 'media';
   if (temas.length) return 'baja';
@@ -217,6 +264,231 @@ export function monitoreosPorArea(bd, filtros = {}) {
   return [...cuenta.entries()]
     .map(([area, cantidad]) => ({ area, cantidad }))
     .sort((a, b) => b.cantidad - a.cantidad || a.area.localeCompare(b.area));
+}
+
+/* ── Tablero por secretaría ─────────────────────────────────────────── */
+
+const ETIQUETAS_MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/** Cantidad de meses que muestra la mini-serie de cada tarjeta de secretaría. */
+const MESES_TABLERO = 6;
+
+/**
+ * Los últimos `cantidad` meses terminando en el de `hastaISO`, como 'AAAA-MM'.
+ * Se calcula con aritmética sobre año y mes —no con `Date`— para que no dependa
+ * del huso del navegador, igual que el resto de las fechas del sistema.
+ */
+export function mesesHasta(hastaISO, cantidad = MESES_TABLERO) {
+  const anio = Number(String(hastaISO).slice(0, 4));
+  const mes = Number(String(hastaISO).slice(5, 7));
+  if (!anio || !mes) return [];
+  const salida = [];
+  for (let i = cantidad - 1; i >= 0; i -= 1) {
+    const indice = anio * 12 + (mes - 1) - i;
+    salida.push(`${Math.floor(indice / 12)}-${String((indice % 12) + 1).padStart(2, '0')}`);
+  }
+  return salida;
+}
+
+export function etiquetaMes(mes) {
+  const [anio, numeroMes] = String(mes).split('-');
+  return `${ETIQUETAS_MES[Number(numeroMes) - 1] ?? '—'} ${String(anio).slice(2)}`;
+}
+
+/**
+ * Nombres de todas las secretarías: las del catálogo MÁS las que aparezcan en
+ * los datos. La unión evita que un área dada de baja del catálogo —o cargada
+ * por importación con otro nombre— se lleve sus registros a un lugar invisible.
+ */
+export function nombresAreas(bd) {
+  const nombres = new Set(activos(bd.catalogos?.areas ?? []).map((a) => a.nombre));
+  for (const coleccion of ['proyectos', 'monitoreos', 'seguimientos', 'compromisos']) {
+    for (const registro of activos(bd[coleccion])) {
+      if (registro.area) nombres.add(registro.area);
+    }
+  }
+  return [...nombres].sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+/** Orden de presentación: primero las secretarías que necesitan intervención. */
+const ORDEN_NIVEL = { vencido: 0, proximo: 1, atencion: 2, sindato: 3, enregla: 4 };
+
+/**
+ * Semáforo de una secretaría. La escala es de gestión, no estética: lo que
+ * manda es el compromiso incumplido, después el tema crítico abierto, después
+ * la falta de cobertura. Verde significa «monitoreada y sin deuda», no
+ * «sin datos».
+ */
+export function nivelSecretaria(r) {
+  if (r.compromisos.vencidos > 0) return 'vencido';
+  if (r.temas.alta_sin_resolver > 0) return 'proximo';
+  if (r.ultimo_monitoreo === null) return 'sindato';
+  if (r.dias_sin_monitoreo > UMBRALES.DIAS_SIN_MONITOREO) return 'atencion';
+  if (r.compromisos.por_vencer > 0 || r.temas.sin_resolver > 0) return 'atencion';
+  return 'enregla';
+}
+
+/** Temas de monitoreo de una secretaría, con la fecha y el área de su monitoreo. */
+export function temasDeArea(bd, area, filtros = {}) {
+  return monitoreos(bd, { ...filtros, area })
+    .flatMap((m) => m.temas.map((t) => ({ ...t, fecha: m.fecha, area: m.area, id_monitoreo: m.id })))
+    .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+}
+
+/**
+ * Tablero de una secretaría.
+ *
+ * El período (`desde`/`hasta`) acota lo que se CONTABILIZA —monitoreos, temas,
+ * seguimientos—, pero no los compromisos ni los proyectos: esos son estado
+ * vigente, y recortarlos por fecha escondería justo el compromiso vencido que
+ * hay que ver. Por el mismo motivo `ultimo_monitoreo` se mide sobre toda la
+ * historia y no sobre la ventana.
+ */
+export function resumenSecretaria(bd, area, filtros = {}, hoy = hoyISO()) {
+  const { desde, hasta } = filtros;
+
+  // El histórico se calcula UNA vez y la ventana sale de filtrarlo: pedir dos
+  // veces el selector de monitoreos era pagar dos veces el recorrido de temas.
+  const historicos = monitoreos(bd, { area });
+  const listaMonitoreos = historicos.filter((m) => dentroDelRango(m.fecha, desde, hasta));
+  const listaTemas = listaMonitoreos.flatMap((m) => m.temas.map((t) => ({ ...t, fecha: m.fecha })));
+  const listaSeguimientos = seguimientos(bd, { area, desde, hasta });
+  const listaCompromisos = compromisos(bd, { area }, hoy);
+  const listaProyectos = proyectos(bd, { area });
+
+  const ultimoMonitoreo = historicos[0]?.fecha ?? null;
+
+  const porCriticidad = { alta: 0, media: 0, baja: 0 };
+  const categorias = new Map();
+  let sinResolver = 0;
+  let altaSinResolver = 0;
+  let accionesPendientes = 0;
+  for (const t of listaTemas) {
+    if (porCriticidad[t.criticidad] !== undefined) porCriticidad[t.criticidad] += 1;
+    if (!t.resuelto) {
+      sinResolver += 1;
+      if (t.criticidad === 'alta') altaSinResolver += 1;
+      if (t.requiere_accion) accionesPendientes += 1;
+    }
+    const categoria = t.categoria || 'Sin categoría';
+    categorias.set(categoria, (categorias.get(categoria) ?? 0) + 1);
+  }
+
+  /**
+   * La serie mensual se cuenta sobre el HISTÓRICO, no sobre la ventana. Contarla
+   * sobre la ventana dibujaba en cero los meses que el filtro dejaba afuera, y
+   * un cero es exactamente lo que este tablero usa para decir «sin cobertura»:
+   * el filtro terminaba fabricando la señal que el panel existe para detectar.
+   */
+  const serie = mesesHasta(hasta || hoy).map((mes) => {
+    const delMes = historicos.filter((m) => String(m.fecha).slice(0, 7) === mes);
+    return {
+      mes,
+      etiqueta: etiquetaMes(mes),
+      monitoreos: delMes.length,
+      temas: delMes.reduce((s, m) => s + m.temas.length, 0),
+    };
+  });
+
+  const objetivo = listaProyectos.reduce((s, p) => s + (Number(p.objetivo) || 0), 0);
+  const avance = listaProyectos.reduce((s, p) => s + (Number(p.avance) || 0), 0);
+  const planificado = listaProyectos.reduce((s, p) => s + (Number(p.monto_planificado) || 0), 0);
+  const ejecutado = listaProyectos.reduce((s, p) => s + (Number(p.monto_ejecutado) || 0), 0);
+
+  const resumen = {
+    area,
+    monitoreos: listaMonitoreos.length,
+    ultimo_monitoreo: ultimoMonitoreo,
+    dias_sin_monitoreo: ultimoMonitoreo ? Math.abs(diasHasta(ultimoMonitoreo, hoy)) : null,
+    seguimientos: listaSeguimientos.length,
+    ultimo_seguimiento: listaSeguimientos[0]?.fecha ?? null,
+    proximo_seguimiento: proximoSeguimiento(bd, area, hoy),
+    temas: {
+      total: listaTemas.length,
+      sin_resolver: sinResolver,
+      alta_sin_resolver: altaSinResolver,
+      acciones_pendientes: accionesPendientes,
+      ...porCriticidad,
+    },
+    compromisos: {
+      total: listaCompromisos.length,
+      vencidos: listaCompromisos.filter((c) => c.estado_efectivo === 'vencido').length,
+      cumplidos: listaCompromisos.filter((c) => c.estado_efectivo === 'cumplido').length,
+      por_vencer: listaCompromisos.filter(
+        (c) =>
+          c.estado_efectivo !== 'cumplido' &&
+          c.dias_restantes !== null &&
+          c.dias_restantes >= 0 &&
+          c.dias_restantes <= UMBRALES.DIAS_POR_VENCER,
+      ).length,
+    },
+    proyectos: {
+      total: listaProyectos.length,
+      activos: listaProyectos.filter(esProyectoActivo).length,
+      porcentaje_avance: objetivo ? Math.min(Math.round((avance / objetivo) * 100), 100) : 0,
+    },
+    presupuesto: {
+      planificado,
+      ejecutado,
+      porcentaje: planificado ? Math.round((ejecutado / planificado) * 100) : 0,
+      desvio: planificado ? Math.round((ejecutado / planificado) * 100) - 100 : 0,
+    },
+    criticidad_maxima: criticidadMaxima(listaTemas),
+    categorias: [...categorias.entries()]
+      .map(([nombre, cantidad]) => ({ nombre, cantidad }))
+      .sort((a, b) => b.cantidad - a.cantidad || a.nombre.localeCompare(b.nombre, 'es')),
+    serie,
+    comparativo: compararConPeriodoPrevio(historicos, listaMonitoreos, listaTemas.length, desde, hasta, hoy),
+  };
+  resumen.nivel = nivelSecretaria(resumen);
+  return resumen;
+}
+
+/** Próximo seguimiento agendado del área; null si no hay ninguno por delante. */
+function proximoSeguimiento(bd, area, hoy) {
+  return (
+    seguimientos(bd, { area, tipo: 'programado' })
+      .filter((s) => String(s.fecha).slice(0, 10) >= hoy)
+      .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))[0] ?? null
+  );
+}
+
+/**
+ * Variación contra la ventana inmediatamente anterior, del mismo largo.
+ *
+ * Sólo se calcula si hay un `desde`: sin ventana explícita no existe un
+ * «período anterior» comparable, y un delta contra un rango inventado diría
+ * que algo mejoró o empeoró sin que nadie pueda verificarlo. Se cuenta sobre
+ * `historicos`, que ya está en memoria, así que no agrega recorridos.
+ */
+function compararConPeriodoPrevio(historicos, listaMonitoreos, temasActuales, desde, hasta, hoy) {
+  if (!desde) return null;
+  const fin = hasta || hoy;
+  const largo = diasHasta(fin, desde);
+  if (largo === null || largo < 0) return null;
+
+  const previoHasta = sumarDias(desde, -1);
+  const previoDesde = sumarDias(previoHasta, -largo);
+  const previos = historicos.filter((m) => dentroDelRango(m.fecha, previoDesde, previoHasta));
+  const temasPrevios = previos.reduce((s, m) => s + m.temas.length, 0);
+
+  return {
+    desde: previoDesde,
+    hasta: previoHasta,
+    monitoreos: previos.length,
+    temas: temasPrevios,
+    delta_monitoreos: listaMonitoreos.length - previos.length,
+    delta_temas: temasActuales - temasPrevios,
+  };
+}
+
+/** Una tarjeta por secretaría, ordenadas por urgencia y después por nombre. */
+export function resumenSecretarias(bd, filtros = {}, hoy = hoyISO()) {
+  return nombresAreas(bd)
+    .map((area) => resumenSecretaria(bd, area, filtros, hoy))
+    .sort(
+      (a, b) => ORDEN_NIVEL[a.nivel] - ORDEN_NIVEL[b.nivel] || a.area.localeCompare(b.area, 'es'),
+    );
 }
 
 /* ── Mesas ──────────────────────────────────────────────────────────── */
@@ -287,12 +559,6 @@ export function feedBitacora(bd, n = 10) {
   return [...(bd.historial ?? [])].sort(masRecientePrimero).slice(0, n);
 }
 
-export function historialDe(bd, entidad, idEntidad) {
-  return (bd.historial ?? [])
-    .filter((h) => h.entidad === entidad && h.id_entidad === idEntidad)
-    .sort(masRecientePrimero);
-}
-
 export function historialProyecto(bd, idProyecto) {
   return (bd.historial ?? []).filter((h) => h.id_proyecto === idProyecto).sort(masRecientePrimero);
 }
@@ -315,6 +581,189 @@ export function serieAvance(bd, idProyecto) {
     if (cambio) puntos.push({ fecha: h.creado_en.slice(0, 10), avance: Number(cambio.despues) || 0 });
   }
   return puntos;
+}
+
+/* ── Historial unificado de un proyecto ─────────────────────────────── */
+
+/**
+ * Capas del historial de un proyecto.
+ *
+ * El historial de un proyecto SE COMPONE de su monitoreo y su seguimiento: esas
+ * dos capas son la sustancia. Los compromisos y los cambios de ficha se suman
+ * como contexto —de dónde salió cada obligación y qué campo se tocó cuándo—, y
+ * cada capa se puede apagar sin tocar las demás.
+ */
+export const CAPAS_HISTORIAL = Object.freeze([
+  { clave: 'monitoreo', titulo: 'Monitoreo', color: 'var(--color-capa-monitoreo)' },
+  { clave: 'seguimiento', titulo: 'Seguimiento', color: 'var(--color-capa-seguimiento)' },
+  { clave: 'compromiso', titulo: 'Compromisos', color: 'var(--color-capa-vencimiento)' },
+  { clave: 'hito', titulo: 'Hitos planificados', color: 'var(--color-capa-hito)' },
+  { clave: 'mesa', titulo: 'Mesas', color: 'var(--color-capa-mesa)' },
+  { clave: 'evento', titulo: 'Eventos', color: 'var(--color-capa-evento)' },
+  { clave: 'cambio', titulo: 'Cambios de ficha', color: 'var(--color-capa-cambio)' },
+]);
+
+/**
+ * Línea de tiempo única de un proyecto, del más reciente al más antiguo.
+ *
+ * Cada ítem sale ya normalizado —misma forma para las cuatro capas— para que la
+ * vista sea una sola lista y el CSV una sola tabla, en lugar de cuatro paneles
+ * que el usuario tiene que cruzar a ojo.
+ */
+export function historialUnificado(bd, idProyecto, capas = {}, hoy = hoyISO()) {
+  const incluir = (capa) => capas[capa] !== false;
+  const items = [];
+
+  if (incluir('monitoreo')) {
+    const porId = new Map(activos(bd.monitoreos).map((m) => [m.id, m]));
+    for (const t of activos(bd.temas_monitoreo)) {
+      if (t.id_proyecto !== idProyecto) continue;
+      const m = porId.get(t.id_monitoreo);
+      items.push({
+        clave: `tema_${t.id}`,
+        capa: 'monitoreo',
+        fecha: String(m?.fecha ?? t.creado_en ?? '').slice(0, 10),
+        momento: t.creado_en ?? null,
+        titulo: t.descripcion,
+        detalle: [t.categoria, t.criticidad ? `criticidad ${t.criticidad}` : null]
+          .filter(Boolean)
+          .join(' · '),
+        extra: [m?.area, t.responsable].filter(Boolean).join(' · '),
+        estado: t.resuelto ? 'resuelto' : 'sin resolver',
+        nivel: t.resuelto ? 'enregla' : t.criticidad === 'alta' ? 'vencido' : 'atencion',
+        ruta: m ? `/monitoreo?tab=ultimos&monitoreo=${m.id}` : '/monitoreo',
+      });
+    }
+  }
+
+  if (incluir('seguimiento')) {
+    for (const s of seguimientos(bd, { id_proyecto: idProyecto })) {
+      items.push({
+        clave: `seg_${s.id}`,
+        capa: 'seguimiento',
+        fecha: String(s.fecha).slice(0, 10),
+        momento: s.creado_en ?? null,
+        titulo: s.tipo === 'programado' ? 'Seguimiento agendado' : 'Seguimiento realizado',
+        detalle: s.resumen || s.temas || '',
+        extra: [s.area, s.participantes].filter(Boolean).join(' · '),
+        estado: s.tipo,
+        nivel: s.tipo === 'programado' ? 'sindato' : 'enregla',
+        ruta: `/seguimiento?tab=calendario&vista=lista&seguimiento=${s.id}`,
+      });
+    }
+  }
+
+  if (incluir('compromiso')) {
+    for (const c of compromisos(bd, { id_proyecto: idProyecto }, hoy)) {
+      items.push({
+        clave: `com_${c.id}`,
+        capa: 'compromiso',
+        fecha: String(c.fecha_limite ?? '').slice(0, 10),
+        momento: c.creado_en ?? null,
+        titulo: c.descripcion,
+        detalle: `origen: ${c.origen_tipo}`,
+        extra: [c.area, c.responsable].filter(Boolean).join(' · '),
+        estado: c.estado_efectivo === 'vencido' ? `vencido · ${c.dias_atraso} d` : c.estado_efectivo,
+        nivel: c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes),
+        ruta: `/seguimiento?tab=compromisos&compromiso=${c.id}`,
+      });
+    }
+  }
+
+  if (incluir('hito')) {
+    for (const plan of activos(bd.planificacion_anual)) {
+      if (plan.id_proyecto !== idProyecto) continue;
+      for (const hito of plan.hitos ?? []) {
+        items.push({
+          clave: `hito_${plan.id}_${hito.id}`,
+          capa: 'hito',
+          fecha: String(hito.fecha ?? '').slice(0, 10),
+          momento: null,
+          titulo: hito.descripcion,
+          detalle: `Hito planificado para ${plan.anio}`,
+          extra: '',
+          estado: hito.fecha ? textoDeHito(diasHasta(hito.fecha, hoy)) : 'sin fecha',
+          nivel: nivelPorDias(diasHasta(hito.fecha, hoy)),
+          ruta: `/planificacion?tab=carga&proyecto=${idProyecto}`,
+        });
+      }
+    }
+  }
+
+  if (incluir('mesa')) {
+    for (const mesa of activos(bd.mesas)) {
+      if (!(mesa.proyectos_vinculados ?? []).includes(idProyecto)) continue;
+      for (const r of reunionesDe(bd, mesa.id)) {
+        items.push({
+          clave: `reu_${r.id}`,
+          capa: 'mesa',
+          fecha: String(r.fecha).slice(0, 10),
+          momento: r.creado_en ?? null,
+          titulo: `Reunión de la mesa ${mesa.nombre}`,
+          detalle: r.temas || r.resumen || '',
+          extra: [mesa.tipo, r.asistentes].filter(Boolean).join(' · '),
+          estado: mesa.tipo,
+          nivel: 'sindato',
+          ruta: `/mesas?mesa=${mesa.id}`,
+        });
+      }
+    }
+  }
+
+  if (incluir('evento')) {
+    for (const e of activos(bd.eventos)) {
+      if (e.id_proyecto !== idProyecto) continue;
+      items.push({
+        clave: `eve_${e.id}`,
+        capa: 'evento',
+        fecha: String(e.fecha ?? '').slice(0, 10),
+        momento: e.creado_en ?? null,
+        titulo: e.nombre,
+        detalle: [e.tipo, e.lugar].filter(Boolean).join(' · '),
+        extra: e.area_organizadora ?? '',
+        estado: e.estado,
+        nivel: e.estado === 'realizado' ? 'enregla' : e.estado === 'suspendido' ? 'vencido' : 'sindato',
+        ruta: `/eventos?evento=${e.id}`,
+      });
+    }
+  }
+
+  if (incluir('cambio')) {
+    // Sólo los asientos de la ficha del proyecto: los de entidades vinculadas
+    // (un compromiso creado, un tema cargado) ya vienen en su propia capa, y
+    // dejarlos también acá mostraba el mismo hecho dos veces en la misma lista.
+    for (const h of historialProyecto(bd, idProyecto).filter((a) => a.entidad === 'proyectos')) {
+      items.push({
+        clave: `bit_${h.id}`,
+        capa: 'cambio',
+        fecha: String(h.creado_en).slice(0, 10),
+        momento: h.creado_en,
+        titulo: redactarAsiento(h),
+        detalle: '',
+        extra: '',
+        estado: h.accion,
+        nivel: 'sindato',
+        cambios: h.cambios ?? [],
+        ruta: null,
+      });
+    }
+  }
+
+  // Empate por día resuelto con el instante de carga: dos asientos del mismo
+  // día tienen que salir en el orden en que ocurrieron, no en el de la colección.
+  return items.sort(
+    (a, b) =>
+      String(b.fecha).localeCompare(String(a.fecha)) ||
+      String(b.momento ?? '').localeCompare(String(a.momento ?? '')),
+  );
+}
+
+/** «cumplido», «vence en 5 d», «vencido hace 12 d» para un hito planificado. */
+function textoDeHito(dias) {
+  if (dias === null) return 'sin fecha';
+  if (dias < 0) return `pasó hace ${Math.abs(dias)} d`;
+  if (dias === 0) return 'es hoy';
+  return `en ${dias} d`;
 }
 
 /* ── Planificación y agregados ──────────────────────────────────────── */
@@ -467,9 +916,12 @@ export function itemsCalendario(bd, capas, desde, hasta) {
     }
   }
   if (capas.mesas !== false) {
+    // El índice se arma una vez: buscar la mesa dentro del bucle recorría la
+    // colección entera por cada reunión del mes.
+    const mesasPorId = new Map(activos(bd.mesas).map((m) => [m.id, m]));
     for (const r of activos(bd.reuniones_mesa)) {
       if (!enRango(r.fecha)) continue;
-      const mesa = activos(bd.mesas).find((m) => m.id === r.id_mesa);
+      const mesa = mesasPorId.get(r.id_mesa);
       items.push({
         fecha: r.fecha.slice(0, 10),
         capa: 'mesas',

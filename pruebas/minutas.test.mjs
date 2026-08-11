@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { separarMinuta } from '../src/datos/minutas/separarMinuta.js';
+import { generarBaseCompleta } from '../src/datos/base-completa.js';
 
 const HOY = '2026-08-08';
 
@@ -144,4 +145,66 @@ test('la firma devuelve siempre los tres arreglos, aunque estén vacíos', () =>
   assert.ok(Array.isArray(r.compromisos));
   assert.ok(Array.isArray(r.avances));
   assert.ok(Array.isArray(r.problemas));
+});
+
+/* ── El separador contra un corpus grande ─────────────────────────── */
+
+/**
+ * Los tests de arriba prueban frases elegidas a mano; éste pasa el separador
+ * por las minutas de la base completa —más de doscientas, con avances,
+ * problemas y pedidos mezclados en el mismo párrafo— y compara contra lo que el
+ * generador plantó en cada una.
+ *
+ * Sirvió para encontrar la única familia de trabas que se escapaba entera («el
+ * certificado presenta diferencias con lo ejecutado»), y queda como red: una
+ * regla nueva que mejore un caso suelto pero rompa la clasificación general
+ * falla acá.
+ */
+test('el separador clasifica bien el corpus completo de minutas', () => {
+  const bd = generarBaseCompleta('2026-08-10');
+  const minutas = bd.seguimientos.filter((s) => s.texto_crudo?.trim());
+  assert.ok(minutas.length > 100, 'el corpus tiene que ser grande para que esto signifique algo');
+
+  let avancesMal = 0;
+  let problemasMal = 0;
+  let totalAvances = 0;
+  let totalProblemas = 0;
+  let perdidas = 0;
+
+  for (const s of minutas) {
+    const r = separarMinuta(s.texto_crudo, '2026-08-10');
+    const todo = [...r.avances, ...r.problemas, ...r.compromisos.map((c) => c.descripcion)];
+
+    for (const a of s.avances) {
+      totalAvances += 1;
+      const trozo = a.slice(0, 25);
+      if (!todo.some((x) => x.includes(trozo))) perdidas += 1;
+      else if (!r.avances.some((x) => x.includes(trozo))) avancesMal += 1;
+    }
+    for (const p of s.problemas) {
+      totalProblemas += 1;
+      const trozo = p.slice(0, 25);
+      if (!todo.some((x) => x.includes(trozo))) perdidas += 1;
+      else if (!r.problemas.some((x) => x.includes(trozo))) problemasMal += 1;
+    }
+  }
+
+  // Nada se descarta: una oración mal clasificada la corrige el usuario en la
+  // pantalla de carga, pero una que desaparece no la puede recuperar.
+  assert.equal(perdidas, 0, `${perdidas} oraciones se perdieron en la separación`);
+
+  const aciertoAvances = 1 - avancesMal / totalAvances;
+  const aciertoProblemas = 1 - problemasMal / totalProblemas;
+  assert.ok(aciertoAvances >= 0.95, `avances bien clasificados: ${(aciertoAvances * 100).toFixed(1)}%`);
+  assert.ok(aciertoProblemas >= 0.95, `problemas bien clasificados: ${(aciertoProblemas * 100).toFixed(1)}%`);
+});
+
+test('toda minuta con un pedido produce al menos un compromiso propuesto', () => {
+  const bd = generarBaseCompleta('2026-08-10');
+  const conPedido = bd.seguimientos.filter((s) => /va a |quedaron en |tiene que |hay que |deberá /i.test(s.texto_crudo ?? ''));
+  assert.ok(conPedido.length > 50);
+  for (const s of conPedido) {
+    const r = separarMinuta(s.texto_crudo, '2026-08-10');
+    assert.ok(r.compromisos.length > 0, `no detectó el pedido en: ${s.texto_crudo.slice(0, 80)}…`);
+  }
 });

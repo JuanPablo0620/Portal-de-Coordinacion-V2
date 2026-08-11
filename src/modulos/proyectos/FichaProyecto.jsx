@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CalendarCheck, ClipboardList, FileText, History, Pencil, Target, Trash2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import {
@@ -12,15 +12,16 @@ import {
   Semaforo,
   Tarjeta,
   Vacio,
-  nivelPorDias,
 } from '../../componentes/Basicos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { Pestanias } from '../../componentes/Basicos.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { FormularioProyecto } from './FormularioProyecto.jsx';
+import { HistorialProyecto } from './HistorialProyecto.jsx';
+import { COLUMNAS_COMPROMISO } from '../seguimiento/columnasCompromiso.jsx';
 import {
   compromisos as selCompromisos,
-  historialProyecto,
+  historialUnificado,
   hoyISO,
   planificacionDe,
   proyectoPorId,
@@ -28,7 +29,7 @@ import {
   serieAvance,
   activos,
 } from '../../datos/selectores.js';
-import { fecha as fFecha, fechaHora, haceCuanto, moneda, numero } from '../../utilidades/formato.js';
+import { fecha as fFecha, haceCuanto, moneda, numero } from '../../utilidades/formato.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 
 export default function FichaProyecto() {
@@ -48,7 +49,7 @@ export default function FichaProyecto() {
     [bd, id],
   );
   const plan = useMemo(() => (bd ? planificacionDe(bd, id, Number(hoy.slice(0, 4))) : null), [bd, id, hoy]);
-  const historial = useMemo(() => (bd ? historialProyecto(bd, id) : []), [bd, id]);
+  const historial = useMemo(() => (bd ? historialUnificado(bd, id, {}, hoy) : []), [bd, id, hoy]);
   const serie = useMemo(() => (bd ? serieAvance(bd, id) : []), [bd, id]);
 
   if (!proyecto) {
@@ -157,7 +158,7 @@ export default function FichaProyecto() {
 
         {pestania === 'planificacion' && <PanelPlanificacion plan={plan} proyecto={proyecto} navegar={navegar} />}
 
-        {pestania === 'historial' && <PanelHistorial historial={historial} />}
+        {pestania === 'historial' && <HistorialProyecto bd={bd} proyecto={proyecto} historial={historial} />}
       </Pagina>
 
       {editando && <FormularioProyecto abierto alCerrar={() => setEditando(false)} proyecto={proyecto} />}
@@ -176,39 +177,6 @@ export default function FichaProyecto() {
     </>
   );
 }
-
-export const COLUMNAS_COMPROMISO = [
-  {
-    clave: 'descripcion',
-    titulo: 'Compromiso',
-    render: (f) => (
-      <div className="min-w-40">
-        <p className="leading-tight text-tinta">{f.descripcion}</p>
-        <p className="text-[11px] text-tenue">Origen: {f.origen_tipo}</p>
-      </div>
-    ),
-  },
-  { clave: 'responsable', titulo: 'Responsable', ancho: 130 },
-  { clave: 'area', titulo: 'Área', ancho: 170 },
-  {
-    clave: 'fecha_limite',
-    titulo: 'Vence',
-    ancho: 100,
-    render: (f) => <span className="tabular text-xs">{fFecha(f.fecha_limite)}</span>,
-    formatoCSV: fFecha,
-  },
-  {
-    clave: 'estado_efectivo',
-    titulo: 'Estado',
-    ancho: 130,
-    render: (f) => (
-      <Semaforo
-        nivel={f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes)}
-        texto={f.estado_efectivo === 'vencido' ? `vencido · ${f.dias_atraso} d` : f.estado_efectivo}
-      />
-    ),
-  },
-];
 
 function PanelDatos({ proyecto, serie, temas }) {
   const campos = [
@@ -355,65 +323,3 @@ function PanelPlanificacion({ plan, proyecto, navegar }) {
   );
 }
 
-const ETIQUETA_ACCION = { alta: 'creó', edicion: 'editó', baja: 'dio de baja' };
-const ETIQUETA_ENTIDAD = {
-  proyectos: 'el proyecto',
-  seguimientos: 'un seguimiento',
-  compromisos: 'un compromiso',
-  temas_monitoreo: 'un tema de monitoreo',
-  monitoreos: 'un monitoreo',
-  eventos: 'un evento',
-  planificacion_anual: 'la planificación',
-  mesas: 'una mesa',
-  reuniones_mesa: 'una reunión de mesa',
-  requerimientos_evento: 'un requerimiento',
-};
-
-function PanelHistorial({ historial }) {
-  return (
-    <Tarjeta
-      titulo="Historial de cambios"
-      descripcion="Ninguna edición borra el registro anterior: todo cambio queda asentado."
-    >
-      {historial.length === 0 ? (
-        <Vacio compacto icono={History} titulo="Sin movimientos registrados" />
-      ) : (
-        <ol className="flex flex-col">
-          {historial.map((h) => (
-            <li key={h.id} className="flex gap-3 border-b border-borde/60 py-2.5 last:border-0">
-              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-acento-medio" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-tinta">
-                  <strong className="font-medium">{h.creado_por}</strong> {ETIQUETA_ACCION[h.accion] ?? h.accion}{' '}
-                  {ETIQUETA_ENTIDAD[h.entidad] ?? h.entidad}
-                </p>
-                {(h.cambios ?? []).length > 0 && (
-                  <ul className="mt-1 flex flex-col gap-0.5">
-                    {h.cambios.map((c, i) => (
-                      <li key={i} className="text-xs text-gris">
-                        <span className="font-medium text-tinta">{c.campo}</span>:{' '}
-                        <span className="text-tenue line-through">{formatoValor(c.antes)}</span> →{' '}
-                        <span className="text-tinta">{formatoValor(c.despues)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <p className="mt-0.5 text-[11px] text-tenue">
-                  {fechaHora(h.creado_en)} · {haceCuanto(h.creado_en)}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
-    </Tarjeta>
-  );
-}
-
-function formatoValor(v) {
-  if (v === null || v === undefined || v === '') return '(vacío)';
-  if (typeof v === 'boolean') return v ? 'Sí' : 'No';
-  if (Array.isArray(v)) return v.length ? v.join(', ') : '(vacío)';
-  if (typeof v === 'object') return JSON.stringify(v);
-  return String(v);
-}

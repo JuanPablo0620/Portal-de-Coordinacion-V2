@@ -11,41 +11,7 @@
  */
 import { bdVacia } from './esquema.js';
 import { nuevoId } from './ids.js';
-
-/* ── Utilidades de generación ───────────────────────────────────────── */
-
-const MS_DIA = 86_400_000;
-
-function desplazar(iso, dias) {
-  return new Date(Date.parse(`${iso}T00:00:00Z`) + dias * MS_DIA).toISOString().slice(0, 10);
-}
-
-/** Marca de tiempo local, con el mismo formato que produce `ahoraISO()`. */
-function marcaTiempo(iso, hora = 10) {
-  return `${iso}T${String(hora).padStart(2, '0')}:${String((hora * 7) % 60).padStart(2, '0')}:00.000`;
-}
-
-/** Generador pseudoaleatorio con semilla: el set es el mismo en cada carga. */
-function crearAzar(semilla = 20260808) {
-  let estado = semilla;
-  return function azar() {
-    estado = (estado * 1664525 + 1013904223) % 4294967296;
-    return estado / 4294967296;
-  };
-}
-
-/* ── Vocabulario ficticio ───────────────────────────────────────────── */
-
-const PERSONAS = [
-  'M. Álvarez', 'J. Benítez', 'L. Cardozo', 'R. Domínguez', 'S. Escobar',
-  'P. Ferreyra', 'N. Godoy', 'C. Herrera', 'D. Ibarra', 'V. Juárez',
-  'A. Ledesma', 'F. Maldonado', 'G. Navarro', 'T. Ojeda', 'B. Paredes',
-];
-
-const BARRIOS = [
-  'Los Álamos', 'Villa Esperanza', 'San Ignacio', 'El Progreso', 'Las Acacias',
-  'Barrio Norte', 'Santa Rita', 'Los Tilos', 'La Estación', 'Nueva Unión',
-];
+import { BARRIOS, PERSONAS, crearAzar, desplazar, marcaTiempo } from './sintetico.js';
 
 /** Plantillas por área: [prefijoNombre, tipo, unidad, esObra, programa, eje]. */
 const PLANTILLAS = {
@@ -144,7 +110,12 @@ const PREFIJOS = {
 
 export function generarDemo(hoy) {
   const bd = bdVacia();
-  const azar = crearAzar();
+  const azar = crearAzar(20260808);
+  // El set chico se queda con una parte del vocabulario: con treinta proyectos,
+  // cuarenta nombres distintos hacen que nada se repita y no se vea que el
+  // responsable es un dato que se repite entre proyectos de la misma área.
+  const personas = PERSONAS.slice(0, 15);
+  const barrios = BARRIOS.slice(0, 10);
   const elegir = (arr) => arr[Math.floor(azar() * arr.length)];
   const entre = (min, max) => min + Math.floor(azar() * (max - min + 1));
   const anio = Number(hoy.slice(0, 4));
@@ -194,7 +165,7 @@ export function generarDemo(hoy) {
         id_proyecto: id,
         area,
         programa: plantilla.programa,
-        proyecto: `${nombreBase} — ${elegir(BARRIOS)}`,
+        proyecto: `${nombreBase} — ${elegir(barrios)}`,
         eje: plantilla.eje,
         tipo,
         cantidad: entre(1, 12),
@@ -202,7 +173,7 @@ export function generarDemo(hoy) {
         avance,
         unidad,
         estado,
-        responsable: elegir(PERSONAS),
+        responsable: elegir(personas),
         prioridad: azar() < 0.22 ? 'alta' : azar() < 0.6 ? 'media' : 'baja',
         fecha_carga: inicio,
         fecha_inicio: inicio,
@@ -270,12 +241,12 @@ export function generarDemo(hoy) {
         fecha,
         hora: `${entre(9, 17)}:00`,
         tipo: 'realizado',
-        participantes: [elegir(PERSONAS), elegir(PERSONAS)].join(', '),
+        participantes: [elegir(personas), elegir(personas)].join(', '),
         temas: 'Avance de obra, requerimientos pendientes',
         texto_crudo:
           'Se revisó el estado general de los proyectos del área. Se ejecutaron los trabajos previstos ' +
           'para el período. Falta la conformidad del área técnica para avanzar con la etapa siguiente. ' +
-          `${elegir(PERSONAS)} va a presentar el informe actualizado antes de fin de mes.`,
+          `${elegir(personas)} va a presentar el informe actualizado antes de fin de mes.`,
         resumen: 'Revisión de avance y definición de próximos pasos.',
         avances: ['Se ejecutaron los trabajos previstos para el período.'],
         problemas: ['Falta la conformidad del área técnica para avanzar con la etapa siguiente.'],
@@ -300,7 +271,7 @@ export function generarDemo(hoy) {
       fecha,
       hora: `${entre(9, 16)}:30`,
       tipo: 'programado',
-      participantes: [elegir(PERSONAS), elegir(PERSONAS)].join(', '),
+      participantes: [elegir(personas), elegir(personas)].join(', '),
       temas: 'Revisión de avance trimestral y cronograma',
       texto_crudo: '',
       resumen: '',
@@ -338,7 +309,7 @@ export function generarDemo(hoy) {
       id_proyecto,
       area,
       descripcion: elegir(DESCRIPCIONES),
-      responsable: elegir(PERSONAS),
+      responsable: elegir(personas),
       fecha_limite,
       estado,
       fecha_cumplimiento: estado === 'cumplido' ? desplazar(fecha_limite, -entre(0, 5)) : null,
@@ -445,7 +416,7 @@ export function generarDemo(hoy) {
           descripcion: elegir(TEMAS),
           criticidad,
           requiere_accion: requiereAccion,
-          responsable: requiereAccion ? elegir(PERSONAS) : '',
+          responsable: requiereAccion ? elegir(personas) : '',
           fecha_limite: fechaLimite,
           resuelto: criticidad !== 'alta' ? azar() < 0.6 : azar() < 0.5,
           activo: true,
@@ -502,7 +473,7 @@ export function generarDemo(hoy) {
       nombre,
       tipo,
       descripcion,
-      referente: elegir(PERSONAS),
+      referente: elegir(personas),
       periodicidad,
       estado: azar() < 0.85 ? 'activa' : 'latente',
       proyectos_vinculados: proyectos.slice(entre(0, 20), entre(21, 24)).map((p) => p.id_proyecto).slice(0, 3),
@@ -520,7 +491,7 @@ export function generarDemo(hoy) {
         id: nuevoId('reu'),
         id_mesa: mesa.id,
         fecha,
-        asistentes: [elegir(PERSONAS), elegir(PERSONAS), elegir(PERSONAS)].join(', '),
+        asistentes: [elegir(personas), elegir(personas), elegir(personas)].join(', '),
         temas: 'Revisión de compromisos anteriores y estado de los proyectos vinculados.',
         activo: true,
         creado_por: usuario,
@@ -568,7 +539,7 @@ export function generarDemo(hoy) {
       id: nuevoId('reu'),
       id_mesa: mesaAtrasada.id,
       fecha,
-      asistentes: [elegir(PERSONAS), elegir(PERSONAS)].join(', '),
+      asistentes: [elegir(personas), elegir(personas)].join(', '),
       temas: 'Última reunión registrada de la mesa.',
       activo: true,
       creado_por: usuario,

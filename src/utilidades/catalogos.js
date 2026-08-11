@@ -26,7 +26,3 @@ export function useItems(nombreCatalogo) {
   );
 }
 
-/** Busca el ítem de catálogo por nombre. Devuelve null si ya no existe. */
-export function itemPorNombre(items, nombre) {
-  return items.find((i) => i.nombre === nombre) ?? null;
-}

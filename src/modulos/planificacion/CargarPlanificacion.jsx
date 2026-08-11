@@ -5,7 +5,7 @@ import { CampoFecha, CampoNumero, CampoTexto, GrillaCampos } from '../../compone
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { ImportarPlanificacion } from './ImportarPlanificacion.jsx';
 import { hoyISO, planificacionDe, proyectoPorId } from '../../datos/selectores.js';
-import { fecha as fFecha, moneda, numero } from '../../utilidades/formato.js';
+import { fecha as fFecha, numero } from '../../utilidades/formato.js';
 import { nuevoId } from '../../datos/ids.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 
@@ -211,7 +211,7 @@ function PanelHitos({ datos, setDatos }) {
                 <button
                   type="button"
                   onClick={() => setDatos((d) => ({ ...d, hitos: d.hitos.filter((x) => x.id !== h.id) }))}
-                  className="shrink-0 rounded p-1 text-tenue transition hover:bg-vencido-suave hover:text-vencido"
+                  className="shrink-0 rounded p-1 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
                   aria-label="Quitar hito"
                 >
                   <Trash2 size={14} />

@@ -15,11 +15,16 @@ import {
   diasHasta,
   estadoCompromiso,
   hoyISO,
+  mapaUltimaActualizacion,
   mesasSinReunion,
+  nivelPorDias,
   resumenRequerimientos,
-  ultimaActualizacion,
 } from './selectores.js';
-import { ESTADOS_ACTIVOS } from './catalogos.js';
+import { ESTADOS_ACTIVOS, UMBRALES } from './catalogos.js';
+
+// Los umbrales viven en `catalogos.js` para que los lean también los selectores
+// sin abrir un ciclo; se reexportan acá porque es de donde los importa la UI.
+export { UMBRALES };
 
 export const TIPOS_ALERTA = Object.freeze({
   COMPROMISO_VENCIDO: 'compromiso_vencido',
@@ -52,15 +57,14 @@ export const ORDEN_TIPOS = Object.freeze([
   TIPOS_ALERTA.MESA_SIN_REUNION,
 ]);
 
-/** Umbrales, en un solo lugar. */
-export const UMBRALES = Object.freeze({
-  DIAS_POR_VENCER: 7,
-  DIAS_SIN_ACTUALIZAR: 30,
-  DIAS_EVENTO: 5,
-  DIAS_VENCIMIENTOS_DASHBOARD: 15,
-});
-
 const PESO_SEVERIDAD = { critica: 0, alta: 1, media: 2 };
+
+/** Severidad de la alerta → nivel del semáforo. Una sola tabla para todas las vistas. */
+const NIVEL_POR_SEVERIDAD = { critica: 'vencido', alta: 'proximo', media: 'atencion' };
+
+export function nivelPorSeveridad(severidad) {
+  return NIVEL_POR_SEVERIDAD[severidad] ?? 'sindato';
+}
 
 /* ── Reglas ─────────────────────────────────────────────────────────── */
 
@@ -131,10 +135,13 @@ function proyectosVencidos(bd, hoy) {
 }
 
 function proyectosSinActualizar(bd, hoy) {
+  // El índice se arma una vez para todos los proyectos: preguntar por cada uno
+  // recorría la bitácora entera tantas veces como proyectos activos hubiera.
+  const ultimas = mapaUltimaActualizacion(bd);
   return activos(bd.proyectos)
     .filter((p) => ESTADOS_ACTIVOS.includes(p.estado))
     .map((p) => {
-      const ultima = ultimaActualizacion(bd, p.id_proyecto);
+      const ultima = ultimas.get(p.id_proyecto) ?? null;
       const dias = ultima ? Math.abs(diasHasta(ultima.slice(0, 10), hoy)) : null;
       return { p, ultima, dias };
     })
@@ -323,15 +330,13 @@ export function vencimientosProximos(bd, hoy = hoyISO(), dias = UMBRALES.DIAS_VE
   }
 
   return items
-    .map((i) => ({ ...i, nivel: nivelPorVencimiento(i.dias) }))
+    .map((i) => ({ ...i, nivel: nivelPorDias(i.dias) }))
     .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
 }
 
-/** Semáforo del dashboard: rojo vencido · naranja ≤3 días · amarillo ≤15 días. */
-export function nivelPorVencimiento(dias) {
-  if (dias === null || dias === undefined) return 'sindato';
-  if (dias < 0) return 'vencido';
-  if (dias <= 3) return 'proximo';
-  if (dias <= 15) return 'atencion';
-  return 'enregla';
-}
+/**
+ * Semáforo del dashboard. Es la misma escala de días que usan las tablas y los
+ * tableros: se reexporta con el nombre histórico en lugar de recalcularla, para
+ * que un cambio de umbral no deje dos semáforos discrepando.
+ */
+export { nivelPorDias as nivelPorVencimiento };

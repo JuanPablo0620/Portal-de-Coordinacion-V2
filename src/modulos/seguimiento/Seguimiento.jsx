@@ -19,6 +19,7 @@ import { CampoFecha, CampoHora, CampoSelect, CampoTexto, GrillaCampos } from '..
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { CargarSeguimiento } from './CargarSeguimiento.jsx';
 import { HistorialArea } from './HistorialArea.jsx';
+import { COLUMNAS_COMPROMISO } from './columnasCompromiso.jsx';
 import { ESTADOS_COMPROMISO } from '../../datos/catalogos.js';
 import {
   compromisos as selCompromisos,
@@ -32,7 +33,16 @@ import { acciones, useBD } from '../../estado/tienda.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
-const DEFAULTS = { tab: 'calendario', vista: 'calendario', area: '', responsable: '', estado: '', desde: '', hasta: '' };
+const DEFAULTS = {
+  tab: 'calendario',
+  vista: 'calendario',
+  area: '',
+  responsable: '',
+  estado: '',
+  desde: '',
+  hasta: '',
+  incluir_cumplidos: false,
+};
 
 export default function Seguimiento() {
   const bd = useBD();
@@ -194,13 +204,38 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
   const opcionesArea = useOpciones('areas');
   const [cumpliendo, setCumpliendo] = useState(null);
 
+  /**
+   * La lista abre en los compromisos VIGENTES.
+   *
+   * Con dos años de carga, nueve de cada diez compromisos están cumplidos: al
+   * ordenar por vencimiento, la primera pantalla eran cosas terminadas de hace
+   * dos años y los vencidos quedaban cientos de filas más abajo. Esta pestaña
+   * existe para trabajar sobre lo que falta; lo cumplido se trae con el botón.
+   */
+  const soloVigentes = !filtros.incluir_cumplidos && filtros.estado !== 'cumplido';
+
   const filas = useMemo(
     () =>
       bd
-        ? selCompromisos(bd, { area: filtros.area, responsable: filtros.responsable, estado: filtros.estado, desde: filtros.desde, hasta: filtros.hasta }, hoy)
-            .map((c) => ({ ...c, _resaltar: c.estado_efectivo === 'vencido' }))
+        ? selCompromisos(
+            bd,
+            {
+              area: filtros.area,
+              responsable: filtros.responsable,
+              estado: filtros.estado,
+              desde: filtros.desde,
+              hasta: filtros.hasta,
+              solo_vigentes: soloVigentes,
+            },
+            hoy,
+          ).map((c) => ({ ...c, _resaltar: c.estado_efectivo === 'vencido' }))
         : [],
-    [bd, filtros, hoy],
+    [bd, filtros, soloVigentes, hoy],
+  );
+
+  const totalCumplidos = useMemo(
+    () => (bd ? selCompromisos(bd, { area: filtros.area, responsable: filtros.responsable }, hoy).filter((c) => c.estado_efectivo === 'cumplido').length : 0),
+    [bd, filtros.area, filtros.responsable, hoy],
   );
 
   const responsables = useMemo(() => {
@@ -241,6 +276,25 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
           <CampoFecha etiqueta="Vence desde" value={filtros.desde} onChange={(e) => setFiltros({ desde: e.target.value })} />
           <CampoFecha etiqueta="Vence hasta" value={filtros.hasta} onChange={(e) => setFiltros({ hasta: e.target.value })} />
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFiltros({ incluir_cumplidos: !filtros.incluir_cumplidos })}
+            disabled={filtros.estado === 'cumplido'}
+            className={`rounded-chip border px-2.5 py-1.5 text-xs font-medium transition disabled:opacity-40 ${
+              filtros.incluir_cumplidos
+                ? 'border-acento bg-acento-suave text-acento-fuerte'
+                : 'border-borde-fuerte bg-card text-gris hover:bg-paper'
+            }`}
+          >
+            Incluir cumplidos
+          </button>
+          {!filtros.incluir_cumplidos && filtros.estado !== 'cumplido' && totalCumplidos > 0 && (
+            <span className="text-xs text-tenue">
+              {totalCumplidos} cumplido{totalCumplidos === 1 ? '' : 's'} fuera de la lista
+            </span>
+          )}
+        </div>
       </Tarjeta>
 
       <Tarjeta sinPadding>
@@ -267,8 +321,7 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
                 </div>
               ),
             },
-            { clave: 'responsable', titulo: 'Responsable', ancho: 130 },
-            { clave: 'area', titulo: 'Área', ancho: 180 },
+            ...COLUMNAS_COMPROMISO.filter((c) => c.clave === 'responsable' || c.clave === 'area'),
             {
               clave: 'id_proyecto',
               titulo: 'Proyecto',
@@ -288,24 +341,7 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
                   <span className="text-tenue">—</span>
                 ),
             },
-            {
-              clave: 'fecha_limite',
-              titulo: 'Vence',
-              ancho: 100,
-              render: (f) => <span className="tabular text-xs">{fFecha(f.fecha_limite)}</span>,
-              formatoCSV: fFecha,
-            },
-            {
-              clave: 'estado_efectivo',
-              titulo: 'Estado',
-              ancho: 140,
-              render: (f) => (
-                <Semaforo
-                  nivel={f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes)}
-                  texto={f.estado_efectivo === 'vencido' ? `vencido · ${f.dias_atraso} d` : f.estado_efectivo}
-                />
-              ),
-            },
+            ...COLUMNAS_COMPROMISO.filter((c) => c.clave === 'fecha_limite' || c.clave === 'estado_efectivo'),
             {
               clave: 'acciones',
               titulo: '',
@@ -434,7 +470,7 @@ function AgendarSeguimiento({ abierto, alCerrar }) {
         <CampoTexto etiqueta="Participantes previstos" value={datos.participantes} onChange={cambiar('participantes')} placeholder="Nombres separados por coma" />
         <CampoTexto etiqueta="Temas a tratar" value={datos.temas} onChange={cambiar('temas')} placeholder="Ej.: avance trimestral, cronograma, presupuesto" />
         {error && (
-          <p className="flex items-center gap-1.5 text-xs text-vencido">
+          <p className="flex items-center gap-1.5 text-xs text-vencido-texto">
             <X size={13} /> {error}
           </p>
         )}
