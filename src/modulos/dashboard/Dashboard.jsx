@@ -6,6 +6,8 @@ import {
   CalendarCheck,
   Database,
   HardHat,
+  Gem,
+  Globe2,
   History,
   Star,
 } from 'lucide-react';
@@ -16,6 +18,8 @@ import { vencimientosProximos } from '../../datos/alertas.js';
 import {
   feedBitacora,
   hoyISO,
+  resumenEstrategico,
+  resumenPosicionamiento,
   itemsCalendario,
   proyectos as selProyectos,
   seguimientos as selSeguimientos,
@@ -84,6 +88,11 @@ export default function Dashboard() {
 
   const proyectosActivos = useMemo(() => (bd ? activos(bd.proyectos).filter(esProyectoActivo) : []), [bd]);
   const obrasActivas = proyectosActivos.filter((p) => p.es_obra);
+  const estrategico = useMemo(() => (bd ? resumenEstrategico(bd, {}, hoy) : { total: 0, en_riesgo: 0 }), [bd, hoy]);
+  const posicionamiento = useMemo(
+    () => (bd ? resumenPosicionamiento(bd, {}, hoy) : { abiertas: 0, vigentes: 0, proximos_cierres: [] }),
+    [bd, hoy],
+  );
   const sistemaVacio = (bd?.proyectos ?? []).length === 0;
 
   if (sistemaVacio) {
@@ -144,6 +153,35 @@ export default function Dashboard() {
             etiqueta="Prioritarios activos"
             detalle="proyectos de prioridad alta"
             alHacerClic={() => navegar('/proyectos?solo_prioritarios=1&solo_activos=1')}
+          />
+        </div>
+
+        {/* Los dos módulos transversales entran al inicio con una cifra cada
+            uno: si hay algo en riesgo o una convocatoria por cerrar, se tiene
+            que ver sin entrar a buscarlo. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Metrica
+            icono={Gem}
+            tono={estrategico.en_riesgo ? 'vencido' : 'neutro'}
+            valor={estrategico.total}
+            etiqueta="Proyectos estratégicos"
+            detalle={
+              estrategico.en_riesgo
+                ? `${estrategico.en_riesgo} en riesgo`
+                : 'la cartera está al día'
+            }
+            alHacerClic={() => navegar('/estrategicos')}
+          />
+          <Metrica
+            icono={Globe2}
+            valor={posicionamiento.abiertas}
+            etiqueta="Acciones internacionales en juego"
+            detalle={
+              posicionamiento.proximos_cierres.length
+                ? `${posicionamiento.proximos_cierres.length} con fecha de cierre por delante`
+                : `${posicionamiento.vigentes} vínculo(s) vigente(s)`
+            }
+            alHacerClic={() => navegar('/posicionamiento')}
           />
         </div>
 

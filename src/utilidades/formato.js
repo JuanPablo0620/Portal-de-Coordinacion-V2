@@ -9,6 +9,12 @@ const MONEDA = new Intl.NumberFormat('es-AR', {
   maximumFractionDigits: 0,
 });
 
+const DOLAR = new Intl.NumberFormat('es-AR', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
+
 const NUMERO = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
 
 /**
@@ -41,6 +47,19 @@ export function moneda(valor) {
   const n = Number(valor);
   if (!Number.isFinite(n)) return '—';
   return MONEDA.format(n);
+}
+
+/**
+ * Montos del posicionamiento internacional.
+ *
+ * Van en dólares y no en pesos a propósito: es la moneda en la que están
+ * escritas las convocatorias, y convertirla a pesos obligaría a fijar un tipo
+ * de cambio que quedaría viejo antes de que cierre la postulación.
+ */
+export function dolares(valor) {
+  const n = Number(valor);
+  if (!Number.isFinite(n)) return '—';
+  return DOLAR.format(n);
 }
 
 export function numero(valor) {

@@ -34,7 +34,17 @@
  */
 import { bdVacia } from './esquema.js';
 import { nuevoId } from './ids.js';
-import { BARRIOS, MS_DIA, PERSONAS, crearAzar, desplazar, marcaTiempo } from './sintetico.js';
+import {
+  ACCIONES_INTERNACIONALES,
+  BARRIOS,
+  CIUDADES_EXTRANJERAS,
+  COMPROMISOS_PUBLICOS,
+  MS_DIA,
+  PERSONAS,
+  crearAzar,
+  desplazar,
+  marcaTiempo,
+} from './sintetico.js';
 import {
   AREAS,
   CATEGORIAS_TEMA,
@@ -44,6 +54,7 @@ import {
   FRASES_COMPROMISO,
   FRASES_PROBLEMA,
   ITEMS_REQUERIMIENTO,
+  MOTIVOS_ESTRATEGICOS,
   TEMAS_MONITOREO,
   TEMAS_SEGUIMIENTO,
   armarCatalogos,
@@ -768,8 +779,10 @@ export function generarBaseCompleta(hoy) {
   // Se corren TODOS los asientos del proyecto hacia atrás: la «última
   // actualización» mira la bitácora entera, no sólo los cambios de la ficha.
   const enMarcha = vigentes.filter((p) => ['en ejecución', 'demorado'].includes(p.estado));
+  const congelados = new Set();
   for (const p of tomar(enMarcha, Math.min(18, enMarcha.length))) {
     const viejo = marcaTiempo(desplazar(hoy, -entre(35, 150)), 10, entre(0, 59));
+    congelados.add(p.id_proyecto);
     for (const h of bd.historial) {
       if (h.id_proyecto === p.id_proyecto && h.creado_en > viejo) h.creado_en = viejo;
     }
@@ -813,6 +826,178 @@ export function generarBaseCompleta(hoy) {
   /* ── CASO · temas críticos abiertos ─────────────────────────────── */
   const criticos = bd.temas_monitoreo.filter((t) => t.criticidad === 'alta');
   for (const t of tomar(criticos, Math.min(8, criticos.length))) t.resuelto = false;
+
+  /* ── Cartera estratégica ────────────────────────────────────────── */
+
+  // La mitad de la cartera llega PROMOVIDA desde un tema de monitoreo o un
+  // seguimiento, que es como pasa en la práctica: lo estratégico casi nunca
+  // nace declarado, se descubre cuando un problema se repite. Sin eso, la
+  // columna de origen del módulo mostraría siempre lo mismo.
+  const temasCriticosBase = bd.temas_monitoreo.filter((t) => t.criticidad === 'alta');
+  // Mayoría en marcha y unos pocos terminados: una cartera estratégica llena de
+  // proyectos finalizados no se gestiona, se archiva. Los finalizados igual
+  // hacen falta —son los que muestran que la cartera produce resultados—.
+  const paraEstrategicos = [
+    ...tomar(vigentes.filter((p) => ['en ejecución', 'demorado', 'planificado'].includes(p.estado)), 20),
+    ...tomar(vigentes.filter((p) => p.estado === 'finalizado'), 6),
+  ];
+
+  for (const p of paraEstrategicos) {
+    const dado = azar();
+    const origen = dado < 0.3 ? 'monitoreo' : dado < 0.55 ? 'seguimiento' : 'base';
+    const cuando = desplazar(hoy, -entre(20, 400));
+    const firma = elegir(EQUIPO);
+
+    p.estrategico = true;
+    p.prioridad_estrategica = chance(0.45) ? 'alta' : chance(0.7) ? 'media' : 'baja';
+    p.motivo_estrategico = elegir(MOTIVOS_ESTRATEGICOS);
+    p.responsable_politico = elegir(PERSONAS);
+    p.compromiso_publico = elegir(COMPROMISOS_PUBLICOS);
+    p.fecha_compromiso = desplazar(cuando, entre(90, 540));
+    p.origen_estrategico = origen;
+    p.id_origen_estrategico =
+      origen === 'monitoreo'
+        ? temasCriticosBase.length
+          ? elegir(temasCriticosBase).id
+          : null
+        : origen === 'seguimiento'
+          ? elegir(seguimientosRealizados).id
+          : null;
+    p.fecha_marcado_estrategico = cuando;
+
+    asentar(
+      'proyectos',
+      p.id_proyecto,
+      'edicion',
+      [{ campo: 'estrategico', antes: false, despues: true }],
+      marcaTiempo(cuando, 11, entre(0, 59)),
+      p.id_proyecto,
+      firma,
+    );
+  }
+
+  /* ── Posicionamiento internacional ──────────────────────────────── */
+
+  const TIPOS_ACCION = Object.keys(ACCIONES_INTERNACIONALES);
+  const nombresActivos = (catalogo) =>
+    bd.catalogos[catalogo].filter((i) => i.activo !== false).map((i) => i.nombre);
+  const organismos = nombresActivos('organismos_internacionales');
+  const paises = nombresActivos('paises_contraparte');
+
+  /** ODS a los que contribuye la acción. El 11 aparece seguido: es el de ciudades. */
+  const objetivosDe = () => {
+    const lista = new Set(chance(0.55) ? [11] : []);
+    for (let i = 0; i < entre(1, 2); i += 1) lista.add(entre(1, 17));
+    return [...lista].sort((a, b) => a - b);
+  };
+
+  const crearAccion = ({ tipo, estado, fechaInicio, fechaLimite, idsProyecto }) => {
+    const plantilla = elegir(ACCIONES_INTERNACIONALES[tipo]);
+    const nombre = plantilla.replace('{ciudad}', elegir(CIUDADES_EXTRANJERAS));
+    const firma = elegir(EQUIPO);
+    const conPlata = tipo === 'Postulación a fondo' || (tipo === 'Convenio de cooperación' && chance(0.4));
+    const resuelta = ['vigente', 'cerrada', 'no prosperó'].includes(estado);
+
+    const accion = {
+      id: nuevoId('int'),
+      nombre,
+      tipo,
+      organismo: elegir(organismos),
+      pais: elegir(paises),
+      alcance: chance(0.4) ? 'bilateral' : chance(0.6) ? 'regional' : 'multilateral',
+      estado,
+      area: elegir(AREAS).nombre,
+      referente: elegir(PERSONAS),
+      descripcion: `${nombre}. Gestión impulsada por la coordinación de relaciones internacionales del municipio.`,
+      fecha_inicio: fechaInicio,
+      fecha_limite: fechaLimite,
+      fecha_resolucion: resuelta ? desplazar(fechaLimite ?? fechaInicio, entre(10, 90)) : null,
+      financiamiento_usd: conPlata ? entre(30, 900) * 5_000 : 0,
+      ods: objetivosDe(),
+      ids_proyecto: idsProyecto ?? [],
+      resultado:
+        estado === 'no prosperó'
+          ? 'No se alcanzó el puntaje mínimo en la evaluación técnica.'
+          : estado === 'cerrada'
+            ? 'Ejecutada y rendida en tiempo y forma.'
+            : '',
+      activo: true,
+      creado_por: firma,
+      creado_en: marcaTiempo(fechaInicio, 10, entre(0, 59)),
+    };
+    bd.acciones_internacionales.push(accion);
+    asentar(
+      'acciones_internacionales',
+      accion.id,
+      'alta',
+      [],
+      accion.creado_en,
+      accion.ids_proyecto[0] ?? null,
+      firma,
+    );
+    return accion;
+  };
+
+  // Las acciones se vinculan a proyectos estratégicos, no a cualquiera: es lo
+  // que hace que la pregunta «qué obra respalda esta postulación» tenga
+  // respuesta, y de paso conecta los dos módulos nuevos entre sí.
+  const estrategicos = vigentes.filter((p) => p.estrategico);
+  const vincular = () => (chance(0.55) && estrategicos.length ? [elegir(estrategicos).id_proyecto] : []);
+
+  for (let i = 0; i < 44; i += 1) {
+    const tipo = elegir(TIPOS_ACCION);
+    const inicio = desplazar(hoy, -entre(20, 700));
+    // El estado plausible depende de cuánto pasó desde que arrancó la gestión:
+    // una acción iniciada hace dos años y todavía «identificada» no existe.
+    const antiguedad = Math.round((Date.parse(hoy) - Date.parse(inicio)) / MS_DIA);
+    let estado;
+    if (antiguedad > 400) estado = chance(0.45) ? 'cerrada' : chance(0.5) ? 'vigente' : 'no prosperó';
+    else if (antiguedad > 180) estado = chance(0.4) ? 'vigente' : chance(0.5) ? 'presentada' : 'no prosperó';
+    else if (antiguedad > 60) estado = chance(0.5) ? 'presentada' : 'en preparación';
+    else estado = chance(0.5) ? 'identificada' : 'en preparación';
+
+    crearAccion({
+      tipo,
+      estado,
+      fechaInicio: inicio,
+      fechaLimite: desplazar(inicio, entre(45, 260)),
+      idsProyecto: vincular(),
+    });
+  }
+
+  /* ── CASO · convocatorias por cerrar y una ya pasada ─────────────── */
+  // Son las dos filas que el módulo existe para mostrar: la que hay que
+  // presentar ya, y la que se pasó de fecha sin que nadie la moviera.
+  for (let i = 0; i < 4; i += 1) {
+    crearAccion({
+      tipo: 'Postulación a fondo',
+      estado: chance(0.5) ? 'identificada' : 'en preparación',
+      fechaInicio: desplazar(hoy, -entre(20, 90)),
+      fechaLimite: desplazar(hoy, entre(2, 25)),
+      idsProyecto: vincular(),
+    });
+  }
+  crearAccion({
+    tipo: 'Premio o distinción',
+    estado: 'en preparación',
+    fechaInicio: desplazar(hoy, -120),
+    fechaLimite: desplazar(hoy, -9),
+    idsProyecto: vincular(),
+  });
+
+  /* ── CASO · estratégicos sin novedades hace más de 15 días ──────── */
+  // Va último a propósito: cualquier sección que cree asientos después
+  // levantaría la última actualización de estos proyectos y el caso se perdería.
+  // El rango se corta en 28 días para no pisar la alerta de los 30, que es otra.
+  const quietos = vigentes.filter(
+    (p) => p.estrategico && ['en ejecución', 'demorado'].includes(p.estado) && !congelados.has(p.id_proyecto),
+  );
+  for (const p of tomar(quietos, Math.min(5, quietos.length))) {
+    const viejo = marcaTiempo(desplazar(hoy, -entre(17, 28)), 10, entre(0, 59));
+    for (const h of bd.historial) {
+      if (h.id_proyecto === p.id_proyecto && h.creado_en > viejo) h.creado_en = viejo;
+    }
+  }
 
   /* ── Reportes guardados ─────────────────────────────────────────── */
 

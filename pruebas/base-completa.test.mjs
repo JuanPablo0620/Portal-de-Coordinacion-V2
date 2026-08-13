@@ -347,7 +347,7 @@ test('la bitácora está ordenada y el índice de última actualización coincid
 
 /* ── El motor de alertas encuentra lo que el set fabricó ──────────── */
 
-test('el set produce alertas de los siete tipos previstos', () => {
+test('el set produce alertas de todos los tipos previstos', () => {
   const alertas = calcularAlertas(bd, HOY);
   const tipos = new Set(alertas.map((a) => a.tipo));
   for (const tipo of Object.values(TIPOS_ALERTA)) {

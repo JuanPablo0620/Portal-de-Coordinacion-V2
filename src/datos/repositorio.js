@@ -12,6 +12,7 @@ import { leerBD, escribirBD, limpiar } from './almacenamiento.js';
 import { bdVacia, normalizarBD, claveDe } from './esquema.js';
 import { crearAsiento, diffCampos } from './bitacora.js';
 import { nuevoId, generarIdProyecto } from './ids.js';
+import { hoyISO } from './tiempo.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -181,6 +182,97 @@ export async function bajaProyecto(id) {
   return actualizar('proyectos', id, { activo: false }, { id_proyecto: id });
 }
 
+/* ── Proyectos estratégicos ─────────────────────────────────────────── */
+
+/**
+ * Marca un proyecto como estratégico.
+ *
+ * No es una entidad aparte sino un campo de la base maestra, y eso es
+ * deliberado: un proyecto estratégico es el MISMO proyecto que ya siguen
+ * seguimiento, monitoreo y planificación, mirado con otra prioridad. Duplicarlo
+ * en una colección propia obligaría a mantener dos avances que se iban a
+ * despegar en la primera carga.
+ */
+export async function marcarEstrategico(idProyecto, datos = {}) {
+  return actualizarProyecto(idProyecto, {
+    estrategico: true,
+    prioridad_estrategica: datos.prioridad_estrategica ?? 'alta',
+    motivo_estrategico: datos.motivo_estrategico ?? '',
+    responsable_politico: datos.responsable_politico ?? '',
+    compromiso_publico: datos.compromiso_publico ?? '',
+    fecha_compromiso: datos.fecha_compromiso || null,
+    origen_estrategico: datos.origen_estrategico ?? 'base',
+    id_origen_estrategico: datos.id_origen_estrategico ?? null,
+    fecha_marcado_estrategico: datos.fecha_marcado_estrategico ?? hoyISO(),
+  });
+}
+
+/**
+ * Saca un proyecto de la cartera estratégica sin borrar por qué estuvo ahí:
+ * los campos quedan y la bitácora guarda el cambio, así que el historial
+ * sigue pudiendo explicar por qué durante seis meses fue prioritario.
+ */
+export async function quitarEstrategico(idProyecto) {
+  return actualizarProyecto(idProyecto, { estrategico: false });
+}
+
+/**
+ * Promoción a estratégico desde monitoreo o seguimiento.
+ *
+ * Es el camino que pidió el área: lo estratégico casi nunca nace declarado, se
+ * descubre cuando un tema se repite o un seguimiento enciende una luz. O el
+ * proyecto ya existe en la base maestra y se marca, o hace falta darlo de alta
+ * —y entonces se crea con el mismo alta de siempre, para que entre a la base
+ * maestra como cualquier otro y no por una puerta lateral—.
+ */
+export async function promoverAEstrategico({ origen_tipo, id_origen, id_proyecto, proyecto, ...estrategico }) {
+  if (!origen_tipo || !id_origen) {
+    throw new Error('Una promoción a estratégico requiere origen_tipo e id_origen');
+  }
+  if (!id_proyecto && !proyecto) {
+    throw new Error('Indicá el proyecto a promover o los datos del proyecto nuevo');
+  }
+
+  return enLote(async () => {
+    const id = id_proyecto ?? (await crearProyecto(proyecto)).id_proyecto;
+    return marcarEstrategico(id, {
+      ...estrategico,
+      origen_estrategico: origen_tipo,
+      id_origen_estrategico: id_origen,
+    });
+  });
+}
+
+/* ── Posicionamiento internacional ──────────────────────────────────── */
+
+/**
+ * Alta de una acción de posicionamiento internacional.
+ *
+ * Colección propia y no un proyecto de la base maestra: un hermanamiento o una
+ * postulación a un fondo no tienen objetivo, unidad ni avance físico, y
+ * forzarlos a ese molde llenaba la base maestra de proyectos con campos vacíos.
+ * El vínculo a un proyecto es opcional y va en un solo sentido.
+ */
+export async function crearAccionInternacional(datos) {
+  return crear(
+    'acciones_internacionales',
+    { estado: 'identificada', ods: [], ids_proyecto: [], ...datos },
+    { id_proyecto: datos.ids_proyecto?.[0] ?? null },
+  );
+}
+
+export async function actualizarAccionInternacional(id, cambios) {
+  const bd = await obtenerBD();
+  const previa = bd.acciones_internacionales.find((a) => a.id === id);
+  return actualizar('acciones_internacionales', id, cambios, {
+    id_proyecto: (cambios.ids_proyecto ?? previa?.ids_proyecto)?.[0] ?? null,
+  });
+}
+
+export async function bajaAccionInternacional(id) {
+  return bajaLogica('acciones_internacionales', id);
+}
+
 /* ── Seguimientos ───────────────────────────────────────────────────── */
 
 export async function crearSeguimiento(datos) {
@@ -269,8 +361,55 @@ export async function agregarTema(idMonitoreo, tema) {
   });
 }
 
+/**
+ * Edición de un tema ya cargado.
+ *
+ * Mantiene el compromiso asociado en sincronía. El invariante que garantiza
+ * `agregarTema()` —todo tema con acción tiene su compromiso en la lista
+ * general, y sólo esos— tiene que sobrevivir a la edición: corregir el
+ * responsable o la fecha del tema sin tocar el compromiso dejaba las dos
+ * versiones peleadas, marcar la acción después no creaba nada, y desmarcarla
+ * dejaba un compromiso vivo por un tema que ya no lo pedía.
+ */
 export async function actualizarTema(id, cambios) {
-  return actualizar('temas_monitoreo', id, cambios);
+  const bd = await obtenerBD();
+  const previo = bd.temas_monitoreo.find((t) => t.id === id);
+  if (!previo) throw new Error(`No existe el tema ${id}`);
+  const monitoreo = bd.monitoreos.find((m) => m.id === previo.id_monitoreo);
+
+  return enLote(async () => {
+    const tema = await actualizar('temas_monitoreo', id, cambios, {
+      id_proyecto: cambios.id_proyecto ?? previo.id_proyecto ?? null,
+    });
+
+    const datos = {
+      descripcion: tema.descripcion,
+      responsable: tema.responsable,
+      fecha_limite: tema.fecha_limite || null,
+      id_proyecto: tema.id_proyecto ?? null,
+    };
+
+    if (tema.requiere_accion && !previo.id_compromiso) {
+      const compromiso = await crearCompromiso({
+        origen_tipo: 'monitoreo',
+        id_origen: previo.id_monitoreo,
+        area: monitoreo?.area ?? '',
+        ...datos,
+      });
+      return actualizar('temas_monitoreo', id, { id_compromiso: compromiso.id });
+    }
+    if (tema.requiere_accion) {
+      await actualizarCompromiso(previo.id_compromiso, datos);
+      return tema;
+    }
+    if (previo.id_compromiso) {
+      // Baja lógica, no borrado: el sistema no borra nada, y el asiento de
+      // bitácora deja constancia de por qué ese compromiso dejó de contar.
+      await bajaLogica('compromisos', previo.id_compromiso);
+      return actualizar('temas_monitoreo', id, { id_compromiso: null });
+    }
+    return tema;
+  });
 }
 
 /** Validación §8.6: no se puede cerrar un monitoreo sin al menos un tema. */

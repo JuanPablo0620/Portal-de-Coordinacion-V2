@@ -5,7 +5,13 @@
  * devuelven valores nuevos. `hoy` siempre entra como parámetro —nunca se lee
  * del reloj adentro— porque es lo que hace verificables los vencimientos.
  */
-import { ESTADOS_ACTIVOS, DIAS_PERIODICIDAD, UMBRALES } from './catalogos.js';
+import {
+  DIAS_PERIODICIDAD,
+  ESTADOS_ACTIVOS,
+  ESTADOS_INTERNACIONAL_ABIERTOS,
+  ESTADOS_INTERNACIONAL_CON_PLAZO,
+  UMBRALES,
+} from './catalogos.js';
 import { masRecientePrimero, redactarAsiento } from './bitacora.js';
 import { hoyISO } from './tiempo.js';
 
@@ -139,6 +145,9 @@ export function proyectos(bd, filtros = {}) {
       (resto.es_obra ? p.es_obra === true : true) &&
       (resto.solo_activos ? esProyectoActivo(p) : true) &&
       (resto.solo_prioritarios ? p.prioridad === 'alta' : true) &&
+      (resto.solo_estrategicos ? p.estrategico === true : true) &&
+      coincide(resto.prioridad_estrategica, p.prioridad_estrategica) &&
+      coincide(resto.motivo_estrategico, p.motivo_estrategico) &&
       dentroDelRango(p.fecha_carga, resto.desde, resto.hasta) &&
       (!texto || `${p.proyecto} ${p.id_proyecto} ${p.responsable ?? ''}`.toLowerCase().includes(texto.toLowerCase())),
     )
@@ -872,6 +881,331 @@ export function nivelCumplimiento(porcentaje) {
   if (porcentaje >= 80) return 'atencion';
   if (porcentaje >= 60) return 'proximo';
   return 'vencido';
+}
+
+/* ── Proyectos estratégicos ─────────────────────────────────────────── */
+
+/**
+ * Semáforo de la cartera estratégica.
+ *
+ * No es el mismo que el de la cartera general, y esa es la razón de que el
+ * módulo exista: un proyecto estratégico se pone en amarillo a los quince días
+ * sin novedades, la mitad que cualquier otro. Si el umbral fuera el mismo,
+ * declararlo estratégico no cambiaría nada de lo que se ve.
+ */
+export function nivelEstrategico(r) {
+  if (r.estado === 'finalizado') return 'enregla';
+  if (!esProyectoActivo(r)) return 'sindato';
+  if (r.compromisos_vencidos > 0) return 'vencido';
+  if (r.dias_al_fin !== null && r.dias_al_fin < 0) return 'vencido';
+  if (r.temas_criticos > 0) return 'proximo';
+  if (r.dias_sin_novedad !== null && r.dias_sin_novedad > UMBRALES.DIAS_ESTRATEGICO_SIN_NOVEDAD) return 'proximo';
+  if (r.dias_al_fin !== null && r.dias_al_fin <= 30) return 'atencion';
+  return 'enregla';
+}
+
+/**
+ * La cartera estratégica con todo lo que hace falta para decidir sobre ella:
+ * compromisos abiertos y vencidos, temas críticos y días sin novedad.
+ *
+ * Los índices se arman una vez por llamada. Preguntar por proyecto recorría
+ * las tres colecciones enteras por fila, y la cartera estratégica es
+ * justamente la pantalla que se deja abierta.
+ */
+export function proyectosEstrategicos(bd, filtros = {}, hoy = hoyISO()) {
+  const porProyecto = new Map();
+  for (const c of activos(bd.compromisos)) {
+    if (!c.id_proyecto) continue;
+    if (!porProyecto.has(c.id_proyecto)) porProyecto.set(c.id_proyecto, []);
+    porProyecto.get(c.id_proyecto).push(c);
+  }
+  const temasPorProyecto = new Map();
+  for (const t of activos(bd.temas_monitoreo)) {
+    if (!t.id_proyecto) continue;
+    if (!temasPorProyecto.has(t.id_proyecto)) temasPorProyecto.set(t.id_proyecto, []);
+    temasPorProyecto.get(t.id_proyecto).push(t);
+  }
+
+  return proyectos(bd, { ...filtros, solo_estrategicos: true })
+    .map((p) => {
+      const compromisos = porProyecto.get(p.id_proyecto) ?? [];
+      const derivado = {
+        ...p,
+        dias_sin_novedad: p.ultima_actualizacion
+          ? Math.abs(diasHasta(p.ultima_actualizacion.slice(0, 10), hoy))
+          : null,
+        dias_al_fin: diasHasta(p.fecha_fin_prevista, hoy),
+        compromisos_abiertos: compromisos.filter((c) => estadoCompromiso(c, hoy) !== 'cumplido').length,
+        compromisos_vencidos: compromisos.filter((c) => estadoCompromiso(c, hoy) === 'vencido').length,
+        temas_criticos: (temasPorProyecto.get(p.id_proyecto) ?? []).filter(
+          (t) => t.criticidad === 'alta' && !t.resuelto,
+        ).length,
+      };
+      return { ...derivado, nivel_estrategico: nivelEstrategico(derivado) };
+    })
+    .sort(
+      (a, b) =>
+        ORDEN_NIVEL[a.nivel_estrategico] - ORDEN_NIVEL[b.nivel_estrategico] ||
+        String(a.proyecto).localeCompare(String(b.proyecto), 'es'),
+    );
+}
+
+/** Las cifras del tablero estratégico, calculadas sobre la misma lista que se ve. */
+export function resumenEstrategico(bd, filtros = {}, hoy = hoyISO()) {
+  const cartera = proyectosEstrategicos(bd, filtros, hoy);
+  const porNivel = {};
+  const porPrioridad = {};
+  const porMotivo = new Map();
+  let planificado = 0;
+  let ejecutado = 0;
+  let objetivo = 0;
+  let avance = 0;
+
+  for (const p of cartera) {
+    porNivel[p.nivel_estrategico] = (porNivel[p.nivel_estrategico] ?? 0) + 1;
+    const prio = p.prioridad_estrategica || 'sin definir';
+    porPrioridad[prio] = (porPrioridad[prio] ?? 0) + 1;
+    const motivo = p.motivo_estrategico || 'Sin motivo declarado';
+    porMotivo.set(motivo, (porMotivo.get(motivo) ?? 0) + 1);
+    planificado += Number(p.monto_planificado) || 0;
+    ejecutado += Number(p.monto_ejecutado) || 0;
+    objetivo += Number(p.objetivo) || 0;
+    avance += Number(p.avance) || 0;
+  }
+
+  const enRiesgo = cartera.filter((p) => ['vencido', 'proximo'].includes(p.nivel_estrategico));
+
+  return {
+    total: cartera.length,
+    activos: cartera.filter(esProyectoActivo).length,
+    finalizados: cartera.filter((p) => p.estado === 'finalizado').length,
+    en_riesgo: enRiesgo.length,
+    // Sólo sobre los activos: un proyecto terminado hace ocho meses no tiene por
+    // qué tener novedades, y contarlo acá inflaba el número que dispara la acción.
+    sin_novedad: cartera.filter(
+      (p) =>
+        esProyectoActivo(p) &&
+        p.dias_sin_novedad !== null &&
+        p.dias_sin_novedad > UMBRALES.DIAS_ESTRATEGICO_SIN_NOVEDAD,
+    ).length,
+    compromisos_vencidos: cartera.reduce((s, p) => s + p.compromisos_vencidos, 0),
+    compromisos_abiertos: cartera.reduce((s, p) => s + p.compromisos_abiertos, 0),
+    temas_criticos: cartera.reduce((s, p) => s + p.temas_criticos, 0),
+    avance_promedio: objetivo ? Math.min(Math.round((avance / objetivo) * 100), 100) : 0,
+    monto_planificado: planificado,
+    monto_ejecutado: ejecutado,
+    ejecucion: planificado ? Math.round((ejecutado / planificado) * 100) : 0,
+    por_nivel: porNivel,
+    por_prioridad: porPrioridad,
+    por_motivo: [...porMotivo.entries()]
+      .map(([nombre, cantidad]) => ({ nombre, cantidad }))
+      .sort((a, b) => b.cantidad - a.cantidad),
+  };
+}
+
+/**
+ * Lo que el sistema ya sabe que MERECE mirarse como estratégico y todavía no
+ * está declarado.
+ *
+ * Sale de donde aparecen los problemas de verdad: un tema de monitoreo crítico
+ * sin resolver y un seguimiento que informó trabas. Se agrupa por proyecto —un
+ * proyecto con cuatro señales es un candidato más fuerte que uno con una— y se
+ * excluye lo que ya es estratégico, que no hace falta promover de nuevo.
+ */
+export function candidatosEstrategicos(bd, filtros = {}, hoy = hoyISO()) {
+  const yaEstrategicos = new Set(
+    activos(bd.proyectos).filter((p) => p.estrategico).map((p) => p.id_proyecto),
+  );
+  const proyectosPorId = new Map(activos(bd.proyectos).map((p) => [p.id_proyecto, p]));
+  const monitoreosPorId = new Map(activos(bd.monitoreos).map((m) => [m.id, m]));
+  const senales = [];
+
+  for (const t of activos(bd.temas_monitoreo)) {
+    if (t.criticidad !== 'alta' || t.resuelto) continue;
+    if (t.id_proyecto && yaEstrategicos.has(t.id_proyecto)) continue;
+    const m = monitoreosPorId.get(t.id_monitoreo);
+    senales.push({
+      origen_tipo: 'monitoreo',
+      id_origen: t.id,
+      id_proyecto: t.id_proyecto || null,
+      area: m?.area ?? '',
+      fecha: m?.fecha ?? null,
+      titulo: t.descripcion,
+      detalle: `Tema crítico sin resolver${t.categoria ? ` · ${t.categoria}` : ''}`,
+      ruta: `/monitoreo?tab=ultimos&monitoreo=${t.id_monitoreo}`,
+    });
+  }
+
+  for (const s of activos(bd.seguimientos)) {
+    if (!(s.problemas?.length)) continue;
+    for (const id of s.ids_proyecto ?? []) {
+      if (yaEstrategicos.has(id)) continue;
+      senales.push({
+        origen_tipo: 'seguimiento',
+        id_origen: s.id,
+        id_proyecto: id,
+        area: s.area ?? '',
+        fecha: s.fecha ?? null,
+        titulo: s.problemas[0],
+        detalle: `${s.problemas.length} problema(s) informados en el seguimiento`,
+        ruta: `/seguimiento?vista=lista&seguimiento=${s.id}`,
+      });
+    }
+  }
+
+  const grupos = new Map();
+  for (const senal of senales) {
+    if (!coincide(filtros.area, senal.area)) continue;
+    if (!coincide(filtros.origen_tipo, senal.origen_tipo)) continue;
+    if (!dentroDelRango(senal.fecha, filtros.desde, filtros.hasta)) continue;
+
+    // Sin proyecto vinculado cada señal es su propio candidato: no hay con qué
+    // agruparla, y perderla sería perder justo el tema que nadie está mirando.
+    const clave = senal.id_proyecto ?? `${senal.origen_tipo}:${senal.id_origen}`;
+    const previo = grupos.get(clave);
+    if (!previo) {
+      const p = senal.id_proyecto ? proyectosPorId.get(senal.id_proyecto) : null;
+      grupos.set(clave, {
+        clave,
+        ...senal,
+        proyecto: p?.proyecto ?? null,
+        estado_proyecto: p?.estado ?? null,
+        prioridad: p?.prioridad ?? null,
+        senales: 1,
+        origenes: [senal.origen_tipo],
+      });
+      continue;
+    }
+    previo.senales += 1;
+    if (!previo.origenes.includes(senal.origen_tipo)) previo.origenes.push(senal.origen_tipo);
+    // Se conserva la señal más reciente como cara visible del candidato.
+    if (String(senal.fecha ?? '') > String(previo.fecha ?? '')) {
+      Object.assign(previo, {
+        origen_tipo: senal.origen_tipo,
+        id_origen: senal.id_origen,
+        titulo: senal.titulo,
+        detalle: senal.detalle,
+        fecha: senal.fecha,
+        ruta: senal.ruta,
+      });
+    }
+  }
+
+  return [...grupos.values()].sort(
+    (a, b) => b.senales - a.senales || String(b.fecha ?? '').localeCompare(String(a.fecha ?? '')),
+  );
+}
+
+/* ── Posicionamiento internacional ──────────────────────────────────── */
+
+/**
+ * Semáforo de una acción internacional.
+ *
+ * Sólo lo que todavía no se presentó tiene reloj: ahí el plazo es todo, porque
+ * una convocatoria que cierra no se reabre. Una vez presentada, la fecha ya no
+ * dice nada del riesgo y el semáforo pasa a leer el estado.
+ */
+export function nivelAccionInternacional(a) {
+  if (ESTADOS_INTERNACIONAL_CON_PLAZO.includes(a.estado) && a.fecha_limite) {
+    return nivelPorDias(a.dias_al_cierre);
+  }
+  if (a.estado === 'vigente') return 'enregla';
+  if (a.estado === 'presentada') return 'atencion';
+  return 'sindato';
+}
+
+export function accionesInternacionales(bd, filtros = {}, hoy = hoyISO()) {
+  const { texto, ods, ...resto } = filtros;
+  return activos(bd.acciones_internacionales)
+    .map((a) => {
+      const derivada = {
+        ...a,
+        ods: a.ods ?? [],
+        ids_proyecto: a.ids_proyecto ?? [],
+        abierta: ESTADOS_INTERNACIONAL_ABIERTOS.includes(a.estado),
+        dias_al_cierre: diasHasta(a.fecha_limite, hoy),
+      };
+      return { ...derivada, nivel: nivelAccionInternacional(derivada) };
+    })
+    .filter((a) =>
+      coincide(resto.tipo, a.tipo) &&
+      coincide(resto.organismo, a.organismo) &&
+      coincide(resto.pais, a.pais) &&
+      coincide(resto.estado, a.estado) &&
+      coincide(resto.alcance, a.alcance) &&
+      coincide(resto.area, a.area) &&
+      (resto.solo_abiertas ? a.abierta : true) &&
+      (resto.id_proyecto ? a.ids_proyecto.includes(resto.id_proyecto) : true) &&
+      (ods ? a.ods.includes(Number(ods)) : true) &&
+      dentroDelRango(a.fecha_inicio, resto.desde, resto.hasta) &&
+      (!texto ||
+        `${a.nombre} ${a.organismo ?? ''} ${a.pais ?? ''} ${a.descripcion ?? ''}`
+          .toLowerCase()
+          .includes(texto.toLowerCase())),
+    )
+    .sort(
+      (a, b) =>
+        ORDEN_NIVEL[a.nivel] - ORDEN_NIVEL[b.nivel] ||
+        String(a.fecha_limite ?? '9999').localeCompare(String(b.fecha_limite ?? '9999')),
+    );
+}
+
+/** Cantidad de acciones por dimensión. `ods` es multivaluado y se cuenta una vez por objetivo. */
+export function accionesPorDimension(bd, campo, filtros = {}, hoy = hoyISO()) {
+  const cuenta = new Map();
+  for (const a of accionesInternacionales(bd, filtros, hoy)) {
+    const valores = campo === 'ods' ? a.ods.map((n) => `ODS ${n}`) : [a[campo] || 'Sin definir'];
+    for (const v of valores.length ? valores : ['Sin definir']) {
+      cuenta.set(v, (cuenta.get(v) ?? 0) + 1);
+    }
+  }
+  return [...cuenta.entries()]
+    .map(([nombre, cantidad]) => ({ nombre, cantidad }))
+    .sort((a, b) => b.cantidad - a.cantidad);
+}
+
+/**
+ * Las cifras del tablero de posicionamiento.
+ *
+ * `tasa_exito` se calcula sólo sobre lo RESUELTO —vigente, cerrada o no
+ * prosperó—: contar las que siguen en trámite como fracasos daría un número
+ * que baja cada vez que se carga una oportunidad nueva, que es exactamente al
+ * revés de lo que hay que incentivar.
+ */
+export function resumenPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
+  const lista = accionesInternacionales(bd, filtros, hoy);
+  const porEstado = {};
+  let financiamientoObtenido = 0;
+  let financiamientoEnGestion = 0;
+
+  for (const a of lista) {
+    porEstado[a.estado] = (porEstado[a.estado] ?? 0) + 1;
+    const monto = Number(a.financiamiento_usd) || 0;
+    if (a.estado === 'vigente' || a.estado === 'cerrada') financiamientoObtenido += monto;
+    else if (a.abierta) financiamientoEnGestion += monto;
+  }
+
+  const prosperaron = (porEstado.vigente ?? 0) + (porEstado.cerrada ?? 0);
+  const resueltas = prosperaron + (porEstado['no prosperó'] ?? 0);
+
+  return {
+    total: lista.length,
+    abiertas: lista.filter((a) => a.abierta).length,
+    vigentes: porEstado.vigente ?? 0,
+    presentadas: porEstado.presentada ?? 0,
+    no_prosperaron: porEstado['no prosperó'] ?? 0,
+    tasa_exito: resueltas ? Math.round((prosperaron / resueltas) * 100) : null,
+    financiamiento_obtenido: financiamientoObtenido,
+    financiamiento_en_gestion: financiamientoEnGestion,
+    organismos: new Set(lista.map((a) => a.organismo).filter(Boolean)).size,
+    paises: new Set(lista.map((a) => a.pais).filter(Boolean)).size,
+    ods_cubiertos: new Set(lista.flatMap((a) => a.ods)).size,
+    proyectos_vinculados: new Set(lista.flatMap((a) => a.ids_proyecto)).size,
+    por_estado: porEstado,
+    proximos_cierres: lista
+      .filter((a) => a.dias_al_cierre !== null && ESTADOS_INTERNACIONAL_CON_PLAZO.includes(a.estado))
+      .sort((a, b) => a.dias_al_cierre - b.dias_al_cierre),
+  };
 }
 
 /* ── Calendario unificado ───────────────────────────────────────────── */

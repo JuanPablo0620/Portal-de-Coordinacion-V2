@@ -1,18 +1,21 @@
 /**
  * Carga de un seguimiento realizado.
  *
- * El orden de la pantalla es el que pidió el área: proyecto → última
- * actualización como referencia → minuta → tres bloques revisables.
+ * El orden de la pantalla sigue el orden real del trabajo: primero de qué
+ * reunión se trata, después el texto crudo, después la transferencia a campos
+ * revisables y recién al final el número de avance, que es lo único que se
+ * decide DESPUÉS de haber leído lo que pasó.
  *
- * La separación automática PRECARGA los tres bloques; no persiste nada. El
- * usuario corrige y recién al confirmar se escriben seguimiento, compromisos y
- * avances corregidos.
+ * La transferencia PRECARGA los tres bloques; no persiste nada. El usuario
+ * corrige y recién al confirmar se escriben seguimiento, compromisos y avances
+ * corregidos.
  */
 import { useMemo, useState } from 'react';
-import { Check, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Check, Plus, Trash2 } from 'lucide-react';
 import { Aviso, Boton, Chip, Semaforo, Tarjeta } from '../../componentes/Basicos.jsx';
-import { CampoArea, CampoFecha, CampoHora, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
+import { CampoFecha, CampoHora, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
+import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarMinuta } from '../../datos/minutas/separarMinuta.js';
 import { ESTADOS_PROYECTO } from '../../datos/catalogos.js';
 import { hoyISO, porcentajeAvance, proyectoPorId, ultimaActualizacion } from '../../datos/selectores.js';
@@ -21,6 +24,10 @@ import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 
 const filaVacia = () => ({ clave: Math.random().toString(36).slice(2), descripcion: '', responsable: '', fecha_limite: '' });
+
+const EJEMPLO =
+  'Ej.: Se ejecutaron 200 metros de cordón cuneta en el sector norte. Falta la conformidad ' +
+  'del área técnica para avanzar. Ferreyra va a presentar el informe actualizado antes del 15/09.';
 
 export function CargarSeguimiento({ alTerminar }) {
   const bd = useBD();
@@ -39,7 +46,7 @@ export function CargarSeguimiento({ alTerminar }) {
   const [compromisos, setCompromisos] = useState([]);
   const [avances, setAvances] = useState([]);
   const [problemas, setProblemas] = useState([]);
-  const [separado, setSeparado] = useState(false);
+  const [transferido, setTransferido] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
@@ -48,12 +55,14 @@ export function CargarSeguimiento({ alTerminar }) {
     [bd, ids],
   );
 
-  function separar() {
+  const hayCampos = compromisos.length + avances.length + problemas.length > 0;
+
+  function transferir() {
     const r = separarMinuta(texto, hoy);
     setCompromisos(r.compromisos.map((c) => ({ ...c, clave: Math.random().toString(36).slice(2) })));
     setAvances(r.avances);
     setProblemas(r.problemas);
-    setSeparado(true);
+    setTransferido(true);
   }
 
   function validar() {
@@ -132,8 +141,8 @@ export function CargarSeguimiento({ alTerminar }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 1 · Proyecto */}
-      <Tarjeta titulo="1 · Proyectos" descripcion="Selección múltiple sobre la base maestra.">
+      {/* 1 · De qué reunión se trata */}
+      <Tarjeta titulo="1 · De qué seguimiento se trata" descripcion="Área, fecha y proyectos tratados.">
         <GrillaCampos columnas={3} className="mb-3">
           <CampoSelect etiqueta="Área" requerido opciones={opcionesArea} value={area} onChange={(e) => setArea(e.target.value)} />
           <CampoFecha etiqueta="Fecha del seguimiento" requerido value={fecha} onChange={(e) => setFecha(e.target.value)} />
@@ -149,11 +158,61 @@ export function CargarSeguimiento({ alTerminar }) {
         />
       </Tarjeta>
 
-      {/* 2 · Última actualización */}
+      {/* 2 · Texto crudo → transferencia */}
+      <Transferencia
+        titulo="2 · Lo conversado"
+        descripcion="Volcá la minuta tal como salió de la reunión y transferila a campos."
+        etiquetaCampo="Texto de la minuta"
+        placeholder={EJEMPLO}
+        ayuda="Al transferir, el texto se reparte en compromisos, avances y problemas. Nada se guarda todavía."
+        texto={texto}
+        alCambiarTexto={setTexto}
+        alTransferir={transferir}
+        transferido={transferido}
+        resumen={
+          `Se transfirieron ${compromisos.length} compromiso(s), ${avances.length} avance(s) ` +
+          `y ${problemas.length} problema(s). Corregilos abajo.`
+        }
+      />
+
+      {/* 3 · Campos transferidos, editables */}
+      <Tarjeta
+        titulo="3 · Campos transferidos"
+        descripcion="Todos editables. Podés corregir, borrar y agregar filas a mano."
+      >
+        {!transferido && !hayCampos && (
+          <div className="mb-3">
+            <Aviso tono="info">
+              Todavía no transferiste nada. Pegá el texto arriba y apretá <strong>«Transferir»</strong>,
+              o cargá los campos a mano con los botones «Agregar».
+            </Aviso>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-4">
+          <BloqueCompromisos filas={compromisos} setFilas={setCompromisos} hoy={hoy} />
+          <BloqueTexto
+            titulo="Avances informados"
+            tono="enregla"
+            items={avances}
+            setItems={setAvances}
+            placeholder="Ej.: Se ejecutaron 200 metros de cordón cuneta."
+          />
+          <BloqueTexto
+            titulo="Problemas / trabas"
+            tono="vencido"
+            items={problemas}
+            setItems={setProblemas}
+            placeholder="Ej.: Falta la conformidad del área técnica."
+          />
+        </div>
+      </Tarjeta>
+
+      {/* 4 · El número de avance, después de haber leído lo que pasó */}
       {elegidos.length > 0 && (
         <Tarjeta
-          titulo="2 · Última actualización registrada"
-          descripcion="Estado y avance de la carga anterior. Confirmá o corregí el avance actual."
+          titulo="4 · Avance de cada proyecto"
+          descripcion="Contra lo registrado en la carga anterior. Dejalo vacío si no cambió."
           sinPadding
         >
           <ul className="divide-y divide-borde/60">
@@ -215,71 +274,17 @@ export function CargarSeguimiento({ alTerminar }) {
         </Tarjeta>
       )}
 
-      {/* 3 · Minuta */}
-      <Tarjeta
-        titulo="3 · Lo conversado"
-        descripcion="Volcá la minuta tal como salió de la reunión."
-        acciones={
-          <Boton variante="primario" tamanio="sm" icono={Sparkles} onClick={separar} disabled={!texto.trim()}>
-            Separar automáticamente
-          </Boton>
-        }
-      >
-        <CampoArea
-          filas={8}
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          // El campo no lleva etiqueta visible porque el título de la tarjeta ya
-          // dice qué es; el lector de pantalla no lee ese título al enfocar.
-          aria-label="Texto de la minuta"
-          placeholder={
-            'Ej.: Se ejecutaron 200 metros de cordón cuneta en el sector norte. Falta la conformidad ' +
-            'del área técnica para avanzar. Ferreyra va a presentar el informe actualizado antes del 15/09.'
-          }
-        />
-      </Tarjeta>
-
-      {/* 4 · Tres bloques */}
-      <Tarjeta
-        titulo="4 · Revisión antes de guardar"
-        descripcion="Los tres bloques son editables. Nada se guarda hasta confirmar."
-      >
-        {separado && (
-          <div className="mb-3">
-            <Aviso tono="alerta" titulo="Separación automática">
-              Los bloques se completaron con una propuesta del sistema. <strong>Revisá y corregí</strong>{' '}
-              antes de confirmar: nada se guarda hasta que aprietes «Guardar seguimiento».
-            </Aviso>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-4">
-          <BloqueCompromisos filas={compromisos} setFilas={setCompromisos} hoy={hoy} />
-          <BloqueTexto
-            titulo="Avances informados"
-            tono="enregla"
-            items={avances}
-            setItems={setAvances}
-            placeholder="Ej.: Se ejecutaron 200 metros de cordón cuneta."
-          />
-          <BloqueTexto
-            titulo="Problemas / trabas"
-            tono="vencido"
-            items={problemas}
-            setItems={setProblemas}
-            placeholder="Ej.: Falta la conformidad del área técnica."
-          />
-        </div>
-
+      {/* 5 · Confirmación */}
+      <Tarjeta>
         {error && (
-          <div className="mt-3">
+          <div className="mb-3">
             <Aviso tono="error">{error}</Aviso>
           </div>
         )}
-
-        <div className="mt-4 flex items-center justify-end gap-2 border-t border-borde pt-4">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <span className="mr-auto text-xs text-tenue">
-            Se van a crear {compromisos.filter((c) => c.descripcion.trim()).length} compromiso(s).
+            Se va a registrar el seguimiento y crear{' '}
+            {compromisos.filter((c) => c.descripcion.trim()).length} compromiso(s).
           </span>
           <Boton variante="primario" icono={Check} onClick={guardar} disabled={guardando}>
             Guardar seguimiento
@@ -303,7 +308,7 @@ function BloqueCompromisos({ filas, setFilas, hoy }) {
       <div className="flex flex-col gap-2 p-3">
         {filas.length === 0 && (
           <p className="py-2 text-center text-xs text-tenue">
-            Sin compromisos. Agregá uno a mano o usá la separación automática.
+            Sin compromisos. Agregá uno a mano o transferilos desde el texto.
           </p>
         )}
         {filas.map((fila) => {

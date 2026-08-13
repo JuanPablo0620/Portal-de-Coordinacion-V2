@@ -12,6 +12,9 @@ import { StaticRouter } from 'react-router-dom/server';
 import { renderToString } from 'react-dom/server';
 import App from '../../src/App.jsx';
 import { HistorialProyecto } from '../../src/modulos/proyectos/HistorialProyecto.jsx';
+import { FormularioTema } from '../../src/modulos/monitoreo/CargarMonitoreo.jsx';
+import { separarTemas } from '../../src/datos/minutas/separarTemas.js';
+import { CATALOGOS_SEMILLA } from '../../src/datos/catalogos.js';
 import { establecerBD } from '../../src/estado/tienda.js';
 import { generarDemo } from '../../src/datos/demo.js';
 import { generarBaseCompleta } from '../../src/datos/base-completa.js';
@@ -23,8 +26,30 @@ import { auditarAccesibilidad } from './accesibilidad.js';
  * Componentes que no se alcanzan por URL porque viven detrás de estado local
  * (una pestaña, un modal). Se montan sueltos para que igual entren en la prueba.
  */
+const CATEGORIAS = CATALOGOS_SEMILLA.categorias_tema.map((c) => ({ valor: c.nombre, titulo: c.nombre }));
+
 const COMPONENTES = {
   HistorialProyecto: (bd, proyecto) => <HistorialProyecto bd={bd} proyecto={proyecto} />,
+
+  /**
+   * El formulario de tema, cargado con un borrador REAL de la transferencia y
+   * con el buscador de proyectos desplegado: es la pantalla que ve quien
+   * corrige lo que propuso el sistema.
+   */
+  FormularioTema: (bd, proyecto) => (
+    <FormularioTema
+      tema={{
+        ...separarTemas('Ferreyra va a elevar el expediente antes del 15/09.', {
+          hoy: hoyISO(),
+          categorias: CATEGORIAS,
+        })[0],
+        id_proyecto: proyecto.id_proyecto,
+      }}
+      alCambiar={() => {}}
+      opcionesCategoria={CATEGORIAS}
+      hoy={hoyISO()}
+    />
+  ),
 };
 
 /**

@@ -288,6 +288,45 @@ test('un tema crítico sin resolver alerta, y deja de alertar al resolverse', as
   assert.equal(calcularAlertas(bd, HOY).filter((a) => a.tipo === TIPOS_ALERTA.TEMA_CRITICO).length, 0);
 });
 
+/**
+ * Corregir un tema recién transferido es el caso normal, no la excepción: la
+ * transferencia PROPONE y el usuario arregla. El compromiso asociado tiene que
+ * seguir esa corrección, en los dos sentidos.
+ */
+test('editar un tema mantiene su compromiso en sincronía', async () => {
+  await limpio();
+  const m = await repo.crearMonitoreo({ fecha: HOY, area: 'Secretaría de Salud' });
+
+  // Sale de la transferencia sin acción, y al revisarlo se marca que sí la requiere.
+  const { tema } = await repo.agregarTema(m.id, {
+    categoria: 'Operativo', descripcion: 'Falta el insumo', criticidad: 'media', requiere_accion: false,
+  });
+  assert.equal(tema.id_compromiso, undefined);
+
+  const conAccion = await repo.actualizarTema(tema.id, {
+    requiere_accion: true, responsable: 'M. López', fecha_limite: FUTURO,
+  });
+  let bd = await repo.obtenerBD();
+  let compromiso = bd.compromisos.find((c) => c.id === conAccion.id_compromiso);
+  assert.ok(compromiso, 'marcar la acción después crea el compromiso');
+  assert.equal(compromiso.responsable, 'M. López');
+  assert.equal(compromiso.origen_tipo, 'monitoreo');
+
+  // Corregir el texto del tema corrige también el compromiso.
+  await repo.actualizarTema(tema.id, { descripcion: 'Falta el insumo crítico', responsable: 'R. Díaz' });
+  bd = await repo.obtenerBD();
+  compromiso = bd.compromisos.find((c) => c.id === conAccion.id_compromiso);
+  assert.equal(compromiso.descripcion, 'Falta el insumo crítico');
+  assert.equal(compromiso.responsable, 'R. Díaz');
+
+  // Desmarcar la acción da de baja el compromiso: no queda vivo por un tema que ya no lo pide.
+  const sinAccion = await repo.actualizarTema(tema.id, { requiere_accion: false });
+  bd = await repo.obtenerBD();
+  assert.equal(sinAccion.id_compromiso, null);
+  assert.equal(bd.compromisos.find((c) => c.id === compromiso.id).activo, false);
+  assert.equal(selCompromisos(bd, {}).length, 0, 'deja de contar en la lista general');
+});
+
 /* ── Flujo del módulo 5: mesa con compromisos ───────────────────────── */
 
 test('los compromisos de una mesa entran a la lista general con origen mesa', async () => {

@@ -11,7 +11,16 @@
  */
 import { bdVacia } from './esquema.js';
 import { nuevoId } from './ids.js';
-import { BARRIOS, PERSONAS, crearAzar, desplazar, marcaTiempo } from './sintetico.js';
+import {
+  ACCIONES_INTERNACIONALES,
+  BARRIOS,
+  CIUDADES_EXTRANJERAS,
+  COMPROMISOS_PUBLICOS,
+  PERSONAS,
+  crearAzar,
+  desplazar,
+  marcaTiempo,
+} from './sintetico.js';
 
 /** Plantillas por área: [prefijoNombre, tipo, unidad, esObra, programa, eje]. */
 const PLANTILLAS = {
@@ -206,14 +215,11 @@ export function generarDemo(hoy) {
   const porArea = (area) => proyectos.filter((p) => p.area === area);
 
   /* ── CASO DE BORDE · proyectos sin actualizar hace más de 30 días ── */
-  // Se les corre el asiento más reciente a 45 días atrás.
+  // Acá sólo se ELIGEN. Correrles los asientos hacia atrás es lo último que hace
+  // el generador: cualquier sección posterior que los toque —un seguimiento, un
+  // compromiso, una acción internacional vinculada— les levantaría la última
+  // actualización y el caso se perdería sin que nada fallara.
   const sinActualizar = proyectos.filter((p) => p.estado === 'en ejecución').slice(0, 3);
-  for (const p of sinActualizar) {
-    const viejo = marcaTiempo(desplazar(hoy, -45), 10);
-    for (const h of bd.historial) {
-      if (h.id_proyecto === p.id_proyecto) h.creado_en = viejo;
-    }
-  }
 
   /* ── CASO DE BORDE · proyectos vencidos y no finalizados ────────── */
   const vencidos = proyectos.filter(
@@ -644,6 +650,128 @@ export function generarDemo(hoy) {
     };
     bd.planificacion_anual.push(plan);
     asentar('planificacion_anual', plan.id, 'alta', [], plan.creado_en, p.id_proyecto);
+  }
+
+  /* ── Cartera estratégica ────────────────────────────────────────── */
+
+  // Seis proyectos, con los tres orígenes representados: uno declarado desde la
+  // base maestra, uno promovido desde un tema de monitoreo y uno desde un
+  // seguimiento. En un set de demostración importa que se vean los tres.
+  const motivos = bd.catalogos.motivos_estrategicos.map((m) => m.nombre);
+  const temasCriticos = bd.temas_monitoreo.filter((t) => t.criticidad === 'alta');
+  // Se saltean los que quedaron congelados en -45 días: declararlos estratégicos
+  // agrega un asiento más nuevo y les levantaría la última actualización, que es
+  // justo el caso de borde que esos tres proyectos existen para mostrar.
+  const paraEstrategicos = proyectos
+    .filter((p) => p.estado !== 'suspendido' && !sinActualizar.includes(p))
+    .slice(0, 6);
+
+  paraEstrategicos.forEach((p, i) => {
+    const origen = i % 3 === 0 ? 'base' : i % 3 === 1 ? 'monitoreo' : 'seguimiento';
+    const cuando = desplazar(hoy, -entre(25, 220));
+    p.estrategico = true;
+    p.prioridad_estrategica = i < 3 ? 'alta' : 'media';
+    p.motivo_estrategico = motivos[i % motivos.length];
+    p.responsable_politico = elegir(personas);
+    p.compromiso_publico = COMPROMISOS_PUBLICOS[i % COMPROMISOS_PUBLICOS.length];
+    p.fecha_compromiso = desplazar(cuando, entre(120, 400));
+    p.origen_estrategico = origen;
+    p.id_origen_estrategico =
+      origen === 'monitoreo'
+        ? (temasCriticos[i]?.id ?? temasCriticos[0]?.id ?? null)
+        : origen === 'seguimiento'
+          ? (seguimientos[i]?.id ?? seguimientos[0]?.id ?? null)
+          : null;
+    p.fecha_marcado_estrategico = cuando;
+    asentar(
+      'proyectos',
+      p.id_proyecto,
+      'edicion',
+      [{ campo: 'estrategico', antes: false, despues: true }],
+      marcaTiempo(cuando, 11),
+      p.id_proyecto,
+    );
+  });
+
+  /* ── Posicionamiento internacional ──────────────────────────────── */
+
+  const organismos = bd.catalogos.organismos_internacionales.map((o) => o.nombre);
+  const paises = bd.catalogos.paises_contraparte.map((p) => p.nombre);
+  const estrategicos = proyectos.filter((p) => p.estrategico);
+
+  /**
+   * Las nueve acciones del set cubren el embudo entero —de identificada a no
+   * prosperó— y las dos filas que el módulo existe para mostrar: una
+   * convocatoria que cierra esta semana y otra que ya se pasó de fecha.
+   */
+  const GUION = [
+    ['Hermanamiento', 'vigente', -520, 60],
+    ['Red de ciudades', 'vigente', -400, 90],
+    ['Postulación a fondo', 'presentada', -150, -20],
+    ['Postulación a fondo', 'en preparación', -40, 12],
+    ['Postulación a fondo', 'identificada', -15, 4],
+    ['Premio o distinción', 'en preparación', -90, -6],
+    ['Convenio de cooperación', 'cerrada', -600, -400],
+    ['Misión o visita', 'no prosperó', -300, -240],
+    ['Evento internacional', 'identificada', -10, 120],
+  ];
+
+  GUION.forEach(([tipo, estado, diasInicio, diasLimite], i) => {
+    const inicio = desplazar(hoy, diasInicio);
+    const plantillas = ACCIONES_INTERNACIONALES[tipo];
+    const nombre = plantillas[i % plantillas.length].replace(
+      '{ciudad}',
+      CIUDADES_EXTRANJERAS[i % CIUDADES_EXTRANJERAS.length],
+    );
+    const conPlata = tipo === 'Postulación a fondo';
+    const accion = {
+      id: nuevoId('int'),
+      nombre,
+      tipo,
+      organismo: organismos[i % organismos.length],
+      pais: paises[i % paises.length],
+      alcance: i % 3 === 0 ? 'bilateral' : i % 3 === 1 ? 'regional' : 'multilateral',
+      estado,
+      area: areas[i % areas.length],
+      referente: elegir(personas),
+      descripcion: `${nombre}. Gestión impulsada por la coordinación de relaciones internacionales del municipio.`,
+      fecha_inicio: inicio,
+      fecha_limite: desplazar(hoy, diasLimite),
+      fecha_resolucion: ['vigente', 'cerrada', 'no prosperó'].includes(estado)
+        ? desplazar(hoy, diasLimite + 20)
+        : null,
+      financiamiento_usd: conPlata ? entre(40, 600) * 5_000 : 0,
+      ods: i % 2 === 0 ? [11, 1 + (i % 16)] : [1 + (i % 17)],
+      ids_proyecto: estrategicos[i % estrategicos.length] ? [estrategicos[i % estrategicos.length].id_proyecto] : [],
+      resultado:
+        estado === 'no prosperó'
+          ? 'No se alcanzó el puntaje mínimo en la evaluación técnica.'
+          : estado === 'cerrada'
+            ? 'Ejecutada y rendida en tiempo y forma.'
+            : '',
+      activo: true,
+      creado_por: usuario,
+      creado_en: marcaTiempo(inicio, 10),
+    };
+    bd.acciones_internacionales.push(accion);
+    asentar('acciones_internacionales', accion.id, 'alta', [], accion.creado_en, accion.ids_proyecto[0] ?? null);
+  });
+
+  /* ── CASO DE BORDE · silencios, al final de todo ─────────────────── */
+  //
+  // Los dos umbrales del sistema, uno al lado del otro: la cartera general
+  // alerta a los 30 días sin novedades y la estratégica a los 15. El
+  // estratégico se corta en 21 para que caiga entre los dos y dispare SÓLO su
+  // alerta; si se pasara de 30 dispararía la otra y no se vería la diferencia.
+  const silencios = [
+    ...sinActualizar.map((p) => [p, 45]),
+    ...proyectos.filter((p) => p.estrategico && p.estado === 'en ejecución').slice(0, 1).map((p) => [p, 21]),
+  ];
+  for (const [p, dias] of silencios) {
+    const viejo = marcaTiempo(desplazar(hoy, -dias), 10);
+    for (const h of bd.historial) {
+      if (h.id_proyecto === p.id_proyecto && h.creado_en > viejo) h.creado_en = viejo;
+    }
   }
 
   /* ── Reportes guardados ─────────────────────────────────────────── */

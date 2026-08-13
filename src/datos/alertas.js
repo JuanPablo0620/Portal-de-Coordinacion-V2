@@ -11,6 +11,7 @@
  * ─────────────────────────────────────────────────────────────────────
  */
 import {
+  accionesInternacionales,
   activos,
   diasHasta,
   estadoCompromiso,
@@ -34,6 +35,8 @@ export const TIPOS_ALERTA = Object.freeze({
   TEMA_CRITICO: 'tema_critico',
   EVENTO_INCOMPLETO: 'evento_incompleto',
   MESA_SIN_REUNION: 'mesa_sin_reunion',
+  ESTRATEGICO_SIN_NOVEDAD: 'estrategico_sin_novedad',
+  CIERRE_INTERNACIONAL: 'cierre_internacional',
 });
 
 /** Rótulos y orden de presentación de cada grupo del panel de alertas. */
@@ -45,12 +48,16 @@ export const ETIQUETAS_ALERTA = Object.freeze({
   [TIPOS_ALERTA.TEMA_CRITICO]: 'Temas de criticidad alta sin resolver',
   [TIPOS_ALERTA.EVENTO_INCOMPLETO]: 'Eventos con requerimientos sin confirmar',
   [TIPOS_ALERTA.MESA_SIN_REUNION]: 'Mesas sin reunión en su período',
+  [TIPOS_ALERTA.ESTRATEGICO_SIN_NOVEDAD]: 'Proyectos estratégicos sin novedades hace más de 15 días',
+  [TIPOS_ALERTA.CIERRE_INTERNACIONAL]: 'Convocatorias internacionales por cerrar',
 });
 
 export const ORDEN_TIPOS = Object.freeze([
   TIPOS_ALERTA.COMPROMISO_VENCIDO,
+  TIPOS_ALERTA.CIERRE_INTERNACIONAL,
   TIPOS_ALERTA.COMPROMISO_POR_VENCER,
   TIPOS_ALERTA.PROYECTO_VENCIDO,
+  TIPOS_ALERTA.ESTRATEGICO_SIN_NOVEDAD,
   TIPOS_ALERTA.PROYECTO_SIN_ACTUALIZAR,
   TIPOS_ALERTA.TEMA_CRITICO,
   TIPOS_ALERTA.EVENTO_INCOMPLETO,
@@ -232,6 +239,80 @@ function mesasAtrasadas(bd, hoy) {
   }));
 }
 
+/**
+ * Un proyecto estratégico callado es una alerta; uno cualquiera, todavía no.
+ *
+ * Es la única alerta con dos umbrales sobre el mismo hecho: la cartera general
+ * avisa a los treinta días y la estratégica a los quince. Sin esto, declarar un
+ * proyecto estratégico no cambiaba absolutamente nada de lo que el sistema
+ * vigila, y la distinción quedaba siendo una etiqueta de color.
+ */
+function estrategicosSinNovedad(bd, hoy) {
+  const ultimas = mapaUltimaActualizacion(bd);
+  return activos(bd.proyectos)
+    .filter((p) => p.estrategico && ESTADOS_ACTIVOS.includes(p.estado))
+    .map((p) => {
+      const ultima = ultimas.get(p.id_proyecto) ?? null;
+      const dias = ultima ? Math.abs(diasHasta(ultima.slice(0, 10), hoy)) : null;
+      return { p, ultima, dias };
+    })
+    .filter(
+      ({ dias }) =>
+        dias !== null &&
+        dias > UMBRALES.DIAS_ESTRATEGICO_SIN_NOVEDAD &&
+        // Por encima de los treinta ya alerta `proyectosSinActualizar`: emitir
+        // las dos sería contar el mismo proyecto dos veces en el panel.
+        dias <= UMBRALES.DIAS_SIN_ACTUALIZAR,
+    )
+    .map(({ p, ultima, dias }) => ({
+      id: `al_es_${p.id_proyecto}`,
+      tipo: TIPOS_ALERTA.ESTRATEGICO_SIN_NOVEDAD,
+      severidad: 'alta',
+      titulo: p.proyecto,
+      detalle: `Estratégico${p.responsable_politico ? ` · ${p.responsable_politico}` : ''}: sin novedades hace ${dias} días`,
+      area: p.area ?? null,
+      id_proyecto: p.id_proyecto,
+      responsable: p.responsable ?? null,
+      fecha: ultima ? ultima.slice(0, 10) : null,
+      dias_atraso: dias,
+      id_origen: p.id_proyecto,
+      ruta_origen: `/estrategicos?tab=cartera&proyecto=${p.id_proyecto}`,
+    }));
+}
+
+/**
+ * Convocatorias internacionales por cerrar. Una postulación que se pasa de
+ * fecha no se recupera: la convocatoria no se reabre y hay que esperar al año
+ * siguiente. Por eso el aviso empieza treinta días antes y no siete.
+ */
+function cierresInternacionales(bd, hoy) {
+  return accionesInternacionales(bd, { solo_abiertas: true }, hoy)
+    .filter(
+      (a) =>
+        a.dias_al_cierre !== null &&
+        a.dias_al_cierre <= UMBRALES.DIAS_CIERRE_INTERNACIONAL &&
+        ['identificada', 'en preparación'].includes(a.estado),
+    )
+    .map((a) => ({
+      id: `al_ci_${a.id}`,
+      tipo: TIPOS_ALERTA.CIERRE_INTERNACIONAL,
+      severidad: a.dias_al_cierre < 0 ? 'critica' : 'alta',
+      titulo: a.nombre,
+      detalle:
+        a.dias_al_cierre < 0
+          ? `Cerró hace ${Math.abs(a.dias_al_cierre)} día(s) y quedó en «${a.estado}»`
+          : `Cierra en ${a.dias_al_cierre} día(s) · ${a.organismo || 'sin organismo'}`,
+      area: a.area ?? null,
+      id_proyecto: a.ids_proyecto?.[0] ?? null,
+      responsable: a.referente ?? null,
+      fecha: a.fecha_limite,
+      dias_atraso: a.dias_al_cierre < 0 ? Math.abs(a.dias_al_cierre) : 0,
+      dias_restantes: a.dias_al_cierre,
+      id_origen: a.id,
+      ruta_origen: `/posicionamiento?tab=acciones&accion=${a.id}`,
+    }));
+}
+
 /* ── API pública ────────────────────────────────────────────────────── */
 
 export function calcularAlertas(bd, hoy = hoyISO()) {
@@ -241,6 +322,8 @@ export function calcularAlertas(bd, hoy = hoyISO()) {
     ...compromisosPorVencer(bd, hoy),
     ...proyectosVencidos(bd, hoy),
     ...proyectosSinActualizar(bd, hoy),
+    ...estrategicosSinNovedad(bd, hoy),
+    ...cierresInternacionales(bd, hoy),
     ...temasCriticos(bd, hoy),
     ...eventosIncompletos(bd, hoy),
     ...mesasAtrasadas(bd, hoy),
@@ -308,6 +391,23 @@ export function vencimientosProximos(bd, hoy = hoyISO(), dias = UMBRALES.DIAS_VE
       dias: diasHasta(p.fecha_fin_prevista, hoy),
       id_proyecto: p.id_proyecto,
       ruta: `/proyectos/${p.id_proyecto}`,
+    });
+  }
+
+  // Los cierres de convocatoria son vencimientos como cualquier otro: si no
+  // entraran acá, el único lugar donde se vería que una postulación cierra el
+  // martes sería el módulo de posicionamiento, y nadie mira todos los módulos.
+  for (const a of activos(bd.acciones_internacionales)) {
+    if (!enVentana(a.fecha_limite)) continue;
+    if (!['identificada', 'en preparación'].includes(a.estado)) continue;
+    items.push({
+      clase: 'cierre internacional',
+      titulo: a.nombre,
+      detalle: [a.organismo, a.pais].filter(Boolean).join(' · '),
+      fecha: a.fecha_limite,
+      dias: diasHasta(a.fecha_limite, hoy),
+      id_proyecto: a.ids_proyecto?.[0] ?? null,
+      ruta: `/posicionamiento?tab=acciones&accion=${a.id}`,
     });
   }
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CalendarCheck, ClipboardList, FileText, History, Pencil, Target, Trash2 } from 'lucide-react';
+import { ArrowLeft, CalendarCheck, ClipboardList, FileText, Gem, History, Pencil, Target, Trash2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import {
   BarraAvance,
@@ -18,6 +18,7 @@ import { Pestanias } from '../../componentes/Basicos.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { FormularioProyecto } from './FormularioProyecto.jsx';
 import { HistorialProyecto } from './HistorialProyecto.jsx';
+import { FormularioEstrategico } from '../estrategicos/FormularioEstrategico.jsx';
 import { COLUMNAS_COMPROMISO } from '../seguimiento/columnasCompromiso.jsx';
 import {
   compromisos as selCompromisos,
@@ -39,6 +40,7 @@ export default function FichaProyecto() {
   const hoy = hoyISO();
   const [pestania, setPestania] = useState('datos');
   const [editando, setEditando] = useState(false);
+  const [estrategico, setEstrategico] = useState(false);
   const [confirmarBaja, setConfirmarBaja] = useState(false);
 
   const proyecto = useMemo(() => (bd ? proyectoPorId(bd, id) : null), [bd, id]);
@@ -90,6 +92,17 @@ export default function FichaProyecto() {
             <Boton icono={Pencil} onClick={() => setEditando(true)}>
               Editar
             </Boton>
+            <Boton
+              icono={Gem}
+              onClick={() => setEstrategico(true)}
+              title={
+                proyecto.estrategico
+                  ? 'Editar los datos estratégicos'
+                  : 'Ponerlo bajo vigilancia estratégica: alerta a los 15 días sin novedades'
+              }
+            >
+              {proyecto.estrategico ? 'Datos estratégicos' : 'Declarar estratégico'}
+            </Boton>
             <Boton variante="fantasma" icono={Trash2} onClick={() => setConfirmarBaja(true)} title="Baja lógica: el registro se conserva">
               Dar de baja
             </Boton>
@@ -101,6 +114,13 @@ export default function FichaProyecto() {
           <EstadoProyecto estado={proyecto.estado} />
           <Prioridad nivel={proyecto.prioridad} />
           {proyecto.es_obra && <Chip tono="neutro">Obra</Chip>}
+          {proyecto.estrategico && (
+            <button type="button" onClick={() => navegar('/estrategicos?tab=cartera')}>
+              <Chip tono="atencion">
+                <Gem size={11} /> estratégico
+              </Chip>
+            </button>
+          )}
           <div className="min-w-40 flex-1 sm:max-w-64">
             <BarraAvance valor={proyecto.porcentaje_avance} />
           </div>
@@ -162,6 +182,9 @@ export default function FichaProyecto() {
       </Pagina>
 
       {editando && <FormularioProyecto abierto alCerrar={() => setEditando(false)} proyecto={proyecto} />}
+      {estrategico && (
+        <FormularioEstrategico abierto alCerrar={() => setEstrategico(false)} proyecto={proyecto} />
+      )}
       <ModalConfirmacion
         abierto={confirmarBaja}
         alCerrar={() => setConfirmarBaja(false)}
@@ -177,6 +200,12 @@ export default function FichaProyecto() {
     </>
   );
 }
+
+const ORIGEN_ESTRATEGICO = {
+  base: 'Base maestra',
+  monitoreo: 'Promovido desde monitoreo',
+  seguimiento: 'Promovido desde seguimiento',
+};
 
 function PanelDatos({ proyecto, serie, temas }) {
   const campos = [
@@ -213,6 +242,35 @@ function PanelDatos({ proyecto, serie, temas }) {
           <div className="mt-3 rounded-chip bg-paper p-3">
             <p className="mb-1 text-xs font-semibold text-gris">Observaciones</p>
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-tinta">{proyecto.observaciones}</p>
+          </div>
+        )}
+
+        {/* Los datos estratégicos van en la ficha y no sólo en su módulo: quien
+            abre el proyecto tiene que ver por qué es prioritario sin cambiar de
+            pantalla, y quién respondió por él. */}
+        {proyecto.estrategico && (
+          <div className="mt-3 rounded-chip border border-atencion/40 bg-atencion-suave p-3">
+            <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-tinta">
+              <Gem size={13} /> Proyecto estratégico
+            </p>
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-0 sm:grid-cols-2">
+              {[
+                ['Prioridad estratégica', proyecto.prioridad_estrategica],
+                ['Motivo', proyecto.motivo_estrategico],
+                ['Responsable político', proyecto.responsable_politico],
+                ['Fecha comprometida', proyecto.fecha_compromiso ? fFecha(proyecto.fecha_compromiso) : ''],
+                ['Origen', ORIGEN_ESTRATEGICO[proyecto.origen_estrategico] ?? 'Base maestra'],
+                ['Declarado el', proyecto.fecha_marcado_estrategico ? fFecha(proyecto.fecha_marcado_estrategico) : ''],
+              ].map(([etiqueta, valor]) => (
+                <div key={etiqueta} className="flex items-baseline justify-between gap-3 py-1">
+                  <dt className="shrink-0 text-xs text-gris">{etiqueta}</dt>
+                  <dd className="truncate text-right text-sm text-tinta">{valor || '—'}</dd>
+                </div>
+              ))}
+            </dl>
+            {proyecto.compromiso_publico && (
+              <p className="mt-1.5 text-xs leading-relaxed text-gris">{proyecto.compromiso_publico}</p>
+            )}
           </div>
         )}
       </Tarjeta>

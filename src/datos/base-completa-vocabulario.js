@@ -296,6 +296,53 @@ export const TIPOS_EVENTO = [
 
 export const PERIODICIDADES = ['semanal', 'quincenal', 'mensual', 'bimestral', 'trimestral'];
 
+/**
+ * Catálogos del posicionamiento internacional y de la cartera estratégica.
+ *
+ * Los tipos coinciden con las claves de `ACCIONES_INTERNACIONALES` en
+ * `sintetico.js`: es lo que hace que el generador pueda armar nombres de acción
+ * coherentes con su tipo. Los organismos son reales porque son con quienes un
+ * municipio se relaciona de verdad; las acciones concretas, no.
+ */
+export const TIPOS_ACCION_INTERNACIONAL = [
+  'Hermanamiento', 'Red de ciudades', 'Postulación a fondo', 'Premio o distinción',
+  'Misión o visita', 'Convenio de cooperación', 'Evento internacional', 'Membresía en organismo',
+];
+
+export const ORGANISMOS_INTERNACIONALES = [
+  'Mercociudades',
+  'CGLU — Ciudades y Gobiernos Locales Unidos',
+  'UCCI — Unión de Ciudades Capitales Iberoamericanas',
+  'ONU-Hábitat',
+  'PNUD',
+  'BID',
+  'CAF — Banco de Desarrollo de América Latina',
+  'Unión Europea',
+  'OEI — Organización de Estados Iberoamericanos',
+  'AECID — Cooperación Española',
+  'GIZ — Cooperación Alemana',
+  'C40 Cities',
+  'Embajada o consulado',
+  'Universidad extranjera',
+];
+
+export const PAISES_CONTRAPARTE = [
+  'Brasil', 'Uruguay', 'Chile', 'Paraguay', 'Bolivia', 'Perú', 'Colombia', 'México',
+  'España', 'Italia', 'Francia', 'Alemania', 'Portugal', 'Estados Unidos', 'Canadá',
+  'Japón', 'Corea del Sur', 'China', 'Israel', 'Multilateral / varios países',
+];
+
+export const MOTIVOS_ESTRATEGICOS = [
+  'Compromiso público de gestión',
+  'Alto impacto vecinal',
+  'Monto o escala excepcional',
+  'Financiamiento externo comprometido',
+  'Articulación con provincia o nación',
+  'Innovación institucional',
+  'Riesgo alto si se atrasa',
+  'Posicionamiento internacional',
+];
+
 /** Ítems dados de baja: el sistema no borra, y hay que verlo también acá. */
 export const BAJAS_CATALOGO = new Set(['Turismo local', 'Convenio', 'toneladas', 'Fotografía']);
 
@@ -316,6 +363,10 @@ export function armarCatalogos() {
     items_requerimiento: ITEMS_REQUERIMIENTO.map((i) => item('rq', i)),
     tipos_evento: TIPOS_EVENTO.map((t) => item('te', t)),
     periodicidades: PERIODICIDADES.map((p) => item('pe', p)),
+    tipos_accion_internacional: TIPOS_ACCION_INTERNACIONAL.map((t) => item('ai', t)),
+    organismos_internacionales: ORGANISMOS_INTERNACIONALES.map((o) => item('or', o)),
+    paises_contraparte: PAISES_CONTRAPARTE.map((p) => item('pa', p)),
+    motivos_estrategicos: MOTIVOS_ESTRATEGICOS.map((m) => item('me', m)),
   };
 }
 

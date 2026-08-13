@@ -271,6 +271,34 @@ function partirEnOraciones(texto) {
 /* ── API pública ────────────────────────────────────────────────────── */
 
 /**
+ * Clasifica el texto oración por oración, EN ORDEN.
+ *
+ * Es el motor: `separarMinuta()` agrupa esta lista en tres bloques y
+ * `separarTemas()` la convierte en temas de monitoreo. Se devuelve ordenada
+ * —y no agrupada— porque quien revisa la transferencia la lee contra el texto
+ * original que acaba de pegar, y agrupar pierde ese orden.
+ *
+ * @param {string} texto minuta cruda
+ * @param {string} hoy fecha ISO de referencia para resolver fechas relativas
+ * @returns {{descripcion: string, clase: 'compromiso'|'problema'|'avance',
+ *            responsable: string, fecha_limite: string}[]}
+ */
+export function clasificarMinuta(texto, hoy = new Date().toISOString().slice(0, 10)) {
+  if (!texto || !String(texto).trim()) return [];
+
+  return partirEnOraciones(texto).map((oracion) => ({
+    descripcion: oracion,
+    // Precedencia deliberada: compromiso > problema > avance. Una oración que
+    // menciona una traba pero define una acción es, sobre todo, un compromiso.
+    // Y todo lo que no tiene señal clara cae en avance: es preferible que el
+    // usuario reclasifique una oración a mano antes que perderla.
+    clase: esCompromiso(oracion) ? 'compromiso' : esProblema(oracion) ? 'problema' : 'avance',
+    responsable: extraerResponsable(oracion),
+    fecha_limite: extraerFecha(oracion, hoy),
+  }));
+}
+
+/**
  * Separa una minuta en tres bloques.
  *
  * Todo lo que devuelve es PROPUESTA: la interfaz de carga los muestra
@@ -283,24 +311,11 @@ function partirEnOraciones(texto) {
  */
 export function separarMinuta(texto, hoy = new Date().toISOString().slice(0, 10)) {
   const resultado = { compromisos: [], avances: [], problemas: [] };
-  if (!texto || !String(texto).trim()) return resultado;
 
-  for (const oracion of partirEnOraciones(texto)) {
-    // Precedencia deliberada: compromiso > problema > avance. Una oración que
-    // menciona una traba pero define una acción es, sobre todo, un compromiso.
-    if (esCompromiso(oracion)) {
-      resultado.compromisos.push({
-        descripcion: oracion,
-        responsable: extraerResponsable(oracion),
-        fecha_limite: extraerFecha(oracion, hoy),
-      });
-    } else if (esProblema(oracion)) {
-      resultado.problemas.push(oracion);
-    } else {
-      // Todo lo demás cae en avances, incluso sin señales claras: es preferible
-      // que el usuario reclasifique una oración a mano antes que perderla.
-      resultado.avances.push(oracion);
-    }
+  for (const { descripcion, clase, responsable, fecha_limite } of clasificarMinuta(texto, hoy)) {
+    if (clase === 'compromiso') resultado.compromisos.push({ descripcion, responsable, fecha_limite });
+    else if (clase === 'problema') resultado.problemas.push(descripcion);
+    else resultado.avances.push(descripcion);
   }
 
   return resultado;

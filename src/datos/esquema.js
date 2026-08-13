@@ -20,6 +20,7 @@ export const COLECCIONES = Object.freeze([
   'eventos',
   'requerimientos_evento',
   'planificacion_anual',
+  'acciones_internacionales',
   'historial',
   'reportes_guardados',
 ]);

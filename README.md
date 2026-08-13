@@ -52,8 +52,8 @@ cargas producen exactamente la misma base.
 | `npm run verificar` | **Antes de cerrar cualquier tanda:** todo lo anterior más los chequeos estructurales |
 
 `npm run verificar` corre, en este orden: aislamiento de la capa de datos · ausencia de
-importaciones circulares · ausencia de importaciones sin uso · 257 tests · build ·
-78 comprobaciones de render · 16 rutas auditadas por accesibilidad.
+importaciones circulares · ausencia de importaciones sin uso · 292 tests · build ·
+104 comprobaciones de render · 25 rutas auditadas por accesibilidad.
 
 ---
 
@@ -63,12 +63,14 @@ importaciones circulares · ausencia de importaciones sin uso · 257 tests · bu
 |---|---|---|
 | `/` | **Inicio** | Vencimientos a 15 días, próximos seguimientos, proyectos prioritarios, feed de últimas cargas, calendario unificado con capas y contadores clickeables |
 | `/proyectos` | **Base maestra** | Alta, edición, ficha con historial e importación CSV. Es la tabla que alimenta todo lo demás |
-| `/seguimiento` | **Módulo 2** | Calendario de seguimientos, carga de minutas con separación automática, lista de compromisos e historial por área |
-| `/monitoreo` | **Módulo 3** | Carga incremental de temas, cobertura por área y panel de alertas |
+| `/seguimiento` | **Módulo 2** | Calendario de seguimientos, carga de minutas con transferencia de texto a campos, lista de compromisos e historial por área |
+| `/monitoreo` | **Módulo 3** | Carga de temas —transferidos desde texto o a mano—, cobertura por área y panel de alertas |
 | `/planificacion` | **Módulo 4** | Metas anuales y trimestrales, tablero de estadísticas y comparativo planificado vs. real |
 | `/mesas` | **Módulo 5** | Mesas temáticas, barriales y otros proyectos, separadas en pestañas con color propio |
 | `/eventos` | **Módulo 6** | Agenda, requerimientos desde catálogo cerrado y checklist con alerta a 5 días |
 | `/reportes` | **Módulo 7** | Constructor con filtros combinables, vista previa, PDF por impresión y configuraciones guardadas |
+| `/estrategicos` | **Módulo 8** | Cartera estratégica con tablero propio, semáforo más estricto y promoción de candidatos surgidos de monitoreo y seguimiento |
+| `/posicionamiento` | **Módulo 9** | Hermanamientos, redes, postulaciones y convenios internacionales, con embudo por estado, cobertura de ODS y reloj de convocatorias |
 | `/configuracion` | | Usuario que firma las cargas, catálogos administrables, demo y vaciado |
 
 ---
@@ -90,6 +92,7 @@ src/
     importacion.js            ← forma de los CSV importables, para ambos lados
     catalogos.js · ids.js · bitacora.js · csv.js · reportes.js
     minutas/separarMinuta.js  ← aislado, reemplazable por un modelo real
+    minutas/separarTemas.js   ← el mismo motor, salida de temas de monitoreo
   estado/tienda.js            ← caché Zustand hidratada desde el repositorio
   componentes/                ← UI compartida
   modulos/                    ← un directorio por módulo
@@ -143,14 +146,49 @@ natural para una transacción o un endpoint de alta masiva, en lugar de una llam
 
 El chequeo de aislamiento está automatizado, así que el contrato no se degrada en silencio.
 
-### Procesamiento real de minutas
+### Lo estratégico es un campo, no una base paralela
+
+Un proyecto estratégico es el MISMO proyecto de la base maestra con `estrategico: true` y sus
+campos de contexto —prioridad, motivo, responsable político, compromiso público y de dónde salió—.
+Duplicarlo en una colección propia habría obligado a mantener dos avances que se despegan en la
+primera carga.
+
+Lo que cambia al declararlo no es la etiqueta sino **lo que el sistema vigila**: el semáforo
+estratégico se pone en amarillo a los 15 días sin novedades, contra los 30 de la cartera general, y
+hay una alerta propia en el motor único. Sin esa diferencia el campo no serviría para nada. La
+pestaña **Promover** cierra el círculo: propone lo que ya dio señales —temas de monitoreo críticos
+sin resolver y seguimientos que informaron trabas—, agrupado por proyecto y ordenado por cantidad
+de señales, porque lo estratégico casi nunca nace declarado.
+
+### Transferencia de texto a campos
+
+Seguimiento y monitoreo cargan igual: se pega el texto crudo, se aprieta **«Transferir»** y el
+sistema PROPONE los campos, que quedan editables. Nada se persiste al transferir —en
+seguimiento hasta «Guardar seguimiento», en monitoreo hasta confirmar cada tema— y todo campo
+propuesto se puede corregir, descartar o completar a mano. Un tema de monitoreo ya confirmado
+se sigue pudiendo editar, y el repositorio mantiene su compromiso asociado en sincronía.
 
 `src/datos/minutas/separarMinuta.js` está aislado a propósito y no importa nada del resto del
-sistema. Hoy separa la minuta en compromisos, avances y problemas con reglas locales (verbos
-de acción, nombres propios, fechas, marcadores de traba). Al conectar un modelo de lenguaje
-se reemplaza **sólo el cuerpo de esa función**: la firma, la forma del valor devuelto y toda
-la interfaz de revisión quedan igual. El sistema nunca persiste compromisos sin confirmación
-humana, ni ahora ni después.
+sistema. Hoy clasifica el texto con reglas locales (verbos de acción, nombres propios, fechas,
+marcadores de traba) y de ahí salen las dos formas de salida: los tres bloques del seguimiento
+y, en `separarTemas.js`, un tema de monitoreo por oración con categoría y criticidad
+propuestas. Al conectar un modelo de lenguaje se reemplaza **sólo el cuerpo de la
+clasificación**: las firmas, la forma del valor devuelto y toda la interfaz de revisión quedan
+igual. El sistema nunca persiste compromisos sin confirmación humana, ni ahora ni después.
+
+### El posicionamiento internacional sí es una entidad propia
+
+Al revés que lo estratégico. Un hermanamiento o una postulación a un fondo no tienen objetivo
+físico, unidad ni avance: meterlos en la base maestra la habría llenado de proyectos con la mitad
+de los campos vacíos. Viven en `acciones_internacionales`, con su propio ciclo de vida
+—identificada · en preparación · presentada · vigente · cerrada · no prosperó—, y el vínculo a
+proyectos es opcional y va en un solo sentido.
+
+Lo único que el sistema vigila solo es el **cierre de convocatoria**, y sólo mientras la acción
+todavía no se presentó: avisa 30 días antes —más que los 7 de un compromiso, porque una postulación
+necesita avales, traducciones y firma— y aparece en el panel de alertas y en los vencimientos del
+inicio, como cualquier otra fecha. Una vez presentada, la fecha deja de decir nada del riesgo y el
+semáforo pasa a leer el estado.
 
 ---
 

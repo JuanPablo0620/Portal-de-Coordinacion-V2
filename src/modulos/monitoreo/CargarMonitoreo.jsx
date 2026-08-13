@@ -1,16 +1,25 @@
 /**
- * Carga incremental de temas — el comportamiento central del módulo.
+ * Carga de un monitoreo.
  *
- * Se crea el monitoreo (fecha + área) y se habilita el formulario de UN tema.
- * Al confirmarlo, el tema queda fijado como tarjeta y se habilita
- * automáticamente el formulario del siguiente, con la MISMA estructura, sin
- * límite. Cierra con «Finalizar monitoreo».
+ * Dos caminos hacia la MISMA estructura de tema, y ése es el punto:
+ *
+ *  · TRANSFERENCIA — se pega lo que pasó en el área, se aprieta «Transferir» y
+ *    el sistema propone un tema por oración. Quedan como BORRADORES editables:
+ *    no se persiste ninguno hasta confirmarlo.
+ *  · A MANO — el mismo formulario, vacío, para lo que la transferencia no
+ *    agarró o para cargar sin texto previo.
+ *
+ * Un tema confirmado se puede seguir editando en la misma sesión: es donde se
+ * nota la corrección de lo que propuso la transferencia, y el repositorio
+ * mantiene el compromiso asociado en sincronía.
  */
 import { useState } from 'react';
-import { CheckCircle2, ClipboardCheck, Plus, Radar } from 'lucide-react';
+import { Check, CheckCircle2, ClipboardCheck, Link2, Pencil, Plus, Radar, Trash2, X } from 'lucide-react';
 import { Aviso, Boton, Chip, Criticidad, Tarjeta } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoCheck, CampoFecha, CampoRadios, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
+import { Transferencia } from '../../componentes/Transferencia.jsx';
+import { separarTemas } from '../../datos/minutas/separarTemas.js';
 import { CRITICIDADES } from '../../datos/catalogos.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { fecha as fFecha } from '../../utilidades/formato.js';
@@ -27,6 +36,41 @@ const TEMA_VACIO = {
   fecha_limite: '',
 };
 
+const EJEMPLO =
+  'Ej.: Se completó el operativo de bacheo en el barrio Norte. Falta la partida para pagarle al ' +
+  'proveedor de materiales. Ferreyra va a elevar el expediente antes del 15/09.';
+
+/** Cómo se rotula de dónde salió cada borrador: la propuesta tiene que ser auditable. */
+const ORIGEN = {
+  compromiso: { tono: 'proximo', texto: 'acción comprometida' },
+  problema: { tono: 'vencido', texto: 'traba detectada' },
+  avance: { tono: 'enregla', texto: 'avance informado' },
+};
+
+const nuevaClave = () => Math.random().toString(36).slice(2);
+
+/** Validación §8.6, compartida por los tres caminos de carga de un tema. */
+function validarTema(tema, hoy) {
+  if (!tema.categoria) return 'Elegí la categoría del tema.';
+  if (!tema.descripcion.trim()) return 'Describí el tema.';
+  if (tema.requiere_accion && !tema.responsable.trim()) return 'Indicá el responsable de la acción.';
+  if (tema.requiere_accion && tema.fecha_limite && tema.fecha_limite < hoy) {
+    return 'La fecha límite no puede ser anterior a hoy.';
+  }
+  return '';
+}
+
+/** Lo que espera el repositorio, sin los campos que sólo viven en la pantalla. */
+const aPersistir = (tema) => ({
+  categoria: tema.categoria,
+  descripcion: tema.descripcion.trim(),
+  criticidad: tema.criticidad,
+  requiere_accion: tema.requiere_accion,
+  responsable: tema.requiere_accion ? tema.responsable.trim() : '',
+  id_proyecto: tema.id_proyecto || null,
+  fecha_limite: (tema.requiere_accion && tema.fecha_limite) || null,
+});
+
 /** `areaInicial` viene de la hoja de una secretaría: llegar con el área ya elegida. */
 export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
   const hoy = hoyISO();
@@ -36,16 +80,33 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
   const [cabecera, setCabecera] = useState({ fecha: hoy, area: areaInicial });
   const [monitoreo, setMonitoreo] = useState(null);
   const [temasCargados, setTemasCargados] = useState([]);
+
+  const [texto, setTexto] = useState('');
+  const [transferido, setTransferido] = useState(false);
+  const [borradores, setBorradores] = useState([]);
+
   const [tema, setTema] = useState({ ...TEMA_VACIO });
-  const [error, setError] = useState('');
+  const [manualAbierto, setManualAbierto] = useState(false);
+  const [editando, setEditando] = useState(null);
+
+  // Un mensaje por formulario: con un único error compartido, confirmar el
+  // tercer borrador pintaba el aviso arriba del primero.
+  const [errores, setErrores] = useState({});
   const [trabajando, setTrabajando] = useState(false);
+
+  const marcar = (clave, mensaje) => setErrores((e) => ({ ...e, [clave]: mensaje }));
+
+  // Al entrar no hay nada cargado: el formulario a mano se muestra solo. Después
+  // de transferir se repliega detrás de un botón, para que la pantalla no sea
+  // un formulario vacío gigante debajo de los borradores que hay que revisar.
+  const mostrarManual = manualAbierto || (!borradores.length && !temasCargados.length);
 
   async function iniciar() {
     if (!cabecera.area || !cabecera.fecha) {
-      setError('Indicá la fecha y el área del monitoreo.');
+      marcar('cabecera', 'Indicá la fecha y el área del monitoreo.');
       return;
     }
-    setError('');
+    marcar('cabecera', '');
     setTrabajando(true);
     try {
       setMonitoreo(await acciones.crearMonitoreo(cabecera));
@@ -54,22 +115,66 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
     }
   }
 
-  async function confirmarTema() {
-    if (!tema.categoria) return setError('Elegí la categoría del tema.');
-    if (!tema.descripcion.trim()) return setError('Describí el tema.');
-    if (tema.requiere_accion && !tema.responsable.trim()) return setError('Indicá el responsable de la acción.');
-    if (tema.requiere_accion && tema.fecha_limite && tema.fecha_limite < hoy) {
-      return setError('La fecha límite no puede ser anterior a hoy.');
-    }
-    setError('');
+  function transferir() {
+    const propuestos = separarTemas(texto, { hoy, categorias: opcionesCategoria });
+    setBorradores(propuestos.map((t) => ({ ...t, clave: nuevaClave() })));
+    setTransferido(true);
+    setErrores({});
+  }
+
+  const editarBorrador = (clave, parcial) =>
+    setBorradores((bs) => bs.map((b) => (b.clave === clave ? { ...b, ...parcial } : b)));
+
+  /** Persiste un tema y lo mueve a la lista de confirmados. */
+  async function persistir(datos) {
+    const { tema: creado, compromiso } = await acciones.agregarTema(monitoreo.id, aPersistir(datos));
+    setTemasCargados((t) => [...t, { ...creado, generoCompromiso: Boolean(compromiso) }]);
+  }
+
+  async function confirmarBorrador(borrador) {
+    const problema = validarTema(borrador, hoy);
+    if (problema) return marcar(borrador.clave, problema);
+    marcar(borrador.clave, '');
     setTrabajando(true);
     try {
-      const { tema: creado, compromiso } = await acciones.agregarTema(monitoreo.id, {
-        ...tema,
-        id_proyecto: tema.id_proyecto || null,
-        fecha_limite: tema.fecha_limite || null,
+      await persistir(borrador);
+      setBorradores((bs) => bs.filter((b) => b.clave !== borrador.clave));
+    } finally {
+      setTrabajando(false);
+    }
+  }
+
+  async function confirmarTodos() {
+    const fallados = {};
+    for (const b of borradores) {
+      const problema = validarTema(b, hoy);
+      if (problema) fallados[b.clave] = problema;
+    }
+    if (Object.keys(fallados).length) {
+      setErrores({ ...fallados, lote: 'Hay borradores incompletos. Corregilos y volvé a confirmar.' });
+      return;
+    }
+    setErrores({});
+    setTrabajando(true);
+    try {
+      // Una sola escritura para toda la tanda: confirmar diez temas de a uno
+      // repinta la pantalla diez veces con el monitoreo a medio cargar.
+      await acciones.enLote(async () => {
+        for (const b of borradores) await persistir(b);
       });
-      setTemasCargados((t) => [...t, { ...creado, generoCompromiso: Boolean(compromiso) }]);
+      setBorradores([]);
+    } finally {
+      setTrabajando(false);
+    }
+  }
+
+  async function confirmarManual() {
+    const problema = validarTema(tema, hoy);
+    if (problema) return marcar('manual', problema);
+    marcar('manual', '');
+    setTrabajando(true);
+    try {
+      await persistir(tema);
       // Se limpia y queda habilitado el formulario del tema siguiente.
       setTema({ ...TEMA_VACIO });
     } finally {
@@ -77,9 +182,33 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
     }
   }
 
+  async function guardarEdicion() {
+    const problema = validarTema(editando, hoy);
+    if (problema) return marcar('edicion', problema);
+    marcar('edicion', '');
+    setTrabajando(true);
+    try {
+      const actualizado = await acciones.actualizarTema(editando.id, aPersistir(editando));
+      setTemasCargados((ts) =>
+        ts.map((t) =>
+          t.id === editando.id
+            ? { ...t, ...actualizado, generoCompromiso: Boolean(actualizado.id_compromiso) }
+            : t,
+        ),
+      );
+      setEditando(null);
+    } finally {
+      setTrabajando(false);
+    }
+  }
+
   async function finalizar() {
     if (!temasCargados.length) {
-      setError('No se puede finalizar un monitoreo sin al menos un tema.');
+      marcar('cierre', 'No se puede finalizar un monitoreo sin al menos un tema.');
+      return;
+    }
+    if (borradores.length) {
+      marcar('cierre', `Quedan ${borradores.length} borrador(es) sin confirmar. Confirmalos o descartalos.`);
       return;
     }
     setTrabajando(true);
@@ -87,7 +216,7 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
       await acciones.finalizarMonitoreo(monitoreo.id);
       alTerminar?.();
     } catch (e) {
-      setError(e.message);
+      marcar('cierre', e.message);
     } finally {
       setTrabajando(false);
     }
@@ -97,7 +226,7 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
 
   if (!monitoreo) {
     return (
-      <Tarjeta titulo="Nuevo monitoreo" descripcion="Fecha y área. Después se cargan los temas, uno atrás de otro.">
+      <Tarjeta titulo="Nuevo monitoreo" descripcion="Fecha y área. Después se cargan los temas, transferidos o a mano.">
         <GrillaCampos columnas={2} className="max-w-2xl">
           <CampoFecha
             etiqueta="Fecha"
@@ -113,9 +242,9 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
             onChange={(e) => setCabecera((c) => ({ ...c, area: e.target.value }))}
           />
         </GrillaCampos>
-        {error && (
+        {errores.cabecera && (
           <div className="mt-3 max-w-2xl">
-            <Aviso tono="error">{error}</Aviso>
+            <Aviso tono="error">{errores.cabecera}</Aviso>
           </div>
         )}
         <div className="mt-4">
@@ -127,7 +256,7 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
     );
   }
 
-  /* ── Paso 2: temas encadenados ──────────────────────────────────── */
+  /* ── Paso 2: temas ──────────────────────────────────────────────── */
 
   return (
     <div className="flex flex-col gap-4">
@@ -136,8 +265,9 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
           <Chip tono="acento">{fFecha(monitoreo.fecha)}</Chip>
           <span className="text-sm font-medium text-tinta">{monitoreo.area}</span>
           <span className="text-xs text-gris">
-            {temasCargados.length} tema{temasCargados.length === 1 ? '' : 's'} cargado
+            {temasCargados.length} tema{temasCargados.length === 1 ? '' : 's'} confirmado
             {temasCargados.length === 1 ? '' : 's'}
+            {borradores.length > 0 && ` · ${borradores.length} sin confirmar`}
           </span>
           <Boton
             variante="primario"
@@ -150,13 +280,124 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
           </Boton>
         </div>
         {!temasCargados.length && (
-          <p className="mt-2 text-xs text-tenue">
-            Hace falta al menos un tema para poder finalizar.
-          </p>
+          <p className="mt-2 text-xs text-tenue">Hace falta al menos un tema confirmado para poder finalizar.</p>
+        )}
+        {errores.cierre && (
+          <div className="mt-3">
+            <Aviso tono="error">{errores.cierre}</Aviso>
+          </div>
         )}
       </Tarjeta>
 
-      {/* Temas ya fijados */}
+      {/* Transferencia de texto a temas */}
+      <Transferencia
+        titulo="Transferir desde texto"
+        descripcion="Pegá lo que pasó en el área y transferilo: sale un tema por oración, editable."
+        etiquetaCampo="Texto del monitoreo"
+        placeholder={EJEMPLO}
+        ayuda="Cada oración se convierte en un tema con categoría y criticidad propuestas. Nada se guarda todavía."
+        texto={texto}
+        alCambiarTexto={setTexto}
+        alTransferir={transferir}
+        transferido={transferido}
+        resumen={
+          borradores.length
+            ? `${borradores.length} tema(s) propuesto(s) esperando confirmación abajo.`
+            : 'No quedan borradores: los confirmaste o los descartaste todos.'
+        }
+        filas={6}
+      />
+
+      {/* Borradores transferidos, todos editables */}
+      {borradores.length > 0 && (
+        <Tarjeta
+          titulo={`Temas transferidos · ${borradores.length} sin confirmar`}
+          descripcion="Corregí lo que haga falta. Cada uno se guarda recién al confirmarlo."
+          acciones={
+            <Boton variante="primario" tamanio="sm" icono={Check} onClick={confirmarTodos} disabled={trabajando}>
+              Confirmar los {borradores.length}
+            </Boton>
+          }
+        >
+          {errores.lote && (
+            <div className="mb-3">
+              <Aviso tono="error">{errores.lote}</Aviso>
+            </div>
+          )}
+          <div className="flex flex-col gap-3">
+            {borradores.map((borrador, i) => {
+              const origen = ORIGEN[borrador.clase] ?? ORIGEN.avance;
+              return (
+                <fieldset key={borrador.clave} className="rounded-chip border border-borde p-3">
+                  <legend className="mx-2 flex items-center gap-2 px-1 text-xs font-semibold text-gris">
+                    Tema propuesto {i + 1}
+                    <Chip tono={origen.tono}>{origen.texto}</Chip>
+                  </legend>
+
+                  <FormularioTema
+                    tema={borrador}
+                    alCambiar={(parcial) => editarBorrador(borrador.clave, parcial)}
+                    opcionesCategoria={opcionesCategoria}
+                    hoy={hoy}
+                  />
+
+                  {errores[borrador.clave] && (
+                    <div className="mt-3">
+                      <Aviso tono="error">{errores[borrador.clave]}</Aviso>
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex justify-end gap-2 border-t border-borde pt-3">
+                    <Boton
+                      tamanio="sm"
+                      icono={Trash2}
+                      onClick={() => setBorradores((bs) => bs.filter((b) => b.clave !== borrador.clave))}
+                    >
+                      Descartar
+                    </Boton>
+                    <Boton
+                      variante="primario"
+                      tamanio="sm"
+                      icono={Check}
+                      onClick={() => confirmarBorrador(borrador)}
+                      disabled={trabajando}
+                    >
+                      Confirmar tema
+                    </Boton>
+                  </div>
+                </fieldset>
+              );
+            })}
+          </div>
+        </Tarjeta>
+      )}
+
+      {/* Edición de un tema ya confirmado */}
+      {editando && (
+        <Tarjeta titulo="Editar tema confirmado" descripcion="Los cambios se guardan sobre el tema y su compromiso.">
+          <FormularioTema
+            tema={editando}
+            alCambiar={(parcial) => setEditando((t) => ({ ...t, ...parcial }))}
+            opcionesCategoria={opcionesCategoria}
+            hoy={hoy}
+          />
+          {errores.edicion && (
+            <div className="mt-3">
+              <Aviso tono="error">{errores.edicion}</Aviso>
+            </div>
+          )}
+          <div className="mt-3 flex justify-end gap-2 border-t border-borde pt-3">
+            <Boton tamanio="sm" icono={X} onClick={() => setEditando(null)}>
+              Cancelar
+            </Boton>
+            <Boton variante="primario" tamanio="sm" icono={Check} onClick={guardarEdicion} disabled={trabajando}>
+              Guardar cambios
+            </Boton>
+          </div>
+        </Tarjeta>
+      )}
+
+      {/* Temas ya confirmados */}
       {temasCargados.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {temasCargados.map((t, i) => (
@@ -167,6 +408,17 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
                 </span>
                 <span className="text-xs font-semibold text-tinta">Tema {i + 1}</span>
                 <Criticidad nivel={t.criticidad} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditando({ ...TEMA_VACIO, ...t, id_proyecto: t.id_proyecto ?? '', fecha_limite: t.fecha_limite ?? '' });
+                    marcar('edicion', '');
+                  }}
+                  className="ml-auto rounded-chip p-1.5 text-tenue transition hover:bg-acento-suave hover:text-acento-fuerte"
+                  aria-label={`Editar tema ${i + 1}`}
+                >
+                  <Pencil size={14} />
+                </button>
               </div>
               <p className="text-sm leading-snug text-tinta">{t.descripcion}</p>
               <div className="flex flex-wrap gap-1.5">
@@ -184,80 +436,124 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
         </div>
       )}
 
-      {/* Formulario del tema siguiente — siempre la misma estructura */}
-      <Tarjeta
-        titulo={`Tema ${temasCargados.length + 1}`}
-        descripcion="Estructura estandarizada: la misma para todos los temas, siempre."
-      >
-        <div className="flex flex-col gap-3">
-          <GrillaCampos columnas={2}>
-            <CampoSelect
-              etiqueta="Categoría"
-              requerido
-              opciones={opcionesCategoria}
-              value={tema.categoria}
-              onChange={(e) => setTema((t) => ({ ...t, categoria: e.target.value }))}
-            />
-            <CampoRadios
-              etiqueta="Criticidad"
-              requerido
-              opciones={CRITICIDADES}
-              valor={tema.criticidad}
-              alCambiar={(v) => setTema((t) => ({ ...t, criticidad: v }))}
-            />
-          </GrillaCampos>
-
-          <SelectorProyecto
-            etiqueta="Proyecto vinculado"
-            ayuda="opcional"
-            valor={tema.id_proyecto}
-            alCambiar={(v) => setTema((t) => ({ ...t, id_proyecto: v }))}
-            maxAltura={160}
+      {/* Carga a mano — la misma estructura de tema, sin texto de por medio */}
+      {mostrarManual ? (
+        <Tarjeta
+          titulo={`Tema ${temasCargados.length + 1} · a mano`}
+          descripcion="Estructura estandarizada: la misma para todos los temas, vengan de donde vengan."
+        >
+          <FormularioTema
+            tema={tema}
+            alCambiar={(parcial) => setTema((t) => ({ ...t, ...parcial }))}
+            opcionesCategoria={opcionesCategoria}
+            hoy={hoy}
           />
-
-          <CampoArea
-            etiqueta="Descripción"
-            requerido
-            filas={3}
-            value={tema.descripcion}
-            onChange={(e) => setTema((t) => ({ ...t, descripcion: e.target.value }))}
-            placeholder="Ej.: Demora en la entrega de materiales por parte del proveedor."
-          />
-
-          <div className="rounded-chip border border-borde p-3">
-            <CampoCheck
-              etiqueta="Requiere acción"
-              descripcion="Si lo marcás, se genera automáticamente un compromiso en la lista general."
-              checked={tema.requiere_accion}
-              onChange={(e) => setTema((t) => ({ ...t, requiere_accion: e.target.checked }))}
-            />
-            {tema.requiere_accion && (
-              <GrillaCampos columnas={2} className="mt-3">
-                <CampoTexto
-                  etiqueta="Responsable"
-                  requerido
-                  value={tema.responsable}
-                  onChange={(e) => setTema((t) => ({ ...t, responsable: e.target.value }))}
-                />
-                <CampoFecha
-                  etiqueta="Fecha límite"
-                  min={hoy}
-                  value={tema.fecha_limite}
-                  onChange={(e) => setTema((t) => ({ ...t, fecha_limite: e.target.value }))}
-                />
-              </GrillaCampos>
-            )}
-          </div>
-
-          {error && <Aviso tono="error">{error}</Aviso>}
-
-          <div className="flex justify-end gap-2 border-t border-borde pt-3">
-            <Boton variante="primario" icono={Plus} onClick={confirmarTema} disabled={trabajando}>
+          {errores.manual && (
+            <div className="mt-3">
+              <Aviso tono="error">{errores.manual}</Aviso>
+            </div>
+          )}
+          <div className="mt-3 flex justify-end gap-2 border-t border-borde pt-3">
+            <Boton variante="primario" icono={Plus} onClick={confirmarManual} disabled={trabajando}>
               Confirmar tema y cargar el siguiente
             </Boton>
           </div>
+        </Tarjeta>
+      ) : (
+        <Boton icono={Plus} onClick={() => setManualAbierto(true)} className="self-start">
+          Agregar un tema a mano
+        </Boton>
+      )}
+    </div>
+  );
+}
+
+/**
+ * El formulario de UN tema. Uno solo para los tres caminos —borrador
+ * transferido, carga a mano y edición— porque la promesa del módulo es que
+ * todos los temas tienen la misma estructura: dos formularios distintos se
+ * despegarían en la primera corrección.
+ *
+ * Se exporta para la prueba de humo: vive detrás de estado local, así que
+ * ninguna URL lo alcanza y sin esto no entraría en el render de control.
+ */
+export function FormularioTema({ tema, alCambiar, opcionesCategoria, hoy }) {
+  const [vincular, setVincular] = useState(Boolean(tema.id_proyecto));
+
+  return (
+    <div className="flex flex-col gap-3">
+      <GrillaCampos columnas={2}>
+        <CampoSelect
+          etiqueta="Categoría"
+          requerido
+          opciones={opcionesCategoria}
+          value={tema.categoria}
+          onChange={(e) => alCambiar({ categoria: e.target.value })}
+        />
+        <CampoRadios
+          etiqueta="Criticidad"
+          requerido
+          opciones={CRITICIDADES}
+          valor={tema.criticidad}
+          alCambiar={(v) => alCambiar({ criticidad: v })}
+        />
+      </GrillaCampos>
+
+      {/* El buscador de proyectos arranca plegado: es opcional, ocupa media
+          pantalla y con varios borradores abiertos a la vez la revisión se
+          volvía imposible de leer. */}
+      {vincular ? (
+        <SelectorProyecto
+          etiqueta="Proyecto vinculado"
+          ayuda="opcional"
+          valor={tema.id_proyecto}
+          alCambiar={(v) => alCambiar({ id_proyecto: v })}
+          maxAltura={160}
+        />
+      ) : (
+        <div>
+          <p className="mb-1 text-xs font-medium text-gris">
+            Proyecto vinculado <span className="ml-1.5 font-normal text-tenue">opcional</span>
+          </p>
+          <Boton tamanio="sm" variante="fantasma" icono={Link2} onClick={() => setVincular(true)}>
+            Vincular un proyecto
+          </Boton>
         </div>
-      </Tarjeta>
+      )}
+
+      <CampoArea
+        etiqueta="Descripción"
+        requerido
+        filas={3}
+        value={tema.descripcion}
+        onChange={(e) => alCambiar({ descripcion: e.target.value })}
+        placeholder="Ej.: Demora en la entrega de materiales por parte del proveedor."
+      />
+
+      <div className="rounded-chip border border-borde p-3">
+        <CampoCheck
+          etiqueta="Requiere acción"
+          descripcion="Si lo marcás, se genera automáticamente un compromiso en la lista general."
+          checked={tema.requiere_accion}
+          onChange={(e) => alCambiar({ requiere_accion: e.target.checked })}
+        />
+        {tema.requiere_accion && (
+          <GrillaCampos columnas={2} className="mt-3">
+            <CampoTexto
+              etiqueta="Responsable"
+              requerido
+              value={tema.responsable}
+              onChange={(e) => alCambiar({ responsable: e.target.value })}
+            />
+            <CampoFecha
+              etiqueta="Fecha límite"
+              min={hoy}
+              value={tema.fecha_limite}
+              onChange={(e) => alCambiar({ fecha_limite: e.target.value })}
+            />
+          </GrillaCampos>
+        )}
+      </div>
     </div>
   );
 }

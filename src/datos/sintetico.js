@@ -70,3 +70,94 @@ export const BARRIOS = [
   'Barrio Sur', 'La Cañada', 'El Molino', 'Los Sauces', 'Villa Palmira',
   'Las Lomas', 'El Zanjón', 'Los Naranjos', 'La Loma Verde',
 ];
+
+/* ── Posicionamiento internacional ──────────────────────────────────── */
+
+/**
+ * Ciudades contraparte inventadas.
+ *
+ * Los ORGANISMOS de los catálogos sí son reales —Mercociudades, CGLU, el BID
+ * son con quienes un municipio se relaciona de verdad, y un catálogo con
+ * organismos inventados no serviría para nada—, pero las ciudades hermanas y
+ * los convenios concretos son ficticios, como todo el resto de los dos sets.
+ */
+export const CIUDADES_EXTRANJERAS = [
+  'Vila Serrana', 'Porto Alegrete', 'Santa Lucía del Norte', 'Villa Marítima',
+  'Nuova Terra', 'Alt Bergen', 'Saint-Clair', 'Nova Aurora', 'Puerto Esperanza',
+  'San Cristóbal del Valle', 'Monteverde', 'Lago Azul', 'Ciudad Ribera', 'Bela Vista',
+];
+
+/**
+ * Plantillas de acción internacional, agrupadas por tipo.
+ *
+ * Las claves son nombres del catálogo `tipos_accion_internacional` y tienen que
+ * seguir existiendo ahí: es la única cuerda que ata este vocabulario a los
+ * catálogos, y hay un test que la vigila en los dos sets. Los organismos y los
+ * países, en cambio, los elige cada generador de SU propio catálogo, así que
+ * renombrarlos no rompe nada.
+ *
+ * `{ciudad}` se reemplaza por una de `CIUDADES_EXTRANJERAS`.
+ */
+export const ACCIONES_INTERNACIONALES = {
+  Hermanamiento: [
+    'Hermanamiento con {ciudad}',
+    'Acta de hermanamiento con {ciudad}',
+    'Renovación del hermanamiento con {ciudad}',
+    'Protocolo de ciudades hermanas con {ciudad}',
+  ],
+  'Red de ciudades': [
+    'Incorporación a la red de ciudades por el clima',
+    'Participación en la red de ciudades educadoras',
+    'Mesa de intercambio de la red de gobiernos locales',
+    'Grupo de trabajo de movilidad de la red regional',
+  ],
+  'Postulación a fondo': [
+    'Postulación al fondo de resiliencia urbana',
+    'Postulación al programa de movilidad sostenible',
+    'Postulación al fondo de primera infancia',
+    'Postulación al programa de economía circular',
+    'Postulación al fondo de digitalización de trámites',
+    'Postulación al programa de espacios públicos inclusivos',
+  ],
+  'Premio o distinción': [
+    'Premio internacional de innovación pública',
+    'Distinción a la gestión ambiental local',
+    'Concurso de buenas prácticas municipales',
+    'Reconocimiento a políticas de primera infancia',
+  ],
+  'Misión o visita': [
+    'Misión técnica de gestión de residuos',
+    'Visita protocolar de la delegación de {ciudad}',
+    'Misión comercial de productores locales',
+    'Pasantía técnica en gestión de datos urbanos',
+  ],
+  'Convenio de cooperación': [
+    'Convenio de cooperación técnica con {ciudad}',
+    'Convenio de intercambio académico',
+    'Acuerdo de asistencia técnica en datos abiertos',
+    'Convenio de formación en gestión pública local',
+  ],
+  'Evento internacional': [
+    'Cumbre regional de gobiernos locales',
+    'Foro internacional de ciudades sostenibles',
+    'Encuentro iberoamericano de innovación pública',
+    'Seminario regional de hábitat y vivienda',
+  ],
+  'Membresía en organismo': [
+    'Membresía plena en el organismo regional',
+    'Adhesión al pacto global de intendencias',
+    'Incorporación como miembro observador',
+  ],
+};
+
+/* ── Proyectos estratégicos ─────────────────────────────────────────── */
+
+/** Dónde se comprometió públicamente un proyecto estratégico. */
+export const COMPROMISOS_PUBLICOS = [
+  'Anunciado en la apertura de sesiones del Concejo Deliberante.',
+  'Comprometido en la reunión de gabinete de inicio de gestión.',
+  'Incluido en el plan de gobierno presentado a la ciudadanía.',
+  'Acordado en la mesa de trabajo con las entidades del distrito.',
+  'Comprometido ante el organismo que aporta el financiamiento.',
+  'Presentado públicamente en la audiencia vecinal del sector.',
+];

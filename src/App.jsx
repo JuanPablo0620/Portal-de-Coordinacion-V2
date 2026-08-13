@@ -8,6 +8,8 @@ import Proyectos from './modulos/proyectos/Proyectos.jsx';
 import FichaProyecto from './modulos/proyectos/FichaProyecto.jsx';
 import Seguimiento from './modulos/seguimiento/Seguimiento.jsx';
 import Monitoreo from './modulos/monitoreo/Monitoreo.jsx';
+import Estrategicos from './modulos/estrategicos/Estrategicos.jsx';
+import Posicionamiento from './modulos/posicionamiento/Posicionamiento.jsx';
 import Planificacion from './modulos/planificacion/Planificacion.jsx';
 import Mesas from './modulos/mesas/Mesas.jsx';
 import Eventos from './modulos/eventos/Eventos.jsx';
@@ -37,6 +39,8 @@ export default function App() {
         <Route path="proyectos/:id" element={<FichaProyecto />} />
         <Route path="seguimiento" element={<Seguimiento />} />
         <Route path="monitoreo" element={<Monitoreo />} />
+        <Route path="estrategicos" element={<Estrategicos />} />
+        <Route path="posicionamiento" element={<Posicionamiento />} />
         <Route path="planificacion" element={<Planificacion />} />
         <Route path="mesas" element={<Mesas />} />
         <Route path="eventos" element={<Eventos />} />

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Database, FolderKanban, Plus, Upload, X } from 'lucide-react';
+import { Database, FolderKanban, Gem, Plus, Upload, X } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { BarraAvance, Boton, Chip, EstadoProyecto, Prioridad, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
@@ -26,6 +26,7 @@ const DEFAULTS = {
   es_obra: false,
   solo_activos: false,
   solo_prioritarios: false,
+  solo_estrategicos: false,
 };
 
 export default function Proyectos() {
@@ -52,7 +53,13 @@ export default function Proyectos() {
       titulo: 'Proyecto',
       render: (f) => (
         <div className="min-w-40">
-          <p className="font-medium leading-tight text-tinta">{f.proyecto}</p>
+          <p className="flex items-center gap-1.5 font-medium leading-tight text-tinta">
+            {/* El diamante marca la cartera estratégica en la tabla maestra: sin
+                esto, la única forma de saber si un proyecto es estratégico era
+                abrir su ficha o cambiar de módulo. */}
+            {f.estrategico && <Gem size={12} className="shrink-0 text-atencion-texto" aria-label="estratégico" />}
+            {f.proyecto}
+          </p>
           <p className="text-[11px] text-tenue">{f.programa || 'Sin programa'}</p>
         </div>
       ),
@@ -141,6 +148,7 @@ export default function Proyectos() {
               ['solo_activos', 'Sólo activos'],
               ['es_obra', 'Sólo obras'],
               ['solo_prioritarios', 'Sólo prioritarios'],
+              ['solo_estrategicos', 'Sólo estratégicos'],
             ].map(([clave, titulo]) => (
               <button
                 key={clave}
