@@ -11,7 +11,19 @@ import {
   X,
 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
-import { Boton, Chip, Pestanias, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
+import {
+  Boton,
+  BotonAlternable,
+  Buscador,
+  Chip,
+  Conmutador,
+  Pestanias,
+  Semaforo,
+  Tarjeta,
+  Vacio,
+  nivelPorDias,
+} from '../../componentes/Basicos.jsx';
+import { Alternadores, GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../../componentes/Filtros.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { Calendario, useMesVisible } from '../../componentes/Calendario.jsx';
 import { Modal } from '../../componentes/Modal.jsx';
@@ -41,8 +53,13 @@ const DEFAULTS = {
   estado: '',
   desde: '',
   hasta: '',
+  buscar: '',
   incluir_cumplidos: false,
+  solo_vencidos: false,
 };
+
+/** Lo que limpia el botón: filtros, nunca la pestaña ni la vista elegida. */
+const CLAVES_FILTRO = ['area', 'responsable', 'estado', 'desde', 'hasta', 'buscar', 'incluir_cumplidos', 'solo_vencidos'];
 
 export default function Seguimiento() {
   const bd = useBD();
@@ -95,46 +112,89 @@ function PanelCalendario({ bd, filtros, setFiltros, alAgendar }) {
   const hoy = hoyISO();
   const mes = useMesVisible(hoy);
   const esLista = filtros.vista === 'lista';
+  const opcionesArea = useOpciones('areas');
 
+  /**
+   * Los próximos seguimientos también se filtran.
+   *
+   * Con catorce áreas cargadas, la lista de lo que viene son cuarenta filas de
+   * todas las secretarías juntas: la pregunta real —«¿qué tengo agendado con
+   * Obras?»— no tenía dónde hacerse, aunque la pestaña de al lado sí filtrara
+   * por área. El filtro alcanza al calendario también: si no, el mes seguiría
+   * mostrando lo que la lista acaba de descartar.
+   */
+  const texto = (filtros.buscar ?? '').trim().toLowerCase();
   const programados = useMemo(() => {
     if (!bd) return [];
-    return selSeguimientos(bd, { tipo: 'programado' })
+    return selSeguimientos(bd, { tipo: 'programado', area: filtros.area })
       .filter((s) => diasHasta(s.fecha, hoy) >= 0)
+      .filter(
+        (s) =>
+          !texto ||
+          `${s.area} ${s.participantes ?? ''} ${s.temas ?? ''}`.toLowerCase().includes(texto),
+      )
       .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
-  }, [bd, hoy]);
+  }, [bd, hoy, filtros.area, texto]);
 
-  const items = useMemo(
-    () =>
-      bd
-        ? itemsCalendario(bd, { seguimientos: true, eventos: false, mesas: false, vencimientos: false }, mes.rango[0], mes.rango[1])
-        : [],
-    [bd, mes.rango],
-  );
+  const items = useMemo(() => {
+    if (!bd) return [];
+    const todos = itemsCalendario(
+      bd,
+      { seguimientos: true, eventos: false, mesas: false, vencimientos: false },
+      mes.rango[0],
+      mes.rango[1],
+    );
+    if (!filtros.area) return todos;
+    // El título del ítem de calendario termina en « · área»: el selector lo
+    // arma así para todas las capas, y filtrar acá evita duplicar el armado.
+    return todos.filter((i) => i.titulo.endsWith(`· ${filtros.area}`));
+  }, [bd, mes.rango, filtros.area]);
 
   const conmutador = (
-    <div className="flex rounded-chip border border-borde-fuerte">
-      {[
-        ['calendario', 'Calendario', CalendarRange],
-        ['lista', 'Lista', List],
-      ].map(([valor, titulo, Icono]) => (
-        <button
-          key={valor}
-          type="button"
-          onClick={() => setFiltros({ vista: valor })}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition first:rounded-l-chip last:rounded-r-chip ${
-            filtros.vista === valor ? 'bg-acento-suave text-acento-fuerte' : 'text-gris hover:bg-paper'
-          }`}
-        >
-          <Icono size={13} />
-          {titulo}
-        </button>
-      ))}
-    </div>
+    <Conmutador
+      etiqueta="Vista de los próximos seguimientos"
+      valor={filtros.vista}
+      alCambiar={(v) => setFiltros({ vista: v })}
+      opciones={[
+        { valor: 'calendario', titulo: 'Calendario', icono: CalendarRange },
+        { valor: 'lista', titulo: 'Lista', icono: List },
+      ]}
+    />
+  );
+
+  const filtrosCalendario = (
+    <TarjetaFiltros
+      filtros={filtros}
+      defaults={DEFAULTS}
+      claves={CLAVES_FILTRO}
+      alLimpiar={() => limpiarClaves(setFiltros, DEFAULTS, CLAVES_FILTRO)}
+    >
+      <GrillaFiltros columnas={2}>
+        <CampoSelect
+          etiqueta="Área"
+          opciones={opcionesArea}
+          value={filtros.area}
+          onChange={(e) => setFiltros({ area: e.target.value })}
+          placeholder="Todas"
+        />
+        <Buscador
+          etiqueta="Buscar en lo agendado"
+          valor={filtros.buscar}
+          alCambiar={(v) => setFiltros({ buscar: v })}
+          placeholder="Área, participantes o temas"
+        />
+      </GrillaFiltros>
+      <span className="tabular text-xs text-tenue">
+        {programados.length} seguimiento{programados.length === 1 ? '' : 's'} por delante
+      </span>
+    </TarjetaFiltros>
   );
 
   if (esLista) {
     return (
-      <Tarjeta titulo="Próximos seguimientos" acciones={conmutador} sinPadding>
+      <div className="flex flex-col gap-4">
+        {filtrosCalendario}
+        <Tarjeta titulo="Próximos seguimientos" acciones={conmutador} sinPadding>
         <Tabla
           nombreExport="proximos-seguimientos"
           filas={programados}
@@ -168,31 +228,35 @@ function PanelCalendario({ bd, filtros, setFiltros, alAgendar }) {
             />
           }
         />
-      </Tarjeta>
+        </Tarjeta>
+      </div>
     );
   }
 
   return (
-    <Tarjeta titulo="Próximos seguimientos" acciones={conmutador}>
-      <Calendario
-        anio={mes.anio}
-        mes={mes.mes}
-        items={items}
-        hoy={hoy}
-        alMover={mes.mover}
-        alVolverAHoy={mes.volverAHoy}
-      />
-      {programados.length === 0 && (
-        <div className="mt-3">
-          <Vacio
-            compacto
-            icono={CalendarRange}
-            titulo="Sin seguimientos agendados"
-            accion={{ texto: 'Agendar seguimiento', icono: CalendarPlus, alHacerClic: alAgendar }}
-          />
-        </div>
-      )}
-    </Tarjeta>
+    <div className="flex flex-col gap-4">
+      {filtrosCalendario}
+      <Tarjeta titulo="Próximos seguimientos" acciones={conmutador}>
+        <Calendario
+          anio={mes.anio}
+          mes={mes.mes}
+          items={items}
+          hoy={hoy}
+          alMover={mes.mover}
+          alVolverAHoy={mes.volverAHoy}
+        />
+        {programados.length === 0 && (
+          <div className="mt-3">
+            <Vacio
+              compacto
+              icono={CalendarRange}
+              titulo="Sin seguimientos agendados"
+              accion={{ texto: 'Agendar seguimiento', icono: CalendarPlus, alHacerClic: alAgendar }}
+            />
+          </div>
+        )}
+      </Tarjeta>
+    </div>
   );
 }
 
@@ -228,7 +292,9 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
               solo_vigentes: soloVigentes,
             },
             hoy,
-          ).map((c) => ({ ...c, _resaltar: c.estado_efectivo === 'vencido' }))
+          )
+            .filter((c) => (filtros.solo_vencidos ? c.estado_efectivo === 'vencido' : true))
+            .map((c) => ({ ...c, _resaltar: c.estado_efectivo === 'vencido' }))
         : [],
     [bd, filtros, soloVigentes, hoy],
   );
@@ -253,8 +319,11 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Tarjeta
-        titulo="Filtros"
+      <TarjetaFiltros
+        filtros={filtros}
+        defaults={DEFAULTS}
+        claves={CLAVES_FILTRO}
+        alLimpiar={() => limpiarClaves(setFiltros, DEFAULTS, CLAVES_FILTRO)}
         acciones={
           vencidos > 0 && (
             <Chip tono="vencido">
@@ -263,7 +332,7 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
           )
         }
       >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <GrillaFiltros columnas={5}>
           <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
           <CampoSelect etiqueta="Responsable" opciones={responsables} value={filtros.responsable} onChange={(e) => setFiltros({ responsable: e.target.value })} placeholder="Todos" />
           <CampoSelect
@@ -275,27 +344,26 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
           />
           <CampoFecha etiqueta="Vence desde" value={filtros.desde} onChange={(e) => setFiltros({ desde: e.target.value })} />
           <CampoFecha etiqueta="Vence hasta" value={filtros.hasta} onChange={(e) => setFiltros({ hasta: e.target.value })} />
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setFiltros({ incluir_cumplidos: !filtros.incluir_cumplidos })}
+        </GrillaFiltros>
+        <Alternadores
+          filtros={filtros}
+          setFiltros={setFiltros}
+          opciones={[['solo_vencidos', 'Sólo vencidos', 'Compromisos con fecha límite pasada y sin cumplir']]}
+        >
+          <BotonAlternable
+            activo={filtros.incluir_cumplidos}
             disabled={filtros.estado === 'cumplido'}
-            className={`rounded-chip border px-2.5 py-1.5 text-xs font-medium transition disabled:opacity-40 ${
-              filtros.incluir_cumplidos
-                ? 'border-acento bg-acento-suave text-acento-fuerte'
-                : 'border-borde-fuerte bg-card text-gris hover:bg-paper'
-            }`}
+            onClick={() => setFiltros({ incluir_cumplidos: !filtros.incluir_cumplidos })}
           >
             Incluir cumplidos
-          </button>
+          </BotonAlternable>
           {!filtros.incluir_cumplidos && filtros.estado !== 'cumplido' && totalCumplidos > 0 && (
-            <span className="text-xs text-tenue">
+            <span className="ml-1 text-xs text-tenue">
               {totalCumplidos} cumplido{totalCumplidos === 1 ? '' : 's'} fuera de la lista
             </span>
           )}
-        </div>
-      </Tarjeta>
+        </Alternadores>
+      </TarjetaFiltros>
 
       <Tarjeta sinPadding>
         <Tabla

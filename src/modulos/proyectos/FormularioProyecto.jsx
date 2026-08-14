@@ -35,6 +35,9 @@ const VACIO = {
   es_obra: false,
   monto_planificado: '',
   monto_ejecutado: '',
+  zona: '',
+  latitud: '',
+  longitud: '',
   observaciones: '',
 };
 
@@ -90,6 +93,16 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto }) {
     ) {
       e.fecha_fin_prevista = 'No puede ser anterior al inicio';
     }
+    /* Media coordenada no ubica nada: con una sola de las dos el punto no se
+       puede dibujar, y guardarla haría creer que la obra quedó ubicada. */
+    const hayLat = String(datos.latitud ?? '') !== '';
+    const hayLon = String(datos.longitud ?? '') !== '';
+    if (hayLat !== hayLon) {
+      const falta = hayLat ? 'longitud' : 'latitud';
+      e[falta] = 'Cargá las dos coordenadas o ninguna';
+    }
+    if (hayLat && Math.abs(Number(datos.latitud)) > 90) e.latitud = 'Tiene que estar entre -90 y 90';
+    if (hayLon && Math.abs(Number(datos.longitud)) > 180) e.longitud = 'Tiene que estar entre -180 y 180';
     setErrores(e);
     return Object.keys(e).length === 0;
   }
@@ -113,6 +126,10 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto }) {
         avance: Number(datos.avance) || 0,
         monto_planificado: Number(datos.monto_planificado) || 0,
         monto_ejecutado: Number(datos.monto_ejecutado) || 0,
+        // Vacío es `null`, no cero: cero es una coordenada válida en el golfo
+        // de Guinea, y el mapa la dibujaría.
+        latitud: String(datos.latitud ?? '') === '' ? null : Number(datos.latitud),
+        longitud: String(datos.longitud ?? '') === '' ? null : Number(datos.longitud),
         id_area: area?.id,
         fecha_carga: datos.fecha_carga ?? hoyISO(),
       };
@@ -218,6 +235,40 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto }) {
           <CampoNumero etiqueta="Monto planificado" ayuda="$" value={datos.monto_planificado} onChange={cambiar('monto_planificado')} />
           <CampoNumero etiqueta="Monto ejecutado" ayuda="$" value={datos.monto_ejecutado} onChange={cambiar('monto_ejecutado')} />
         </GrillaCampos>
+
+        <fieldset className="rounded-chip border border-borde p-3">
+          <legend className="px-1 text-xs font-semibold text-gris">Ubicación</legend>
+          <GrillaCampos columnas={3}>
+            <CampoTexto
+              etiqueta="Zona o barrio"
+              value={datos.zona}
+              onChange={cambiar('zona')}
+              placeholder="Ej.: Villa Esperanza"
+            />
+            <CampoNumero
+              etiqueta="Latitud"
+              ayuda="decimal"
+              step="0.00001"
+              value={datos.latitud}
+              onChange={cambiar('latitud')}
+              error={errores.latitud}
+              placeholder="-34.60110"
+            />
+            <CampoNumero
+              etiqueta="Longitud"
+              ayuda="decimal"
+              step="0.00001"
+              value={datos.longitud}
+              onChange={cambiar('longitud')}
+              error={errores.longitud}
+              placeholder="-58.58200"
+            />
+          </GrillaCampos>
+          <p className="mt-2 text-[11px] text-tenue">
+            Con las dos coordenadas cargadas, la obra se dibuja en el mapa del módulo de Obras. Sin
+            ellas entra igual al listado, marcada como «sin ubicar».
+          </p>
+        </fieldset>
 
         <CampoArea etiqueta="Observaciones" filas={3} value={datos.observaciones} onChange={cambiar('observaciones')} />
       </div>

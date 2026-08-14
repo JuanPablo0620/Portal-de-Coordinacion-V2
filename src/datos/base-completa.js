@@ -44,6 +44,7 @@ import {
   crearAzar,
   desplazar,
   marcaTiempo,
+  puntoEnBarrio,
 } from './sintetico.js';
 import {
   AREAS,
@@ -142,12 +143,16 @@ export function generarBaseCompleta(hoy) {
         const esObra = tipo === 'Obra';
         const firma = elegir(EQUIPO);
 
-        // Nombre único: barrio, y si ya existía esa combinación, una etapa.
-        let nombre = `${nombreBase} — ${elegir(BARRIOS)}`;
+        // Nombre único: barrio, y si ya existía esa combinación, una etapa. La
+        // zona queda además como campo propio: el mapa y el desagregado de
+        // obras la leen de ahí, no de la cadena del título.
+        let zona = elegir(BARRIOS);
+        let nombre = `${nombreBase} — ${zona}`;
         let etapa = 1;
         while (usados.has(nombre)) {
           etapa += 1;
-          nombre = `${nombreBase} — ${elegir(BARRIOS)} (etapa ${etapa})`;
+          zona = elegir(BARRIOS);
+          nombre = `${nombreBase} — ${zona} (etapa ${etapa})`;
         }
         usados.add(nombre);
 
@@ -188,6 +193,8 @@ export function generarBaseCompleta(hoy) {
           area: area.nombre,
           programa: elegir(area.programas),
           proyecto: nombre,
+          zona,
+          ...puntoEnBarrio(zona, azar),
           eje: area.eje,
           tipo,
           cantidad: entre(1, 14),

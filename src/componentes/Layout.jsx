@@ -8,6 +8,7 @@ import {
   FolderKanban,
   Gem,
   Globe2,
+  HardHat,
   LayoutDashboard,
   Menu,
   Radar,
@@ -20,6 +21,7 @@ import {
 const MODULOS = [
   { ruta: '/', titulo: 'Inicio', icono: LayoutDashboard, exacta: true },
   { ruta: '/proyectos', titulo: 'Proyectos', icono: FolderKanban },
+  { ruta: '/obras', titulo: 'Obras', icono: HardHat },
   { ruta: '/seguimiento', titulo: 'Seguimiento', icono: CalendarCheck },
   { ruta: '/monitoreo', titulo: 'Monitoreo', icono: Radar },
   { ruta: '/estrategicos', titulo: 'Proyectos estratégicos', icono: Gem },

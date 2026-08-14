@@ -42,6 +42,13 @@ export const CAMPOS_PROYECTO = Object.freeze([
   { clave: 'fecha_fin_prevista', titulo: 'Fin previsto', fecha: true, alias: ['fin', 'fecha de fin'] },
   { clave: 'monto_planificado', titulo: 'Monto planificado', numerico: true, alias: ['presupuesto'] },
   { clave: 'monto_ejecutado', titulo: 'Monto ejecutado', numerico: true, alias: ['devengado'] },
+  /* Ubicación. Es lo que dibuja el mapa de obras: sin coordenadas la obra entra
+     igual —queda listada aparte, nunca se descarta— pero no se puede ubicar. La
+     zona es texto libre a propósito: los barrios no son un catálogo cerrado del
+     sistema, y obligar a que lo fueran dejaría afuera media planilla real. */
+  { clave: 'zona', titulo: 'Zona', alias: ['barrio', 'localidad'] },
+  { clave: 'latitud', titulo: 'Latitud', decimal: true, rango: [-90, 90], alias: ['lat'] },
+  { clave: 'longitud', titulo: 'Longitud', decimal: true, rango: [-180, 180], alias: ['lon', 'lng', 'long'] },
 ]);
 
 /** Encabezados de la plantilla, en el orden en que se esperan. */
@@ -115,6 +122,18 @@ function normalizarValor(campo, valor, catalogos = {}) {
 
   if (campo.lista && !campo.lista.includes(valor.toLowerCase())) {
     return { motivo: `«${valor}» no es un valor válido de ${campo.titulo.toLowerCase()}` };
+  }
+
+  /* Las coordenadas NO pasan por el formateo local de miles: ahí el punto es
+     separador y «-34.6011» se leería como −346.011. Se acepta la coma decimal,
+     que es lo que escribe una planilla en español. */
+  if (campo.decimal) {
+    const n = Number(String(valor).replace(',', '.'));
+    if (!Number.isFinite(n)) return { motivo: `${campo.titulo.toLowerCase()} no es un número` };
+    if (campo.rango && (n < campo.rango[0] || n > campo.rango[1])) {
+      return { motivo: `${campo.titulo.toLowerCase()} tiene que estar entre ${campo.rango[0]} y ${campo.rango[1]}` };
+    }
+    return { valor: n };
   }
 
   if (campo.numerico) {

@@ -33,6 +33,7 @@ import {
 import {
   BarraAvance,
   Boton,
+  Buscador,
   Chip,
   Criticidad,
   EstadoProyecto,
@@ -42,11 +43,13 @@ import {
   Vacio,
   nivelPorDias,
 } from '../../componentes/Basicos.jsx';
+import { Alternadores, TarjetaFiltros, limpiarClaves } from '../../componentes/Filtros.jsx';
 import { ListaAlertas } from '../../componentes/ListaAlertas.jsx';
 import { Modal } from '../../componentes/Modal.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
-import { CampoFecha, CampoTexto } from '../../componentes/Campo.jsx';
+import { CampoFecha } from '../../componentes/Campo.jsx';
 import { SelectorPeriodo } from './periodo.jsx';
+import { CLAVES_FILTRO, DEFAULTS } from './filtros.js';
 import { GraficoBarras, GraficoTorta } from '../../componentes/Graficos.jsx';
 import { COLUMNAS_COMPROMISO } from '../seguimiento/columnasCompromiso.jsx';
 import { filtrarAlertas, UMBRALES } from '../../datos/alertas.js';
@@ -135,33 +138,53 @@ function Grilla({ bd, periodo, filtros, setFiltros, alertas, areas, hoy }) {
   }, [alertas]);
 
   const texto = (filtros.buscar ?? '').trim().toLowerCase();
-  const visibles = resumenes.filter((r) => !texto || r.area.toLowerCase().includes(texto));
+  const visibles = resumenes
+    .filter((r) => !texto || r.area.toLowerCase().includes(texto))
+    .filter((r) => (filtros.solo_deuda ? r.compromisos.vencidos > 0 : true))
+    .filter((r) => (filtros.sin_cobertura ? r.monitoreos === 0 : true));
 
+  // Las cifras describen el universo completo aunque la grilla esté filtrada:
+  // «3 sin cobertura» tiene que seguir diciendo lo mismo con el filtro puesto.
   const sinCobertura = resumenes.filter((r) => r.monitoreos === 0).length;
   const conDeuda = resumenes.filter((r) => r.compromisos.vencidos > 0).length;
   const totalMonitoreos = resumenes.reduce((s, r) => s + r.monitoreos, 0);
 
   return (
     <div className="flex flex-col gap-4">
-      <Tarjeta
-        titulo="Período de la hoja"
-        descripcion="Acota lo que se contabiliza. Los compromisos y proyectos se muestran siempre vigentes: recortarlos por fecha escondería lo que hay que ver."
+      <TarjetaFiltros
+        filtros={filtros}
+        defaults={DEFAULTS}
+        claves={CLAVES_FILTRO}
+        alLimpiar={() => limpiarClaves(setFiltros, DEFAULTS, CLAVES_FILTRO)}
+        descripcion="El período acota lo que se contabiliza. Los compromisos y proyectos se muestran siempre vigentes: recortarlos por fecha escondería lo que hay que ver."
       >
-        <SelectorPeriodo filtros={filtros} setFiltros={setFiltros} rango={periodo} hoy={hoy} />
-        <div className="mt-3 sm:max-w-xs">
-          <CampoTexto
+        <div className="sm:max-w-xs">
+          <Buscador
             etiqueta="Buscar secretaría"
-            value={filtros.buscar}
-            onChange={(e) => setFiltros({ buscar: e.target.value })}
+            valor={filtros.buscar}
+            alCambiar={(v) => setFiltros({ buscar: v })}
             placeholder="Nombre del área"
           />
         </div>
+        <SelectorPeriodo filtros={filtros} setFiltros={setFiltros} rango={periodo} hoy={hoy} />
+        <Alternadores
+          filtros={filtros}
+          setFiltros={setFiltros}
+          opciones={[
+            ['solo_deuda', 'Sólo con compromisos vencidos'],
+            ['sin_cobertura', 'Sólo sin cobertura'],
+          ]}
+        >
+          <span className="tabular ml-1 text-xs text-tenue">
+            {visibles.length} de {resumenes.length} secretarías
+          </span>
+        </Alternadores>
         {periodo.desde && (
-          <p className="mt-2 text-[11px] text-tenue">
+          <p className="text-[11px] text-tenue">
             Con un período definido, cada tarjeta compara contra la ventana anterior del mismo largo.
           </p>
         )}
-      </Tarjeta>
+      </TarjetaFiltros>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metrica valor={resumenes.length} etiqueta="Secretarías en la hoja" icono={Building2} />
@@ -185,10 +208,12 @@ function Grilla({ bd, periodo, filtros, setFiltros, alertas, areas, hoy }) {
         <Tarjeta>
           <Vacio
             icono={Building2}
-            titulo={texto ? 'Ninguna secretaría coincide con la búsqueda' : 'Sin secretarías cargadas'}
+            titulo={
+              resumenes.length ? 'Ninguna secretaría coincide con los filtros' : 'Sin secretarías cargadas'
+            }
             descripcion={
-              texto
-                ? 'Probá con otro término.'
+              resumenes.length
+                ? 'Probá con otro término o quitá los filtros aplicados.'
                 : 'Cargá las áreas desde Configuración para que la hoja de monitoreo se desagregue por secretaría.'
             }
           />

@@ -18,7 +18,8 @@ import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Aviso, Boton, Chip, Metrica, Pestanias, Semaforo, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { GraficoBarras } from '../../componentes/Graficos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
-import { CampoCheck, CampoSelect, GrillaCampos } from '../../componentes/Campo.jsx';
+import { CampoSelect } from '../../componentes/Campo.jsx';
+import { Alternadores, GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../../componentes/Filtros.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { FormularioAccion } from './FormularioAccion.jsx';
 import { nombreODS } from './SelectorODS.jsx';
@@ -45,6 +46,9 @@ const DEFAULTS = {
   solo_abiertas: false,
   accion: '',
 };
+
+/** Lo que limpia el botón: filtros, nunca la pestaña ni la acción abierta. */
+const CLAVES_FILTRO = ['tipo', 'organismo', 'pais', 'estado', 'area', 'ods', 'solo_abiertas'];
 
 /** Tono del chip de estado. Es el mismo embudo que ordena el tablero. */
 const TONO_ESTADO = {
@@ -273,8 +277,13 @@ function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Tarjeta titulo="Filtros">
-        <GrillaCampos columnas={4}>
+      <TarjetaFiltros
+        filtros={filtros}
+        defaults={DEFAULTS}
+        claves={CLAVES_FILTRO}
+        alLimpiar={() => limpiarClaves(setFiltros, DEFAULTS, CLAVES_FILTRO)}
+      >
+        <GrillaFiltros columnas={4}>
           <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={filtros.tipo} onChange={(e) => setFiltros({ tipo: e.target.value })} placeholder="Todos" />
           <CampoSelect etiqueta="Organismo" opciones={opcionesOrganismo} value={filtros.organismo} onChange={(e) => setFiltros({ organismo: e.target.value })} placeholder="Todos" />
           <CampoSelect etiqueta="País" opciones={opcionesPais} value={filtros.pais} onChange={(e) => setFiltros({ pais: e.target.value })} placeholder="Todos" />
@@ -287,15 +296,17 @@ function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
             onChange={(e) => setFiltros({ ods: e.target.value })}
             placeholder="Todos"
           />
-          <div className="flex items-end pb-1.5">
-            <CampoCheck
-              etiqueta="Sólo las que están en juego"
-              checked={filtros.solo_abiertas}
-              onChange={(e) => setFiltros({ solo_abiertas: e.target.checked })}
-            />
-          </div>
-        </GrillaCampos>
-      </Tarjeta>
+        </GrillaFiltros>
+        <Alternadores
+          filtros={filtros}
+          setFiltros={setFiltros}
+          opciones={[['solo_abiertas', 'Sólo las que están en juego', 'Identificadas, en preparación, presentadas o vigentes']]}
+        >
+          <span className="tabular ml-1 text-xs text-tenue">
+            {lista.length} acci{lista.length === 1 ? 'ón' : 'ones'} en la vista
+          </span>
+        </Alternadores>
+      </TarjetaFiltros>
 
       <Tarjeta sinPadding>
         <Tabla

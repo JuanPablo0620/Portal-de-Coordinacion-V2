@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Bookmark, Printer, Save, Trash2, X } from 'lucide-react';
+import { Bookmark, Printer, Save, Trash2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Boton, Chip, Tarjeta } from '../../componentes/Basicos.jsx';
+import { Alternadores, GrillaFiltros, TarjetaFiltros } from '../../componentes/Filtros.jsx';
 import { CampoCheck, CampoFecha, CampoSelect, CampoTexto } from '../../componentes/Campo.jsx';
 import { Modal } from '../../componentes/Modal.jsx';
 import { VistaPrevia } from './VistaPrevia.jsx';
@@ -64,7 +65,6 @@ export default function Reportes() {
             filtros={filtros}
             setFiltros={setFiltros}
             limpiar={limpiarFiltros}
-            cantidad={cantidadFiltros}
             bd={bd}
           />
           <SelectorBloques bloques={bloques} setBloques={setBloques} reporte={reporte} />
@@ -89,7 +89,7 @@ export default function Reportes() {
 
 /* ── Filtros ────────────────────────────────────────────────────────── */
 
-function PanelFiltros({ filtros, setFiltros, limpiar, cantidad, bd }) {
+function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
   const opcionesArea = useOpciones('areas');
   const opcionesPrograma = useOpciones('programas');
   const opcionesEje = useOpciones('ejes');
@@ -106,18 +106,13 @@ function PanelFiltros({ filtros, setFiltros, limpiar, cantidad, bd }) {
   );
 
   return (
-    <Tarjeta
-      titulo="Filtros"
+    <TarjetaFiltros
+      filtros={filtros}
+      defaults={DEFAULTS}
+      alLimpiar={limpiar}
       descripcion="Todos combinables entre sí. Se reflejan en la dirección: esta configuración se comparte pegando el enlace."
-      acciones={
-        cantidad > 0 && (
-          <Boton tamanio="sm" variante="fantasma" icono={X} onClick={limpiar}>
-            Limpiar ({cantidad})
-          </Boton>
-        )
-      }
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <GrillaFiltros columnas={4}>
         <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
         <CampoSelect etiqueta="Programa" opciones={opcionesPrograma} value={filtros.programa} onChange={(e) => setFiltros({ programa: e.target.value })} placeholder="Todos" />
         <CampoSelect etiqueta="Eje" opciones={opcionesEje} value={filtros.eje} onChange={(e) => setFiltros({ eje: e.target.value })} placeholder="Todos" />
@@ -134,29 +129,18 @@ function PanelFiltros({ filtros, setFiltros, limpiar, cantidad, bd }) {
             <CampoFecha etiqueta="Hasta" value={filtros.hasta} onChange={(e) => setFiltros({ hasta: e.target.value })} />
           </>
         )}
-      </div>
+      </GrillaFiltros>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {[
+      <Alternadores
+        filtros={filtros}
+        setFiltros={setFiltros}
+        opciones={[
           ['solo_con_alertas', 'Sólo con alertas activas'],
           ['solo_obras', 'Sólo obras'],
           ['solo_prioritarios', 'Sólo prioritarios'],
-        ].map(([clave, titulo]) => (
-          <button
-            key={clave}
-            type="button"
-            onClick={() => setFiltros({ [clave]: !filtros[clave] })}
-            className={`rounded-chip border px-2.5 py-1.5 text-xs font-medium transition ${
-              filtros[clave]
-                ? 'border-acento bg-acento-suave text-acento-fuerte'
-                : 'border-borde-fuerte bg-card text-gris hover:bg-paper'
-            }`}
-          >
-            {titulo}
-          </button>
-        ))}
-      </div>
-    </Tarjeta>
+        ]}
+      />
+    </TarjetaFiltros>
   );
 }
 

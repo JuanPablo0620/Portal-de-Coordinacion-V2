@@ -2,7 +2,8 @@
  * Primitivos visuales del sistema. Todos toman su color de los tokens del
  * bloque @theme: ningún hex hardcodeado.
  */
-import { AlertCircle, Info } from 'lucide-react';
+import { useId } from 'react';
+import { AlertCircle, Info, Search } from 'lucide-react';
 import { nivelPorDias } from '../datos/selectores.js';
 
 // La escala de días vive en la capa de datos —la comparten las alertas y los
@@ -61,6 +62,98 @@ export function Boton({
       {Icono && <Icono size={tamanio === 'sm' ? 14 : 16} />}
       {children}
     </button>
+  );
+}
+
+/* ── Botón alternable y conmutador ──────────────────────────────────── */
+
+/**
+ * Interruptor de un filtro booleano, con forma de chip.
+ *
+ * Estaba escrito a mano —las mismas ocho clases de Tailwind— en la base
+ * maestra, en los compromisos, en el selector de período y en el tablero de
+ * secretarías: cuatro copias que ya habían empezado a diferir en el `disabled`
+ * y en el estado activo. Acá también entra el `aria-pressed`, que ninguna de
+ * las copias tenía: sin él, un lector de pantalla anuncia «Sólo obras, botón»
+ * sin decir nunca si está aplicado.
+ */
+export function BotonAlternable({ activo = false, children, className = '', ...props }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={activo}
+      className={`rounded-chip border px-2.5 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed
+        disabled:opacity-40 ${
+          activo
+            ? 'border-acento bg-acento-suave text-acento-fuerte'
+            : 'border-borde-fuerte bg-card text-gris hover:bg-paper'
+        } ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Conmutador segmentado: una opción entre pocas, todas visibles. */
+export function Conmutador({ opciones, valor, alCambiar, etiqueta, className = '' }) {
+  return (
+    <div role="group" aria-label={etiqueta} className={`flex rounded-chip border border-borde-fuerte ${className}`}>
+      {opciones.map((o) => {
+        const activo = o.valor === valor;
+        return (
+          <button
+            key={o.valor}
+            type="button"
+            aria-pressed={activo}
+            onClick={() => alCambiar(o.valor)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition
+              first:rounded-l-chip last:rounded-r-chip ${
+                activo ? 'bg-acento-suave text-acento-fuerte' : 'text-gris hover:bg-paper'
+              }`}
+          >
+            {o.icono && <o.icono size={13} />}
+            {o.titulo}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Buscador ───────────────────────────────────────────────────────── */
+
+/**
+ * Campo de búsqueda del sistema. Es el mismo que ya vivía dentro de la tabla:
+ * se extrajo para que un buscador de tarjetas —el de secretarías, el de obras—
+ * se vea y se comporte igual que el de un listado, en lugar de ser un
+ * `<CampoTexto>` con otra altura y sin ícono.
+ */
+export function Buscador({ valor, alCambiar, placeholder = 'Buscar…', etiqueta, className = '' }) {
+  const id = useId();
+  return (
+    <div className={`relative min-w-40 ${className}`}>
+      {etiqueta && (
+        <label htmlFor={id} className="mb-1 block text-xs font-medium text-gris">
+          {etiqueta}
+        </label>
+      )}
+      <Search
+        size={14}
+        className={`pointer-events-none absolute left-2.5 text-tenue ${
+          etiqueta ? 'bottom-2.5' : 'top-1/2 -translate-y-1/2'
+        }`}
+      />
+      <input
+        id={id}
+        type="search"
+        value={valor}
+        onChange={(e) => alCambiar(e.target.value)}
+        placeholder={placeholder}
+        aria-label={etiqueta ? undefined : placeholder}
+        className="campo-base py-1.5 pl-8 text-xs"
+      />
+    </div>
   );
 }
 

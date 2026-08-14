@@ -6,6 +6,7 @@ import { useCargando, useTienda } from './estado/tienda.js';
 import Dashboard from './modulos/dashboard/Dashboard.jsx';
 import Proyectos from './modulos/proyectos/Proyectos.jsx';
 import FichaProyecto from './modulos/proyectos/FichaProyecto.jsx';
+import Obras from './modulos/obras/Obras.jsx';
 import Seguimiento from './modulos/seguimiento/Seguimiento.jsx';
 import Monitoreo from './modulos/monitoreo/Monitoreo.jsx';
 import Estrategicos from './modulos/estrategicos/Estrategicos.jsx';
@@ -37,6 +38,7 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="proyectos" element={<Proyectos />} />
         <Route path="proyectos/:id" element={<FichaProyecto />} />
+        <Route path="obras" element={<Obras />} />
         <Route path="seguimiento" element={<Seguimiento />} />
         <Route path="monitoreo" element={<Monitoreo />} />
         <Route path="estrategicos" element={<Estrategicos />} />

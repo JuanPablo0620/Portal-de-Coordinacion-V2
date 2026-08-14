@@ -39,7 +39,8 @@ import {
 } from '../../componentes/Basicos.jsx';
 import { GraficoBarras } from '../../componentes/Graficos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
-import { CampoSelect, GrillaCampos } from '../../componentes/Campo.jsx';
+import { CampoSelect } from '../../componentes/Campo.jsx';
+import { GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../../componentes/Filtros.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { FormularioEstrategico } from './FormularioEstrategico.jsx';
 import { PRIORIDADES, UMBRALES } from '../../datos/catalogos.js';
@@ -63,6 +64,9 @@ const DEFAULTS = {
   origen_tipo: '',
   proyecto: '',
 };
+
+/** Lo que limpia el botón: filtros, nunca la pestaña ni el proyecto abierto. */
+const CLAVES_FILTRO = ['area', 'prioridad_estrategica', 'motivo_estrategico', 'estado', 'origen_tipo'];
 
 const ETIQUETA_ORIGEN = { base: 'Base maestra', monitoreo: 'Monitoreo', seguimiento: 'Seguimiento' };
 
@@ -286,8 +290,13 @@ function PanelCartera({ cartera, filtros, setFiltros, alEditar, alQuitar }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Tarjeta titulo="Filtros">
-        <GrillaCampos columnas={3}>
+      <TarjetaFiltros
+        filtros={filtros}
+        defaults={DEFAULTS}
+        claves={CLAVES_FILTRO}
+        alLimpiar={() => limpiarClaves(setFiltros, DEFAULTS, CLAVES_FILTRO)}
+      >
+        <GrillaFiltros columnas={3}>
           <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
           <CampoSelect
             etiqueta="Prioridad estratégica"
@@ -303,8 +312,8 @@ function PanelCartera({ cartera, filtros, setFiltros, alEditar, alQuitar }) {
             onChange={(e) => setFiltros({ motivo_estrategico: e.target.value })}
             placeholder="Todos"
           />
-        </GrillaCampos>
-      </Tarjeta>
+        </GrillaFiltros>
+      </TarjetaFiltros>
 
       <Tarjeta sinPadding>
         <Tabla
@@ -458,8 +467,13 @@ function PanelPromover({ candidatos, filtros, setFiltros, alPromover }) {
         señales es un candidato más fuerte que uno con una sola: por eso la lista se ordena por ahí.
       </Aviso>
 
-      <Tarjeta titulo="Filtros">
-        <GrillaCampos columnas={2}>
+      <TarjetaFiltros
+        filtros={filtros}
+        defaults={DEFAULTS}
+        claves={CLAVES_FILTRO}
+        alLimpiar={() => limpiarClaves(setFiltros, DEFAULTS, CLAVES_FILTRO)}
+      >
+        <GrillaFiltros columnas={2}>
           <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
           <CampoSelect
             etiqueta="Origen de la señal"
@@ -471,8 +485,8 @@ function PanelPromover({ candidatos, filtros, setFiltros, alPromover }) {
             onChange={(e) => setFiltros({ origen_tipo: e.target.value })}
             placeholder="Los dos"
           />
-        </GrillaCampos>
-      </Tarjeta>
+        </GrillaFiltros>
+      </TarjetaFiltros>
 
       <Tarjeta sinPadding>
         <Tabla

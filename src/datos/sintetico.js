@@ -71,6 +71,59 @@ export const BARRIOS = [
   'Las Lomas', 'El Zanjón', 'Los Naranjos', 'La Loma Verde',
 ];
 
+/**
+ * Coordenadas de los barrios ficticios, para que el mapa de obras tenga qué
+ * dibujar en los dos sets.
+ *
+ * Caen dentro del rectángulo que ocupa el partido —así la escala del plano y
+ * las distancias entre obras son plausibles— pero los barrios son inventados y
+ * sus posiciones también: NO son la ubicación real de ningún barrio ni de
+ * ninguna obra. El día que entren datos reales, entran por el campo `latitud` /
+ * `longitud` de cada proyecto, que es lo que el mapa lee; esta tabla sólo
+ * alimenta los sets de prueba.
+ */
+export const COORDENADAS_BARRIO = {
+  'Los Álamos': [-34.578, -58.612],
+  'Villa Esperanza': [-34.592, -58.598],
+  'San Ignacio': [-34.605, -58.586],
+  'El Progreso': [-34.584, -58.574],
+  'Las Acacias': [-34.616, -58.601],
+  'Barrio Norte': [-34.571, -58.594],
+  'Santa Rita': [-34.598, -58.563],
+  'Los Tilos': [-34.624, -58.578],
+  'La Estación': [-34.589, -58.545],
+  'Nueva Unión': [-34.612, -58.552],
+  'El Mirador': [-34.575, -58.556],
+  'Los Ceibos': [-34.602, -58.617],
+  'Villa Alegre': [-34.629, -58.593],
+  'San Cayetano': [-34.581, -58.531],
+  'Los Robles': [-34.607, -58.538],
+  'Barrio Sur': [-34.631, -58.566],
+  'La Cañada': [-34.568, -58.577],
+  'El Molino': [-34.595, -58.628],
+  'Los Sauces': [-34.619, -58.545],
+  'Villa Palmira': [-34.586, -58.560],
+  'Las Lomas': [-34.573, -58.539],
+  'El Zanjón': [-34.610, -58.624],
+  'Los Naranjos': [-34.626, -58.610],
+  'La Loma Verde': [-34.600, -58.605],
+};
+
+/**
+ * Punto dentro del barrio, no el barrio entero: sin dispersión, las cuarenta
+ * obras de un barrio se dibujan una encima de otra y el mapa muestra un punto
+ * donde hay cuarenta. El desplazamiento es de unos pocos centenares de metros.
+ */
+export function puntoEnBarrio(barrio, azar) {
+  const centro = COORDENADAS_BARRIO[barrio];
+  if (!centro) return null;
+  const desvio = () => (azar() - 0.5) * 0.008;
+  return {
+    latitud: Number((centro[0] + desvio()).toFixed(5)),
+    longitud: Number((centro[1] + desvio()).toFixed(5)),
+  };
+}
+
 /* ── Posicionamiento internacional ──────────────────────────────────── */
 
 /**

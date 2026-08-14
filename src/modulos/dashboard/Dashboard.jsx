@@ -14,7 +14,7 @@ import {
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { BarraAvance, Boton, Chip, EstadoProyecto, Metrica, Semaforo, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { Calendario, useMesVisible } from '../../componentes/Calendario.jsx';
-import { vencimientosProximos } from '../../datos/alertas.js';
+import { calcularAlertas, vencimientosProximos } from '../../datos/alertas.js';
 import {
   feedBitacora,
   hoyISO,
@@ -53,6 +53,18 @@ export default function Dashboard() {
   );
 
   const vencimientos = useMemo(() => (bd ? vencimientosProximos(bd, hoy, 15) : []), [bd, hoy]);
+  /**
+   * El contador del inicio cuenta ALERTAS, no vencidos.
+   *
+   * Decía «Vencidos» y mostraba los compromisos y fines de plazo pasados, que
+   * son dos de las nueve reglas del motor: un tema crítico sin resolver, una
+   * convocatoria que cierra el martes o un evento con requerimientos sin
+   * confirmar no movían ese número, y el tablero de inicio informaba «0» sobre
+   * un sistema con quince cosas para atender. Ahora es la misma cifra que
+   * muestra la pestaña a la que lleva el clic.
+   */
+  const alertas = useMemo(() => (bd ? calcularAlertas(bd, hoy) : []), [bd, hoy]);
+  const alertasCriticas = useMemo(() => alertas.filter((a) => a.severidad === 'critica').length, [alertas]);
   /**
    * Lo atrasado y lo que viene se separan.
    *
@@ -136,15 +148,23 @@ export default function Dashboard() {
             icono={HardHat}
             valor={obrasActivas.length}
             etiqueta="Obras activas"
-            detalle="proyectos marcados como obra"
-            alHacerClic={() => navegar('/proyectos?solo_activos=1&es_obra=1')}
+            detalle="mapa y desagregado por zona"
+            alHacerClic={() => navegar('/obras')}
           />
           <Metrica
             icono={AlertTriangle}
-            tono="vencido"
-            valor={atrasados.length}
-            etiqueta="Vencidos"
-            detalle="compromisos, hitos y fines previstos"
+            tono={alertas.length ? 'vencido' : 'neutro'}
+            valor={alertas.length}
+            etiqueta="Alertas activas"
+            /* No se mezcla acá el conteo de vencimientos: son universos
+               distintos —los vencimientos incluyen hitos, que no emiten
+               alerta— y dos números que no cierran en la misma tarjeta se leen
+               como un error del sistema. */
+            detalle={
+              alertasCriticas
+                ? `${alertasCriticas} crítica${alertasCriticas === 1 ? '' : 's'} · agrupadas por tipo en el panel`
+                : 'sin alertas críticas'
+            }
             alHacerClic={() => navegar('/monitoreo?tab=alertas')}
           />
           <Metrica

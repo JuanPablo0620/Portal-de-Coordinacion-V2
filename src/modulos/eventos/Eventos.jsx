@@ -6,6 +6,7 @@ import { Aviso, BarraAvance, Boton, Chip, Metrica, Pestanias, Semaforo, Tarjeta,
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { Calendario, useMesVisible } from '../../componentes/Calendario.jsx';
 import { CampoSelect } from '../../componentes/Campo.jsx';
+import { GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../../componentes/Filtros.jsx';
 import { FormularioEvento, SeccionRequerimientos } from './FormularioEvento.jsx';
 import { UMBRALES, calcularAlertas, TIPOS_ALERTA } from '../../datos/alertas.js';
 import { ESTADOS_EVENTO } from '../../datos/catalogos.js';
@@ -16,6 +17,9 @@ import { useOpciones } from '../../utilidades/catalogos.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
 const DEFAULTS = { tab: 'calendario', area: '', tipo: '', estado: '', evento: '' };
+
+/** Lo que limpia el botón: filtros, nunca la pestaña ni el evento abierto. */
+const CLAVES_FILTRO = ['area', 'tipo', 'estado'];
 
 export default function Eventos() {
   const bd = useBD();
@@ -144,13 +148,18 @@ function PanelLista({ bd, hoy, filtros, setFiltros, alEditar }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Tarjeta titulo="Filtros">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <TarjetaFiltros
+        filtros={filtros}
+        defaults={DEFAULTS}
+        claves={CLAVES_FILTRO}
+        alLimpiar={() => limpiarClaves(setFiltros, DEFAULTS, CLAVES_FILTRO)}
+      >
+        <GrillaFiltros columnas={3}>
           <CampoSelect etiqueta="Área organizadora" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
           <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={filtros.tipo} onChange={(e) => setFiltros({ tipo: e.target.value })} placeholder="Todos" />
           <CampoSelect etiqueta="Estado" opciones={ESTADOS_EVENTO} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
-        </div>
-      </Tarjeta>
+        </GrillaFiltros>
+      </TarjetaFiltros>
 
       <Tarjeta sinPadding>
         <Tabla

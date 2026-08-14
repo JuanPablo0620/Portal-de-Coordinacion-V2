@@ -164,6 +164,142 @@ export function proyectoPorId(bd, id) {
   return { ...p, porcentaje_avance: porcentajeAvance(p), ultima_actualizacion: ultimaActualizacion(bd, id) };
 }
 
+/* ── Obras ──────────────────────────────────────────────────────────── */
+
+/**
+ * Una obra está ubicada cuando tiene LAS DOS coordenadas y son números. Media
+ * coordenada no dibuja un punto, y un `0` heredado de un campo vacío lo
+ * dibujaría en el golfo de Guinea.
+ */
+export function tieneUbicacion(p) {
+  const lat = Number(p?.latitud);
+  const lon = Number(p?.longitud);
+  if (p?.latitud === null || p?.latitud === undefined || p?.latitud === '') return false;
+  if (p?.longitud === null || p?.longitud === undefined || p?.longitud === '') return false;
+  return Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+}
+
+/**
+ * Las obras, con lo que hace falta para mirarlas como obras y no como
+ * proyectos: dónde están, cuánto les queda y qué semáforo les corresponde.
+ *
+ * El semáforo NO es el del estado: una obra finalizada está en regla aunque su
+ * fin previsto haya pasado, y una obra suspendida no tiene reloj. Lo que se
+ * mira es el plazo de las que siguen abiertas, que es lo que hace falta
+ * priorizar en el mapa.
+ */
+export function obras(bd, filtros = {}, hoy = hoyISO()) {
+  const { zona, solo_ubicadas, solo_sin_ubicar, ...resto } = filtros;
+  return proyectos(bd, { ...resto, es_obra: true })
+    .filter((p) => coincide(zona, p.zona))
+    .map((p) => {
+      const dias_al_fin = diasHasta(p.fecha_fin_prevista, hoy);
+      const ubicada = tieneUbicacion(p);
+      return {
+        ...p,
+        zona: p.zona || '',
+        dias_al_fin,
+        ubicada,
+        latitud: ubicada ? Number(p.latitud) : null,
+        longitud: ubicada ? Number(p.longitud) : null,
+        nivel:
+          p.estado === 'finalizado'
+            ? 'enregla'
+            : !esProyectoActivo(p)
+              ? 'sindato'
+              : nivelPorDias(dias_al_fin),
+      };
+    })
+    .filter((o) => (solo_ubicadas ? o.ubicada : true) && (solo_sin_ubicar ? !o.ubicada : true))
+    .sort(
+      (a, b) =>
+        ORDEN_NIVEL[a.nivel] - ORDEN_NIVEL[b.nivel] ||
+        String(a.proyecto).localeCompare(String(b.proyecto), 'es'),
+    );
+}
+
+/**
+ * Las cifras del tablero de obras, calculadas SOBRE LA MISMA LISTA que se ve.
+ * Recalcularlas desde la base dejaría los contadores hablando de un universo
+ * distinto del que muestra la tabla en cuanto hubiera un filtro puesto.
+ */
+export function resumenObras(lista = []) {
+  const porEstado = {};
+  let planificado = 0;
+  let ejecutado = 0;
+  let objetivo = 0;
+  let avance = 0;
+
+  for (const o of lista) {
+    porEstado[o.estado] = (porEstado[o.estado] ?? 0) + 1;
+    planificado += Number(o.monto_planificado) || 0;
+    ejecutado += Number(o.monto_ejecutado) || 0;
+    objetivo += Number(o.objetivo) || 0;
+    avance += Number(o.avance) || 0;
+  }
+
+  const activas = lista.filter(esProyectoActivo);
+  return {
+    total: lista.length,
+    activas: activas.length,
+    en_ejecucion: porEstado['en ejecución'] ?? 0,
+    demoradas: porEstado.demorado ?? 0,
+    planificadas: porEstado.planificado ?? 0,
+    finalizadas: porEstado.finalizado ?? 0,
+    suspendidas: porEstado.suspendido ?? 0,
+    // Vencida es la activa que ya pasó su fin previsto: la finalizada tarde no
+    // es un problema pendiente, y contarla acá inflaría el número que actúa.
+    vencidas: activas.filter((o) => o.dias_al_fin !== null && o.dias_al_fin < 0).length,
+    por_vencer: activas.filter(
+      (o) => o.dias_al_fin !== null && o.dias_al_fin >= 0 && o.dias_al_fin <= UMBRALES.DIAS_POR_VENCER,
+    ).length,
+    sin_ubicar: lista.filter((o) => !o.ubicada).length,
+    ubicadas: lista.filter((o) => o.ubicada).length,
+    avance_promedio: objetivo ? Math.min(Math.round((avance / objetivo) * 100), 100) : 0,
+    monto_planificado: planificado,
+    monto_ejecutado: ejecutado,
+    ejecucion: planificado ? Math.round((ejecutado / planificado) * 100) : 0,
+    por_estado: porEstado,
+  };
+}
+
+/**
+ * Desagregado por zona sobre la lista que se está viendo. Las obras sin zona
+ * cargada se agrupan bajo un rótulo explícito en lugar de desaparecer: son
+ * justamente las que hay que completar.
+ */
+export function obrasPorZona(lista = []) {
+  const grupos = new Map();
+  for (const o of lista) {
+    const clave = o.zona || 'Sin zona cargada';
+    if (!grupos.has(clave)) {
+      grupos.set(clave, { zona: clave, total: 0, activas: 0, vencidas: 0, ubicadas: 0, objetivo: 0, avance: 0, monto: 0 });
+    }
+    const g = grupos.get(clave);
+    g.total += 1;
+    if (esProyectoActivo(o)) {
+      g.activas += 1;
+      if (o.dias_al_fin !== null && o.dias_al_fin < 0) g.vencidas += 1;
+    }
+    if (o.ubicada) g.ubicadas += 1;
+    g.objetivo += Number(o.objetivo) || 0;
+    g.avance += Number(o.avance) || 0;
+    g.monto += Number(o.monto_planificado) || 0;
+  }
+  return [...grupos.values()]
+    .map((g) => ({ ...g, porcentaje_avance: g.objetivo ? Math.min(Math.round((g.avance / g.objetivo) * 100), 100) : 0 }))
+    .sort((a, b) => b.vencidas - a.vencidas || b.total - a.total || a.zona.localeCompare(b.zona, 'es'));
+}
+
+/** Zonas con al menos una obra cargada, para el selector de filtros. */
+export function zonasDeObras(bd) {
+  const zonas = new Set();
+  for (const p of activos(bd?.proyectos)) {
+    if (p.es_obra && p.zona) zonas.add(p.zona);
+  }
+  return [...zonas].sort((a, b) => a.localeCompare(b, 'es'));
+}
+
 /* ── Compromisos ────────────────────────────────────────────────────── */
 
 /**

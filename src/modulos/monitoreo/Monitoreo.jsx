@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, BarChart3, Building2, ListChecks, Plus, Radar } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Boton, Chip, Criticidad, Metrica, Pestanias, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
+import { Alternadores, GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../../componentes/Filtros.jsx';
 import { GraficoBarras } from '../../componentes/Graficos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { CampoSelect } from '../../componentes/Campo.jsx';
@@ -16,8 +17,8 @@ import { useBD } from '../../estado/tienda.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 import { SelectorPeriodo, resolverPeriodo } from './periodo.jsx';
+import { CLAVES_FILTRO, DEFAULTS } from './filtros.js';
 
-const DEFAULTS = { tab: 'secretarias', area: '', periodo: '', desde: '', hasta: '', secretaria: '', buscar: '' };
 
 export default function Monitoreo() {
   const bd = useBD();
@@ -54,28 +55,25 @@ export default function Monitoreo() {
         <Pestanias
           opciones={pestanias}
           valor={filtros.tab}
-          alCambiar={(v) => setFiltros({ tab: v, secretaria: '' })}
+          alCambiar={(v) => setFiltros({ tab: v, secretaria: '', monitoreo: '' })}
         />
 
-        {/* El panel de alertas está siempre visible en el módulo, como pide la
-            spec, pero en «Por secretaría» va DEBAJO del tablero: arriba empuja
-            la grilla más de mil píxeles hacia abajo y la desagregación —que es
-            el punto de la pestaña— deja de verse al entrar. Además, cada
-            secretaría ya muestra sus propias alertas en su tarjeta y en su hoja. */}
-        {filtros.tab !== 'alertas' && filtros.tab !== 'secretarias' && (
-          <PanelAlertas compacto limitePorGrupo={4} />
-        )}
-
-        {/* Las alertas ya están calculadas para el contador de la pestaña: se
-            pasan en lugar de recalcularlas, que recorre la base entera. */}
+        {/* Primero lo que elige la pestaña, después las alertas.
+            El panel iba arriba en todas las pestañas menos dos, y con la base
+            cargada mide más de mil píxeles: al entrar a «Últimos monitoreos» o
+            a «Cobertura» lo primero —y a veces lo único— que se veía era el
+            panel de alertas, y había que bajar a buscar aquello para lo que se
+            había apretado la pestaña. Sigue estando siempre visible, como pide
+            la spec, pero abajo: es el contexto de lo que se mira, no la pantalla. */}
         {filtros.tab === 'secretarias' && (
-          <>
-            <TableroSecretarias bd={bd} filtros={filtros} setFiltros={setFiltros} alertas={alertas} rango={rango} />
-            {!filtros.secretaria && <PanelAlertas compacto limitePorGrupo={3} />}
-          </>
+          <TableroSecretarias bd={bd} filtros={filtros} setFiltros={setFiltros} alertas={alertas} rango={rango} />
         )}
-        {filtros.tab === 'ultimos' && <PanelUltimos bd={bd} filtros={filtros} setFiltros={setFiltros} rango={rango} hoy={hoy} />}
-        {filtros.tab === 'cobertura' && <PanelCobertura bd={bd} filtros={filtros} setFiltros={setFiltros} rango={rango} hoy={hoy} />}
+        {filtros.tab === 'ultimos' && (
+          <PanelUltimos bd={bd} filtros={filtros} setFiltros={setFiltros} rango={rango} hoy={hoy} />
+        )}
+        {filtros.tab === 'cobertura' && (
+          <PanelCobertura bd={bd} filtros={filtros} setFiltros={setFiltros} rango={rango} hoy={hoy} />
+        )}
         {/* `key` fuerza el remonte al cambiar de área: el formulario toma el
             área inicial al montar, y sin esto llegar desde otra secretaría
             reutilizaría el estado del formulario anterior. */}
@@ -86,7 +84,14 @@ export default function Monitoreo() {
             alTerminar={() => setFiltros({ tab: 'ultimos' })}
           />
         )}
-        {filtros.tab === 'alertas' && <PanelAlertas />}
+
+        {/* En la hoja de una secretaría no se repite: esa vista ya lista sus
+            propias alertas, con el mismo origen y los mismos días de atraso. */}
+        {filtros.tab === 'alertas' ? (
+          <PanelAlertas />
+        ) : (
+          !filtros.secretaria && <PanelAlertas compacto limitePorGrupo={3} />
+        )}
       </Pagina>
     </>
   );
@@ -97,19 +102,41 @@ export default function Monitoreo() {
 function PanelUltimos({ bd, filtros, setFiltros, rango, hoy }) {
   const navegar = useNavigate();
   const opcionesArea = useOpciones('areas');
-  const filas = useMemo(
-    () => (bd ? selMonitoreos(bd, { area: filtros.area, desde: rango.desde, hasta: rango.hasta }) : []),
-    [bd, filtros.area, rango],
-  );
+  const filas = useMemo(() => {
+    if (!bd) return [];
+    const lista = selMonitoreos(bd, { area: filtros.area, desde: rango.desde, hasta: rango.hasta });
+    if (!filtros.sin_resolver) return lista;
+    return lista.filter((m) => m.temas.some((t) => !t.resuelto));
+  }, [bd, filtros.area, filtros.sin_resolver, rango]);
 
   return (
     <div className="flex flex-col gap-4">
-      <Tarjeta titulo="Filtros">
-        <div className="mb-3">
-          <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
-        </div>
+      <TarjetaFiltros
+        filtros={filtros}
+        defaults={DEFAULTS}
+        claves={CLAVES_FILTRO}
+        alLimpiar={() => limpiarClaves(setFiltros, DEFAULTS, CLAVES_FILTRO)}
+      >
+        <GrillaFiltros columnas={4}>
+          <CampoSelect
+            etiqueta="Área"
+            opciones={opcionesArea}
+            value={filtros.area}
+            onChange={(e) => setFiltros({ area: e.target.value })}
+            placeholder="Todas"
+          />
+        </GrillaFiltros>
         <SelectorPeriodo filtros={filtros} setFiltros={setFiltros} rango={rango} hoy={hoy} />
-      </Tarjeta>
+        <Alternadores
+          filtros={filtros}
+          setFiltros={setFiltros}
+          opciones={[['sin_resolver', 'Sólo con temas sin resolver', 'Monitoreos con al menos un tema abierto']]}
+        >
+          <span className="tabular ml-1 text-xs text-tenue">
+            {filas.length} monitoreo{filas.length === 1 ? '' : 's'} en la vista
+          </span>
+        </Alternadores>
+      </TarjetaFiltros>
 
       <Tarjeta sinPadding>
         <Tabla
@@ -226,26 +253,40 @@ function DetalleMonitoreo({ bd, id, navegar }) {
 /* ── Cobertura comparada entre secretarías ──────────────────────────── */
 
 function PanelCobertura({ bd, filtros, setFiltros, rango, hoy }) {
-  const datos = useMemo(
+  const todas = useMemo(
     () => (bd ? monitoreosPorArea(bd, { desde: rango.desde, hasta: rango.hasta }) : []),
     [bd, rango],
   );
 
-  const sinCobertura = datos.filter((d) => d.cantidad === 0);
-  const total = datos.reduce((s, d) => s + d.cantidad, 0);
+  const sinCobertura = todas.filter((d) => d.cantidad === 0);
+  const total = todas.reduce((s, d) => s + d.cantidad, 0);
+  // El recorte se aplica DESPUÉS de las cifras: los contadores describen el
+  // universo completo aunque la tabla esté filtrada, que es lo que hace que
+  // «3 de 14 sin cobertura» siga siendo legible con el filtro puesto.
+  const datos = filtros.sin_cobertura ? sinCobertura : todas;
 
   /** Ir a la hoja de esa secretaría: la comparación sólo sirve si se puede entrar. */
   const abrirHoja = (area) => setFiltros({ tab: 'secretarias', secretaria: area });
 
   return (
     <div className="flex flex-col gap-4">
-      <Tarjeta titulo="Período">
+      <TarjetaFiltros
+        filtros={filtros}
+        defaults={DEFAULTS}
+        claves={CLAVES_FILTRO}
+        alLimpiar={() => limpiarClaves(setFiltros, DEFAULTS, CLAVES_FILTRO)}
+      >
         <SelectorPeriodo filtros={filtros} setFiltros={setFiltros} rango={rango} hoy={hoy} />
-      </Tarjeta>
+        <Alternadores
+          filtros={filtros}
+          setFiltros={setFiltros}
+          opciones={[['sin_cobertura', 'Sólo sin cobertura', 'Secretarías sin ningún monitoreo en el período']]}
+        />
+      </TarjetaFiltros>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Metrica valor={total} etiqueta="Monitoreos en el período" />
-        <Metrica valor={datos.length - sinCobertura.length} etiqueta="Secretarías con cobertura" />
+        <Metrica valor={todas.length - sinCobertura.length} etiqueta="Secretarías con cobertura" />
         <Metrica
           valor={sinCobertura.length}
           etiqueta="Secretarías sin cobertura"

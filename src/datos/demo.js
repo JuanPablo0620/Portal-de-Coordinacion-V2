@@ -20,6 +20,7 @@ import {
   crearAzar,
   desplazar,
   marcaTiempo,
+  puntoEnBarrio,
 } from './sintetico.js';
 
 /** Plantillas por área: [prefijoNombre, tipo, unidad, esObra, programa, eje]. */
@@ -170,11 +171,17 @@ export function generarDemo(hoy) {
       const finPrevisto = desplazar(inicio, entre(120, 420));
       const planificado = entre(8, 320) * 1_000_000;
 
+      // La zona es un campo, no una parte del nombre: el mapa y el desagregado
+      // de obras la leen de acá y no de la cadena del título.
+      const zona = elegir(barrios);
+
       bd.proyectos.push({
         id_proyecto: id,
         area,
         programa: plantilla.programa,
-        proyecto: `${nombreBase} — ${elegir(barrios)}`,
+        proyecto: `${nombreBase} — ${zona}`,
+        zona,
+        ...puntoEnBarrio(zona, azar),
         eje: plantilla.eje,
         tipo,
         cantidad: entre(1, 12),

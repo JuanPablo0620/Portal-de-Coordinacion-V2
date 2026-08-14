@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Database, FolderKanban, Gem, Plus, Upload, X } from 'lucide-react';
+import { Database, FolderKanban, Gem, HardHat, Plus, Upload } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { BarraAvance, Boton, Chip, EstadoProyecto, Prioridad, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { CampoSelect } from '../../componentes/Campo.jsx';
+import { Alternadores, GrillaFiltros, TarjetaFiltros } from '../../componentes/Filtros.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { FormularioProyecto } from './FormularioProyecto.jsx';
 import { ImportarProyectos } from './ImportarProyectos.jsx';
@@ -14,7 +15,7 @@ import { proyectos as selProyectos, hoyISO } from '../../datos/selectores.js';
 import { fecha as fFecha, haceCuanto, moneda, numero } from '../../utilidades/formato.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
-import { contarFiltros, useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
+import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
 const DEFAULTS = {
   area: '',
@@ -43,7 +44,6 @@ export default function Proyectos() {
   const opcionesTipo = useOpciones('tipos');
 
   const filas = useMemo(() => (bd ? selProyectos(bd, filtros) : []), [bd, filtros]);
-  const cantidadFiltros = contarFiltros(filtros, DEFAULTS);
   const hayProyectos = (bd?.proyectos ?? []).some((p) => p.activo !== false);
 
   const columnas = [
@@ -124,47 +124,38 @@ export default function Proyectos() {
       />
 
       <Pagina className="flex flex-col gap-4">
-        <Tarjeta
-          titulo="Filtros"
-          descripcion="Se reflejan en la dirección: podés compartir esta vista pegando el enlace."
-          acciones={
-            cantidadFiltros > 0 && (
-              <Boton tamanio="sm" variante="fantasma" icono={X} onClick={limpiarFiltros}>
-                Limpiar ({cantidadFiltros})
-              </Boton>
-            )
-          }
-        >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <TarjetaFiltros filtros={filtros} defaults={DEFAULTS} alLimpiar={limpiarFiltros}>
+          <GrillaFiltros columnas={6}>
             <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
             <CampoSelect etiqueta="Programa" opciones={opcionesPrograma} value={filtros.programa} onChange={(e) => setFiltros({ programa: e.target.value })} placeholder="Todos" />
             <CampoSelect etiqueta="Eje" opciones={opcionesEje} value={filtros.eje} onChange={(e) => setFiltros({ eje: e.target.value })} placeholder="Todos" />
             <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={filtros.tipo} onChange={(e) => setFiltros({ tipo: e.target.value })} placeholder="Todos" />
             <CampoSelect etiqueta="Estado" opciones={ESTADOS_PROYECTO} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
             <CampoSelect etiqueta="Prioridad" opciones={PRIORIDADES} value={filtros.prioridad} onChange={(e) => setFiltros({ prioridad: e.target.value })} placeholder="Todas" />
-          </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {[
+          </GrillaFiltros>
+          <Alternadores
+            filtros={filtros}
+            setFiltros={setFiltros}
+            opciones={[
               ['solo_activos', 'Sólo activos'],
               ['es_obra', 'Sólo obras'],
               ['solo_prioritarios', 'Sólo prioritarios'],
               ['solo_estrategicos', 'Sólo estratégicos'],
-            ].map(([clave, titulo]) => (
-              <button
-                key={clave}
-                type="button"
-                onClick={() => setFiltros({ [clave]: !filtros[clave] })}
-                className={`rounded-chip border px-2.5 py-1.5 text-xs font-medium transition ${
-                  filtros[clave]
-                    ? 'border-acento bg-acento-suave text-acento-fuerte'
-                    : 'border-borde-fuerte bg-card text-gris hover:bg-paper'
-                }`}
+            ]}
+          >
+            {filtros.es_obra && (
+              <Boton
+                tamanio="sm"
+                variante="fantasma"
+                icono={HardHat}
+                onClick={() => navegar('/obras')}
+                title="Mapa, desagregado por zona y alertas de obras"
               >
-                {titulo}
-              </button>
-            ))}
-          </div>
-        </Tarjeta>
+                Ver en el módulo de Obras
+              </Boton>
+            )}
+          </Alternadores>
+        </TarjetaFiltros>
 
         <Tarjeta sinPadding className="min-h-0">
           <Tabla
