@@ -157,6 +157,10 @@ export const CATALOGOS_SEMILLA = Object.freeze({
     { id: 'ar_cult', nombre: 'Subsecretaría de Cultura', prefijo: 'CUL', activo: true },
     { id: 'ar_prod', nombre: 'Dirección de Producción y Empleo', prefijo: 'PRO', activo: true },
     { id: 'ar_amb', nombre: 'Dirección de Ambiente', prefijo: 'AMB', activo: true },
+    // Real, no genérica como las siete de arriba: hace falta para que los
+    // proyectos reales de Posicionamiento (ver posicionamiento-real.js)
+    // tengan un área válida a la que pertenecer.
+    { id: 'ar_coord', nombre: 'Coordinación', prefijo: 'COR', activo: true },
   ],
   programas: [
     { id: 'pr_infra', nombre: 'Infraestructura urbana', activo: true },
@@ -169,6 +173,7 @@ export const CATALOGOS_SEMILLA = Object.freeze({
     { id: 'pr_cultura', nombre: 'Cultura de cercanía', activo: true },
     { id: 'pr_empleo', nombre: 'Empleo joven', activo: true },
     { id: 'pr_verde', nombre: 'Espacios verdes', activo: true },
+    { id: 'pr_posic', nombre: 'Posicionamiento', activo: true },
   ],
   ejes: [
     { id: 'ej_urbano', nombre: 'Desarrollo urbano', activo: true },
@@ -178,6 +183,7 @@ export const CATALOGOS_SEMILLA = Object.freeze({
     { id: 'ej_econ', nombre: 'Desarrollo económico', activo: true },
     { id: 'ej_amb', nombre: 'Ambiente y sustentabilidad', activo: true },
     { id: 'ej_gest', nombre: 'Modernización de la gestión', activo: true },
+    { id: 'ej_posic', nombre: 'Posicionamiento', activo: true },
   ],
   tipos: [
     { id: 'ti_obra', nombre: 'Obra', es_obra: true, activo: true },

@@ -34,7 +34,6 @@ import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { FormularioAccion } from './FormularioAccion.jsx';
 import { nombreODS } from './SelectorODS.jsx';
 import { ESTADOS_INTERNACIONAL, ODS } from '../../datos/catalogos.js';
-import { PROYECTOS_POSICIONAMIENTO_REAL } from '../../datos/posicionamiento-real.js';
 import {
   accionesInternacionales,
   accionesPorDimension,
@@ -237,33 +236,71 @@ function Tablero({ resumen, lista, setFiltros }) {
  * demo.js. Es lo primero que responde la pregunta "¿qué se está llevando a
  * cabo hoy?", antes de cualquier métrica agregada.
  */
+/**
+ * Un módulo por cada proyecto real de Posicionamiento — leído de `bd.proyectos`
+ * como cualquier otra pantalla del sistema, NO de una lista fija. Lo que hace
+ * que un proyecto aparezca acá es tener `programa === 'Posicionamiento'`, sea
+ * cual sea su origen: el botón de Configuración que carga los 8 relevados de
+ * Coordinacion_db, el alta manual desde "Nuevo proyecto", o —el día de
+ * mañana— la migración real desde Supabase. La interfaz no sabe ni le
+ * importa de dónde salió el dato.
+ */
 function ProyectosEnCurso() {
-  const masReciente = PROYECTOS_POSICIONAMIENTO_REAL.reduce(
-    (max, p) => (p.fecha_actualizacion > max ? p.fecha_actualizacion : max),
-    '',
+  const bd = useBD();
+  const [cargando, setCargando] = useState(false);
+
+  const proyectos = useMemo(
+    () =>
+      (bd?.proyectos ?? [])
+        .filter((p) => p.activo !== false && p.programa === 'Posicionamiento')
+        .sort((a, b) => a.proyecto.localeCompare(b.proyecto, 'es')),
+    [bd],
   );
+
+  async function cargarReales() {
+    setCargando(true);
+    try {
+      await repo.cargarProyectosPosicionamientoReales();
+    } finally {
+      setCargando(false);
+    }
+  }
+
   return (
     <Tarjeta
       titulo="Proyectos de Posicionamiento en curso"
-      descripcion={`Relevado de Coordinacion_db, "Estado de proyectos" · última actualización real: ${fFecha(masReciente)}.`}
+      descripcion="Se lee de la base maestra de proyectos, filtrado por programa — no es una lista fija."
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {PROYECTOS_POSICIONAMIENTO_REAL.map((p) => (
-          <article key={p.nombre} className="flex flex-col gap-2 rounded-chip border border-borde p-3">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="text-sm font-semibold leading-tight text-tinta">{p.nombre}</h3>
-              {p.sin_maestro && (
-                <span title="No figura en la pestaña maestra; puede estar desactualizado" className="shrink-0">
-                  <Chip tono="atencion">a confirmar</Chip>
-                </span>
-              )}
-            </div>
-            <EstadoProyecto estado={p.estado} />
-            <p className="line-clamp-3 text-xs leading-relaxed text-gris">{p.comentario}</p>
-            <p className="mt-auto text-[11px] text-tenue">Actualizado {fFecha(p.fecha_actualizacion)}</p>
-          </article>
-        ))}
-      </div>
+      {proyectos.length === 0 ? (
+        <Vacio
+          compacto
+          icono={Globe2}
+          titulo="Todavía no hay proyectos cargados con programa Posicionamiento"
+          descripcion="Podés cargar los relevados de Coordinacion_db o dar de alta uno nuevo desde Proyectos."
+          accion={{
+            texto: cargando ? 'Cargando…' : 'Cargar los relevados de Coordinacion_db',
+            alHacerClic: cargarReales,
+          }}
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {proyectos.map((p) => (
+            <article key={p.id_proyecto} className="flex flex-col gap-2 rounded-chip border border-borde p-3">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-sm font-semibold leading-tight text-tinta">{p.proyecto}</h3>
+                {p.observaciones?.includes('[Sin fila en "Estado de proyectos"') && (
+                  <span title="No figura en la pestaña maestra; puede estar desactualizado" className="shrink-0">
+                    <Chip tono="atencion">a confirmar</Chip>
+                  </span>
+                )}
+              </div>
+              <EstadoProyecto estado={p.estado} />
+              <p className="line-clamp-3 text-xs leading-relaxed text-gris">{p.observaciones}</p>
+              {p.fecha_carga && <p className="mt-auto text-[11px] text-tenue">Actualizado {fFecha(p.fecha_carga)}</p>}
+            </article>
+          ))}
+        </div>
+      )}
     </Tarjeta>
   );
 }

@@ -182,6 +182,84 @@ export async function bajaProyecto(id) {
   return actualizar('proyectos', id, { activo: false }, { id_proyecto: id });
 }
 
+/* ── Datos reales de Posicionamiento (no sintéticos) ──────────────────── */
+
+/**
+ * Da de alta, como proyectos reales, los proyectos del eje Posicionamiento
+ * relevados de Coordinacion_db (ver `datos/posicionamiento-real.js`).
+ *
+ * A diferencia de `cargarDemo`/`cargarBaseCompleta`, esta acción es ADITIVA:
+ * no reemplaza nada de lo que ya está cargado, y es idempotente — si un
+ * proyecto con ese nombre ya existe en el programa Posicionamiento, no lo
+ * duplica. Así, la página de Posicionamiento muestra un módulo por cada
+ * proyecto real EN VEZ de una lista fija: lee `proyectos` como cualquier
+ * otra pantalla del sistema.
+ *
+ * También asegura que existan los catálogos que estos proyectos necesitan
+ * (área Coordinación, programa y eje Posicionamiento): si antes se cargó
+ * demo o base completa, esos catálogos se reemplazaron enteros y hay que
+ * agregarlos de nuevo.
+ */
+export async function cargarProyectosPosicionamientoReales() {
+  const { PROYECTOS_POSICIONAMIENTO_REAL } = await import('./posicionamiento-real.js');
+  const bd = await obtenerBD();
+
+  const area = await asegurarCatalogo('areas', {
+    id: 'ar_coord',
+    nombre: 'Coordinación',
+    prefijo: 'COR',
+    activo: true,
+  });
+  const programa = await asegurarCatalogo('programas', {
+    id: 'pr_posic',
+    nombre: 'Posicionamiento',
+    activo: true,
+  });
+  const eje = await asegurarCatalogo('ejes', { id: 'ej_posic', nombre: 'Posicionamiento', activo: true });
+
+  const yaCargados = new Set(
+    (bd.proyectos ?? [])
+      .filter((p) => p.activo !== false && p.programa === 'Posicionamiento')
+      .map((p) => p.proyecto),
+  );
+
+  let creados = 0;
+  for (const real of PROYECTOS_POSICIONAMIENTO_REAL) {
+    if (yaCargados.has(real.nombre)) continue;
+    await crearProyecto({
+      proyecto: real.nombre,
+      area: area.nombre,
+      id_area: area.id,
+      programa: programa.nombre,
+      eje: eje.nombre,
+      // Ninguno de los cinco tipos del catálogo describe posicionamiento;
+      // "Gestión interna" es el más cercano.
+      tipo: 'Gestión interna',
+      // "pendiente" no es un estado del catálogo (ESTADOS_ACTIVOS no lo
+      // reconoce): se mapea a "planificado" para que cuente como activo en
+      // los agregados. La palabra real queda intacta en observaciones.
+      estado: real.estadoReal === 'pendiente' ? 'planificado' : real.estadoReal,
+      observaciones:
+        real.comentario +
+        (real.sinMaestro ? ' [Sin fila en "Estado de proyectos": a confirmar.]' : ''),
+      fecha_carga: real.fechaActualizacion,
+    });
+    creados += 1;
+  }
+
+  return creados;
+}
+
+/** Agrega un ítem a un catálogo si no existe ya uno con el mismo nombre. */
+async function asegurarCatalogo(nombreCatalogo, item) {
+  const bd = await obtenerBD();
+  const items = bd.catalogos?.[nombreCatalogo] ?? [];
+  const existente = items.find((i) => i.nombre === item.nombre);
+  if (existente) return existente;
+  await guardarCatalogo(nombreCatalogo, [...items, item]);
+  return item;
+}
+
 /* ── Proyectos estratégicos ─────────────────────────────────────────── */
 
 /**

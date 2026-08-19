@@ -11,6 +11,49 @@ y el resultado de `npm run verificar`.
 
 ---
 
+## 19/08/2026 (corrección) — Posicionamiento: de lista fija a módulo dinámico
+
+**Error de entendimiento, detectado por JP:** la entrada anterior de este
+mismo día implementó "un módulo por proyecto" como un **archivo estático**
+(`posicionamiento-real.js` rendereado directo) con los 8 proyectos reales
+hardcodeados en el JSX. El pedido real era otro: **que la interfaz esté
+programada para leer proyectos de Posicionamiento de la base y mostrarlos
+como módulos** — dinámico, igual que cualquier otra pantalla del sistema, no
+una lista fija escrita a mano.
+
+**Corrección:**
+
+1. `catalogos.js`: se agregó el área real **Coordinación** (`COR`), el
+   programa **Posicionamiento** y el eje **Posicionamiento** — ninguno
+   existía antes; sin esto no había dónde colgar un proyecto real de
+   Posicionamiento como proyecto de verdad.
+2. `posicionamiento-real.js` pasó de "datos con forma de UI" a **datos
+   crudos** (nombre, estado real, comentario, fecha) — ya no se importa
+   desde el componente.
+3. Nueva acción `acciones.cargarProyectosPosicionamientoReales()` en
+   `repositorio.js`: da de alta los 8 relevados como **proyectos reales**
+   en `bd.proyectos` (vía `crearProyecto`, el mismo camino que "Nuevo
+   proyecto"). Aditiva e idempotente — no reemplaza nada, no duplica si ya
+   están cargados. Vive separada de `cargarDemo`/`cargarBaseCompleta` a
+   propósito: esas dos siguen siendo 100% sintéticas.
+4. `Posicionamiento.jsx`: `ProyectosEnCurso` ahora lee `bd.proyectos`
+   filtrado por `programa === 'Posicionamiento'` — ya no importa la lista
+   fija. Sin proyectos cargados muestra un estado vacío con el botón que
+   dispara la carga.
+
+**Probado a mano** (no solo con el smoke test automático, que no ejercita el
+flujo de clic): base vacía → estado vacío correcto → clic en "Cargar los
+relevados de Coordinacion_db" → aparecen los 8 proyectos, RIL con su marca
+"a confirmar" → recargar la página los conserva → sin errores de consola.
+
+**Archivos:** `src/datos/catalogos.js`, `src/datos/posicionamiento-real.js`,
+`src/datos/repositorio.js`, `src/modulos/posicionamiento/Posicionamiento.jsx`.
+
+`npm run verificar`: 307/307 tests, build OK, 114 chequeos de render, 28
+rutas de accesibilidad.
+
+---
+
 ## 19/08/2026 — Monitoreo, Posicionamiento y Reportes
 
 Pedido de JP, tres cambios de interfaz independientes.
