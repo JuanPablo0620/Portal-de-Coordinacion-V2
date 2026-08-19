@@ -11,6 +11,89 @@ y el resultado de `npm run verificar`.
 
 ---
 
+## 19/08/2026 — Datos reales de las siete secretarías, no solo Posicionamiento
+
+**Pedido de JP:** "Los datos que aparecen en el portal son datos que Salva le
+pidió que cree Claude para ver el portal con datos de prueba... me gustaría
+que usemos una buena cantidad de datos reales de los sheets de la secretaría
+para poder ver el portal con datos reales." El mecanismo ya construido para
+Posicionamiento (ver la entrada de corrección más abajo) se generalizó a las
+otras seis secretarías.
+
+**Relevamiento:** seis subagentes en paralelo, uno por `_db`
+(`Ambiente_db`, `Capital_humano_db`, `Obras_db`, `Salud_db`, `Seguridad_db`,
+`Trabajo_y_Produccion_db`), cada uno leyendo directamente de Drive la pestaña
+oculta **"Estado de proyectos"** (el maestro de un proyecto por fila, no el
+log semanal de "1. Cualitativo"). Resultado: **92 proyectos reales**
+(29 Ambiente, 21 Capital Humano, 16 Obras, 8 Salud, 9 Seguridad, 1 Trabajo y
+Producción, más los 8 de Posicionamiento ya cargados). Nada inventado: donde
+un `Estado` no era interpretable (vacío, o un "0" que parece resto de una
+fórmula rota) se dejó constancia en observaciones en vez de adivinar un
+estado plausible. Trabajo y Producción tiene una sola fila real cargada en su
+maestro — así está el sheet, no es un recorte del relevamiento.
+
+**Cambios:**
+
+1. `catalogos.js`: se agregaron cinco áreas reales más (Ambiente, Capital
+   Humano, Obras, Seguridad, Trabajo y Producción) y tres ejes reales (POA,
+   Compromisos, Puntual). **Salud NO sumó área nueva**: su nombre real
+   ("Secretaría de Salud") coincide por casualidad con una de las ocho
+   placeholders genéricas que ya usa `demo.js` — agregar una segunda con el
+   mismo nombre reintroducía el bug de tarjetas duplicadas que se arregló
+   hoy mismo (`nombresAreas()` no dedupea por nombre). Los proyectos reales
+   de Salud se cuelgan de la entrada `ar_salud` existente.
+2. `proyectos-reales-secretarias.js` (nuevo): los datos crudos relevados,
+   documentados con las mismas notas que reportó cada subagente.
+3. `repositorio.js`: `cargarProyectosRealesSecretarias()` — mismo patrón que
+   `cargarProyectosPosicionamientoReales()` (aditivo, idempotente, separado
+   de `demo`/`base-completa`), generalizado para iterar las siete
+   secretarías. Dos piezas nuevas: `mapearEstado()` traduce el `Estado`
+   crudo del sheet al vocabulario cerrado del sistema (planificado / en
+   ejecución / demorado / finalizado / suspendido) sin pisar en silencio lo
+   que no encaja — el valor real queda en observaciones; `idDesdeNombre()`
+   genera el id de catálogo para cualquier programa real que aparezca,
+   dado de alta automáticamente si no existe. También se agregó
+   `cargarTodosLosProyectosReales()`, que encadena Posicionamiento + las
+   seis secretarías en una sola llamada.
+4. `Configuracion.jsx`: nuevo botón "Cargar datos reales de las
+   secretarías" en la tarjeta "Datos del sistema", sin modal de
+   confirmación (a diferencia de demo/base completa/vaciar: esta acción no
+   reemplaza ni borra nada). Muestra cuántos proyectos entraron por
+   secretaría al terminar.
+
+**Probado a mano:** localStorage vacío → 0 proyectos → clic en el botón →
+92 proyectos, uno por fila real, discriminados por secretaría en el mensaje
+de resultado → clic de nuevo → los siete conteos dan 0 (idempotencia
+confirmada) → Monitoreo muestra 14 tarjetas, una por secretaría, sin
+duplicados ni siquiera con Salud compartiendo catálogo entre lo real y lo
+genérico → Reportes: elegir "Secretaría de Salud" en Área deja el
+desplegable de Programa con exactamente los 7 programas reales de esa
+secretaría → Posicionamiento sigue andando sin cambios → sin errores de
+consola en ningún paso.
+
+**Archivos:** `src/datos/catalogos.js`,
+`src/datos/proyectos-reales-secretarias.js` (nuevo), `src/datos/repositorio.js`,
+`src/modulos/configuracion/Configuracion.jsx`.
+
+`npm run verificar`: 307/307 tests, build OK, 114 chequeos de render, 28
+rutas de accesibilidad.
+
+**Pendiente para más adelante:**
+
+- El campo `Eje` no está en la pestaña "Estado de proyectos": los 92
+  proyectos reales quedaron con eje "Puntual" por defecto, que es una
+  aproximación, no un dato relevado. Si hace falta el eje real, hay que
+  cruzar contra "1. Cualitativo"/"2. Cuantitativo" de cada sheet.
+- Fechas de "última actualización" ambiguas (formato `DD/MM/AA`) se
+  asumieron todas en 2026, salvo un caso de Seguridad ("Cámaras operativas")
+  que el propio sheet fecha en 2025.
+- No se cargó el detalle cuantitativo (objetivo/avance/unidad) de los
+  proyectos de tipo "Cuantitativo": estos 92 son solo el maestro cualitativo
+  (nombre + estado + comentario). Es la misma limitación que ya tenía
+  Posicionamiento.
+
+---
+
 ## 19/08/2026 (corrección) — Posicionamiento: de lista fija a módulo dinámico
 
 **Error de entendimiento, detectado por JP:** la entrada anterior de este

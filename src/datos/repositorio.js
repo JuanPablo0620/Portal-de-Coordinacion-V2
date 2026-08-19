@@ -260,6 +260,125 @@ async function asegurarCatalogo(nombreCatalogo, item) {
   return item;
 }
 
+/** Genera un id de catálogo estable a partir de un nombre real, sin acentos ni espacios. */
+function idDesdeNombre(prefijo, nombre) {
+  const SIN_ACENTOS = /[̀-ͯ]/g; // marcas diacríticas tras normalize('NFD')
+  const slug = nombre
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(SIN_ACENTOS, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40);
+  return `${prefijo}_${slug}`;
+}
+
+/**
+ * Traduce el `Estado` tal como está escrito en un `_db` real al vocabulario
+ * cerrado del catálogo (`ESTADOS_PROYECTO`). Nunca inventa silenciosamente: si
+ * el valor real no es uno de los cinco estados o no está cargado, devuelve una
+ * `nota` con el valor original para que quede en observaciones.
+ */
+function mapearEstado(estadoCrudo) {
+  const CANONICOS = new Set(['planificado', 'en ejecución', 'demorado', 'finalizado', 'suspendido']);
+  const normalizado = (estadoCrudo ?? '').trim().toLowerCase();
+  if (CANONICOS.has(normalizado)) return { estado: normalizado, nota: null };
+
+  const EQUIVALENCIAS = {
+    pendiente: 'planificado',
+    programado: 'planificado',
+    alerta: 'demorado',
+    'crítico': 'demorado',
+    critico: 'demorado',
+    'por debajo del objetivo': 'demorado',
+  };
+  if (EQUIVALENCIAS[normalizado]) {
+    return { estado: EQUIVALENCIAS[normalizado], nota: `Estado real en el sheet: "${estadoCrudo}".` };
+  }
+  return {
+    estado: 'planificado',
+    nota: estadoCrudo
+      ? `Estado no interpretable en el sheet ("${estadoCrudo}") — revisar con el área.`
+      : 'Estado no cargado en el sheet — revisar con el área.',
+  };
+}
+
+/* ── Datos reales de las siete secretarías (no sintéticos) ─────────────── */
+
+/**
+ * Da de alta, como proyectos reales, los relevados de la pestaña "Estado de
+ * proyectos" de cada `_db` (ver `datos/proyectos-reales-secretarias.js`).
+ *
+ * Mismo patrón que `cargarProyectosPosicionamientoReales()`: aditivo (no
+ * reemplaza nada) e idempotente (no duplica si el proyecto ya está cargado
+ * para esa área+programa+proyecto). Asegura primero los catálogos de área que
+ * necesita cada secretaría, y de paso da de alta cualquier programa real que
+ * aparezca en los datos y todavía no exista en el catálogo — así la interfaz
+ * queda programada para leer lo que haya, no una lista fija de programas
+ * elegidos de antemano.
+ *
+ * El eje se fija en "Puntual" para todos: la pestaña maestra no trae esa
+ * columna (ver nota en `proyectos-reales-secretarias.js`).
+ */
+export async function cargarProyectosRealesSecretarias() {
+  const { SECRETARIAS_REALES } = await import('./proyectos-reales-secretarias.js');
+
+  const eje = await asegurarCatalogo('ejes', { id: 'ej_puntual', nombre: 'Puntual', activo: true });
+
+  const resumen = {};
+  await enLote(async () => {
+    for (const secretaria of SECRETARIAS_REALES) {
+      const bd = await obtenerBD();
+      const area = await asegurarCatalogo('areas', { ...secretaria.area, activo: true });
+
+      const yaCargados = new Set(
+        (bd.proyectos ?? [])
+          .filter((p) => p.activo !== false && p.area === area.nombre)
+          .map((p) => `${p.programa}||${p.proyecto}`),
+      );
+
+      let creados = 0;
+      for (const real of secretaria.datos) {
+        const clave = `${real.programa}||${real.proyecto}`;
+        if (yaCargados.has(clave)) continue;
+
+        const programa = await asegurarCatalogo('programas', {
+          id: idDesdeNombre('pr', real.programa),
+          nombre: real.programa,
+          activo: true,
+        });
+        const { estado, nota } = mapearEstado(real.estado);
+
+        await crearProyecto({
+          proyecto: real.proyecto,
+          area: area.nombre,
+          id_area: area.id,
+          programa: programa.nombre,
+          eje: eje.nombre,
+          tipo: secretaria.tipoDefault,
+          estado,
+          observaciones: [real.comentarios, nota].filter(Boolean).join(' '),
+          fecha_carga: real.fechaActualizacion,
+        });
+        creados += 1;
+      }
+      resumen[area.nombre] = creados;
+    }
+  });
+
+  return resumen;
+}
+
+/** Carga de un saque los datos reales de Posicionamiento y de las siete secretarías. */
+export async function cargarTodosLosProyectosReales() {
+  const creadosPosicionamiento = await cargarProyectosPosicionamientoReales();
+  const resumenSecretarias = await cargarProyectosRealesSecretarias();
+  return {
+    Posicionamiento: creadosPosicionamiento,
+    ...resumenSecretarias,
+  };
+}
+
 /* ── Proyectos estratégicos ─────────────────────────────────────────── */
 
 /**

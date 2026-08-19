@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Database, Layers, Plus, Save, Trash2, Undo2 } from 'lucide-react';
+import { Database, Layers, MapPin, Plus, Save, Trash2, Undo2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Aviso, Boton, Chip, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { CampoTexto } from '../../componentes/Campo.jsx';
@@ -223,6 +223,7 @@ function SeccionDatos() {
   const bd = useBD();
   const [confirmando, setConfirmando] = useState(null);
   const [trabajando, setTrabajando] = useState(false);
+  const [resumenReales, setResumenReales] = useState(null);
 
   const conteos = bd
     ? [
@@ -246,6 +247,17 @@ function SeccionDatos() {
       if (accion === 'demo') await acciones.cargarDemo(hoyISO());
       else if (accion === 'completa') await acciones.cargarBaseCompleta(hoyISO());
       else await acciones.vaciarSistema();
+    } finally {
+      setTrabajando(false);
+    }
+  }
+
+  async function cargarReales() {
+    setTrabajando(true);
+    setResumenReales(null);
+    try {
+      const resumen = await acciones.cargarTodosLosProyectosReales();
+      setResumenReales(resumen);
     } finally {
       setTrabajando(false);
     }
@@ -281,6 +293,22 @@ function SeccionDatos() {
         </Boton>
       </div>
 
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-borde/60 pt-3">
+        <Boton icono={MapPin} onClick={cargarReales} disabled={trabajando}>
+          Cargar datos reales de las secretarías
+        </Boton>
+      </div>
+
+      {resumenReales && (
+        <p className="mt-2 text-xs text-tenue">
+          Proyectos reales dados de alta:{' '}
+          {Object.entries(resumenReales)
+            .map(([area, n]) => `${area} (${n})`)
+            .join(' · ')}
+          . Los que ya estaban cargados no se repitieron.
+        </p>
+      )}
+
       <div className="mt-3 flex flex-col gap-2">
         <Aviso tono="info" titulo="Sobre los datos de demostración">
           El set es sintético y evidentemente ficticio: áreas y proyectos inventados, nunca datos
@@ -294,6 +322,12 @@ function SeccionDatos() {
           bitácora. Sirve para probar las tablas, los filtros, los tableros y la impresión con el
           volumen que van a tener en uso, en lugar de con treinta registros. Tarda un instante en
           generarse y reemplaza todo lo cargado.
+        </Aviso>
+        <Aviso tono="info" titulo="Sobre los datos reales de las secretarías">
+          Relevados a mano el 19/08/2026 de la pestaña "Estado de proyectos" de cada `_db`
+          (Ambiente, Capital Humano, Obras, Salud, Seguridad, Trabajo y Producción, más
+          Posicionamiento de Coordinación). No sintéticos. Es aditivo: no borra nada de lo que ya
+          esté cargado y no duplica un proyecto si ya está dado de alta.
         </Aviso>
       </div>
 
