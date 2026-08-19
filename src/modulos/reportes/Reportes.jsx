@@ -91,7 +91,6 @@ export default function Reportes() {
 
 function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
   const opcionesArea = useOpciones('areas');
-  const opcionesPrograma = useOpciones('programas');
   const opcionesEje = useOpciones('ejes');
   const opcionesTipo = useOpciones('tipos');
 
@@ -99,6 +98,20 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
     const set = new Set(activos(bd?.proyectos ?? []).map((p) => p.responsable).filter(Boolean));
     return [...set].sort((a, b) => a.localeCompare(b, 'es'));
   }, [bd]);
+
+  /**
+   * Programas EN CASCADA: solo los del área elegida, derivados de los
+   * proyectos reales (no del catálogo plano) — así funciona sin importar si
+   * un programa pertenece a una sola área o a varias en los datos cargados.
+   * Sin área seleccionada, muestra los programas de todos los proyectos.
+   */
+  const opcionesPrograma = useMemo(() => {
+    const fuente = filtros.area
+      ? activos(bd?.proyectos ?? []).filter((p) => p.area === filtros.area)
+      : activos(bd?.proyectos ?? []);
+    const set = new Set(fuente.map((p) => p.programa).filter(Boolean));
+    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+  }, [bd, filtros.area]);
 
   const proyectos = useMemo(
     () => activos(bd?.proyectos ?? []).map((p) => ({ valor: p.id_proyecto, titulo: `${p.id_proyecto} · ${p.proyecto}` })),
@@ -113,8 +126,20 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
       descripcion="Todos combinables entre sí. Se reflejan en la dirección: esta configuración se comparte pegando el enlace."
     >
       <GrillaFiltros columnas={4}>
-        <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
-        <CampoSelect etiqueta="Programa" opciones={opcionesPrograma} value={filtros.programa} onChange={(e) => setFiltros({ programa: e.target.value })} placeholder="Todos" />
+        <CampoSelect
+          etiqueta="Área"
+          opciones={opcionesArea}
+          value={filtros.area}
+          onChange={(e) => setFiltros({ area: e.target.value, programa: '' })}
+          placeholder="Todas"
+        />
+        <CampoSelect
+          etiqueta="Programa"
+          opciones={opcionesPrograma}
+          value={filtros.programa}
+          onChange={(e) => setFiltros({ programa: e.target.value })}
+          placeholder={filtros.area ? `Todos (de ${filtros.area})` : 'Todos'}
+        />
         <CampoSelect etiqueta="Eje" opciones={opcionesEje} value={filtros.eje} onChange={(e) => setFiltros({ eje: e.target.value })} placeholder="Todos" />
         <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={filtros.tipo} onChange={(e) => setFiltros({ tipo: e.target.value })} placeholder="Todos" />
         <CampoSelect etiqueta="Estado" opciones={ESTADOS_PROYECTO} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />

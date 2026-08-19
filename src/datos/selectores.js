@@ -445,14 +445,20 @@ export function etiquetaMes(mes) {
  * los datos. La unión evita que un área dada de baja del catálogo —o cargada
  * por importación con otro nombre— se lleve sus registros a un lugar invisible.
  */
+/**
+ * Nombres de área para la hoja de Monitoreo: SOLO el catálogo.
+ *
+ * Antes se completaba con cualquier valor de `area` encontrado en proyectos,
+ * monitoreos, seguimientos y compromisos. Un registro con el nombre de área
+ * mal tipeado, viejo o inconsistente generaba una tarjeta de secretaría
+ * fantasma en la grilla —una por cada variante— en lugar de una por
+ * secretaría real. El catálogo es la única fuente de verdad de qué
+ * secretarías existen.
+ */
 export function nombresAreas(bd) {
-  const nombres = new Set(activos(bd.catalogos?.areas ?? []).map((a) => a.nombre));
-  for (const coleccion of ['proyectos', 'monitoreos', 'seguimientos', 'compromisos']) {
-    for (const registro of activos(bd[coleccion])) {
-      if (registro.area) nombres.add(registro.area);
-    }
-  }
-  return [...nombres].sort((a, b) => a.localeCompare(b, 'es'));
+  return activos(bd.catalogos?.areas ?? [])
+    .map((a) => a.nombre)
+    .sort((a, b) => a.localeCompare(b, 'es'));
 }
 
 /** Orden de presentación: primero las secretarías que necesitan intervención. */

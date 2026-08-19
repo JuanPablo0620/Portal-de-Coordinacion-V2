@@ -15,7 +15,17 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Award, BarChart3, Globe2, Handshake, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
-import { Aviso, Boton, Chip, Metrica, Pestanias, Semaforo, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
+import {
+  Aviso,
+  Boton,
+  Chip,
+  EstadoProyecto,
+  Metrica,
+  Pestanias,
+  Semaforo,
+  Tarjeta,
+  Vacio,
+} from '../../componentes/Basicos.jsx';
 import { GraficoBarras } from '../../componentes/Graficos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { CampoSelect } from '../../componentes/Campo.jsx';
@@ -24,6 +34,7 @@ import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { FormularioAccion } from './FormularioAccion.jsx';
 import { nombreODS } from './SelectorODS.jsx';
 import { ESTADOS_INTERNACIONAL, ODS } from '../../datos/catalogos.js';
+import { PROYECTOS_POSICIONAMIENTO_REAL } from '../../datos/posicionamiento-real.js';
 import {
   accionesInternacionales,
   accionesPorDimension,
@@ -144,14 +155,6 @@ export default function Posicionamiento() {
 function Tablero({ resumen, lista, setFiltros }) {
   if (!resumen) return null;
 
-  // El embudo se dibuja SIEMPRE con los seis estados, incluso los que están en
-  // cero: lo que falta es tan informativo como lo que hay —cero postulaciones
-  // presentadas es exactamente el dato que hay que ver—.
-  const embudo = ESTADOS_INTERNACIONAL.map((estado) => ({
-    nombre: estado,
-    cantidad: resumen.por_estado[estado] ?? 0,
-  }));
-
   const cierres = resumen.proximos_cierres.slice(0, 8);
 
   return (
@@ -172,14 +175,13 @@ function Tablero({ resumen, lista, setFiltros }) {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Metrica valor={dolares(resumen.financiamiento_obtenido)} etiqueta="Financiamiento obtenido" detalle="acciones vigentes y cerradas" />
-        <Metrica
-          valor={dolares(resumen.financiamiento_en_gestion)}
-          etiqueta="Financiamiento en gestión"
-          detalle="lo que está en juego en las postulaciones abiertas"
-        />
-      </div>
+      <Metrica
+        valor={dolares(resumen.financiamiento_en_gestion)}
+        etiqueta="Financiamiento en gestión"
+        detalle="lo que está en juego en las postulaciones abiertas"
+      />
+
+      <ProyectosEnCurso />
 
       <Tarjeta
         titulo="Qué cierra primero"
@@ -216,39 +218,53 @@ function Tablero({ resumen, lista, setFiltros }) {
         )}
       </Tarjeta>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Tarjeta titulo="Embudo por estado" descripcion="De identificada a resuelta.">
-          <GraficoBarras
-            datos={embudo}
-            horizontal
-            anchoEtiqueta={130}
-            alto={230}
-            series={[
-              {
-                clave: 'cantidad',
-                titulo: 'Acciones',
-                colorPorItem: (d) =>
-                  d.nombre === 'no prosperó'
-                    ? 'var(--color-vencido)'
-                    : d.nombre === 'vigente'
-                      ? 'var(--color-enregla)'
-                      : 'var(--color-serie-1)',
-              },
-            ]}
-          />
-        </Tarjeta>
-
-        <Tarjeta titulo="Por tipo de acción" descripcion="Con qué instrumento se sale al mundo.">
-          <GraficoBarras
-            datos={agrupar(lista, 'tipo')}
-            horizontal
-            anchoEtiqueta={150}
-            alto={230}
-            series={[{ clave: 'cantidad', titulo: 'Acciones' }]}
-          />
-        </Tarjeta>
-      </div>
+      <Tarjeta titulo="Por tipo de acción" descripcion="Con qué instrumento se sale al mundo.">
+        <GraficoBarras
+          datos={agrupar(lista, 'tipo')}
+          horizontal
+          anchoEtiqueta={150}
+          alto={230}
+          series={[{ clave: 'cantidad', titulo: 'Acciones' }]}
+        />
+      </Tarjeta>
     </div>
+  );
+}
+
+/**
+ * Un módulo por cada proyecto real de Posicionamiento — dato relevado a mano
+ * de `Coordinacion_db` (ver `datos/posicionamiento-real.js`), no generado por
+ * demo.js. Es lo primero que responde la pregunta "¿qué se está llevando a
+ * cabo hoy?", antes de cualquier métrica agregada.
+ */
+function ProyectosEnCurso() {
+  const masReciente = PROYECTOS_POSICIONAMIENTO_REAL.reduce(
+    (max, p) => (p.fecha_actualizacion > max ? p.fecha_actualizacion : max),
+    '',
+  );
+  return (
+    <Tarjeta
+      titulo="Proyectos de Posicionamiento en curso"
+      descripcion={`Relevado de Coordinacion_db, "Estado de proyectos" · última actualización real: ${fFecha(masReciente)}.`}
+    >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {PROYECTOS_POSICIONAMIENTO_REAL.map((p) => (
+          <article key={p.nombre} className="flex flex-col gap-2 rounded-chip border border-borde p-3">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-sm font-semibold leading-tight text-tinta">{p.nombre}</h3>
+              {p.sin_maestro && (
+                <span title="No figura en la pestaña maestra; puede estar desactualizado" className="shrink-0">
+                  <Chip tono="atencion">a confirmar</Chip>
+                </span>
+              )}
+            </div>
+            <EstadoProyecto estado={p.estado} />
+            <p className="line-clamp-3 text-xs leading-relaxed text-gris">{p.comentario}</p>
+            <p className="mt-auto text-[11px] text-tenue">Actualizado {fFecha(p.fecha_actualizacion)}</p>
+          </article>
+        ))}
+      </div>
+    </Tarjeta>
   );
 }
 

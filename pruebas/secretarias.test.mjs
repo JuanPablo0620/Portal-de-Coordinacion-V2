@@ -104,13 +104,32 @@ test('etiquetaMes abrevia el mes en español y el año en dos dígitos', () => {
 
 /* ── Universo de secretarías ──────────────────────────────────────── */
 
-test('nombresAreas une el catálogo con las áreas que sólo aparecen en los datos', () => {
+test('nombresAreas sale sólo del catálogo, nunca de valores sueltos en los datos', () => {
+  // Antes se completaba con cualquier `area` encontrada en proyectos, monitoreos,
+  // seguimientos y compromisos: un nombre mal tipeado o desactualizado generaba
+  // una tarjeta de secretaría fantasma en la grilla de Monitoreo, en vez de una
+  // sola por secretaría real. El catálogo es la única fuente de verdad.
   const bd = baseDePrueba({
     monitoreos: [{ id: 'm9', area: 'Dirección de Ambiente', fecha: '2026-08-01', activo: true }],
   });
   const nombres = nombresAreas(bd);
-  assert.ok(nombres.includes('Dirección de Ambiente'), 'un área importada no puede quedar invisible');
-  assert.ok(nombres.includes(SALUD), 'las del catálogo siguen estando aunque no tengan datos');
+  assert.ok(
+    !nombres.includes('Dirección de Ambiente'),
+    'un área que no está en el catálogo no debe generar una tarjeta propia',
+  );
+  assert.deepEqual(nombres, [OBRAS, SALUD], 'sólo las del catálogo, en orden alfabético');
+});
+
+test('nombresAreas no repite una secretaría aunque tenga muchos registros con su nombre', () => {
+  const bd = baseDePrueba({
+    proyectos: [{ id: 'p9', area: OBRAS, activo: true }],
+    monitoreos: [
+      { id: 'm9', area: OBRAS, fecha: '2026-08-01', activo: true },
+      { id: 'm10', area: OBRAS, fecha: '2026-08-02', activo: true },
+    ],
+  });
+  const nombres = nombresAreas(bd);
+  assert.equal(nombres.filter((n) => n === OBRAS).length, 1, 'una sola aparición por secretaría');
 });
 
 test('resumenSecretarias arma una tarjeta por secretaría', () => {

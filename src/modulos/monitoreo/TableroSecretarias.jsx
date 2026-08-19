@@ -240,7 +240,19 @@ function TarjetaSecretaria({ resumen, prefijo, alertas, alAbrir }) {
   const maximo = Math.max(1, ...resumen.serie.map((s) => s.monitoreos));
 
   return (
-    <section className="tarjeta bloque-reporte flex flex-col">
+    <section
+      className="tarjeta bloque-reporte flex cursor-pointer flex-col transition hover:border-acento/60 hover:shadow-md"
+      role="button"
+      tabIndex={0}
+      onClick={alAbrir}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          alAbrir();
+        }
+      }}
+      aria-label={`Abrir la hoja de ${resumen.area}`}
+    >
       <header className="flex items-start gap-2.5 border-b border-borde px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -310,9 +322,11 @@ function TarjetaSecretaria({ resumen, prefijo, alertas, alAbrir }) {
             ? `Último monitoreo: ${fFecha(resumen.ultimo_monitoreo)} · hace ${resumen.dias_sin_monitoreo} d`
             : 'Nunca monitoreada'}
         </p>
-        <Boton tamanio="sm" icono={ArrowRight} onClick={alAbrir} aria-label={`Abrir la hoja de ${resumen.area}`}>
+        {/* Indicador visual, no interactivo: toda la tarjeta ya es el control clickeable. */}
+        <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-acento">
           Abrir hoja
-        </Boton>
+          <ArrowRight size={14} />
+        </span>
       </footer>
     </section>
   );
