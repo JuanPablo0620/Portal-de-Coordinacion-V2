@@ -23,9 +23,25 @@ import {
   puntoEnBarrio,
 } from './sintetico.js';
 
-/** Plantillas por área: [prefijoNombre, tipo, unidad, esObra, programa, eje]. */
+/**
+ * Plantillas por área: [prefijoNombre, tipo, unidad, esObra, programa?].
+ *
+ * Las claves son las SIETE secretarías reales (mismos nombres que
+ * `CATALOGOS_SEMILLA.areas`) — hasta el 19/08/2026 este generador usaba ocho
+ * nombres de área inventados ("Secretaría de Obras Públicas", "Dirección de
+ * Ambiente", etc.), separados de los reales. Se sacaron porque confundían la
+ * pantalla de Configuración → Catálogos: un usuario que mira la lista de
+ * áreas no tiene forma de distinguir "esto es una secretaría real" de "esto
+ * es un nombre que inventó el generador de pruebas". El set sigue siendo
+ * EVIDENTEMENTE FICTICIO por el contenido (proyectos, zonas, personas
+ * inventados), no por el nombre de la secretaría.
+ *
+ * El quinto elemento de cada proyecto es un `programa` opcional: si no se
+ * indica, se usa `plantilla.programa`. Sirve para las áreas que agrupan más
+ * de un programa real (Ambiente y Servicios Públicos, Capital Humano).
+ */
 const PLANTILLAS = {
-  'Secretaría de Obras Públicas': {
+  'Secretaría de Obras': {
     proyectos: [
       ['Repavimentación', 'Obra', 'cuadras', true],
       ['Bacheo integral', 'Obra', 'cuadras', true],
@@ -37,25 +53,34 @@ const PLANTILLAS = {
     programa: 'Infraestructura urbana',
     eje: 'Desarrollo urbano',
   },
-  'Secretaría de Desarrollo Social': {
+  'Secretaría de Ambiente y Servicios Públicos': {
     proyectos: [
-      ['Programa de acompañamiento familiar', 'Programa social', 'beneficiarios', false],
-      ['Entrega de módulos alimentarios', 'Programa social', 'beneficiarios', false],
-      ['Centro de primera infancia', 'Programa social', 'beneficiarios', false],
-      ['Mejoramiento habitacional', 'Obra', 'unidades', true],
-    ],
-    programa: 'Inclusión social',
-    eje: 'Inclusión y equidad',
-  },
-  'Secretaría de Servicios Públicos': {
-    proyectos: [
-      ['Recolección diferenciada', 'Servicio', 'beneficiarios', false],
-      ['Poda y mantenimiento de arbolado', 'Servicio', 'unidades', false],
-      ['Limpieza de sumideros', 'Servicio', 'unidades', false],
-      ['Renovación de contenedores', 'Adquisición', 'unidades', false],
+      ['Recolección diferenciada', 'Servicio', 'beneficiarios', false, 'Higiene urbana'],
+      ['Poda y mantenimiento de arbolado', 'Servicio', 'unidades', false, 'Higiene urbana'],
+      ['Limpieza de sumideros', 'Servicio', 'unidades', false, 'Higiene urbana'],
+      ['Renovación de contenedores', 'Adquisición', 'unidades', false, 'Higiene urbana'],
+      ['Forestación urbana', 'Servicio', 'unidades', false, 'Espacios verdes'],
+      ['Punto verde de reciclado', 'Obra', 'unidades', true, 'Espacios verdes'],
+      ['Educación ambiental en escuelas', 'Programa social', 'beneficiarios', false, 'Espacios verdes'],
     ],
     programa: 'Higiene urbana',
     eje: 'Ambiente y sustentabilidad',
+  },
+  'Secretaría de Capital Humano': {
+    proyectos: [
+      ['Programa de acompañamiento familiar', 'Programa social', 'beneficiarios', false, 'Inclusión social'],
+      ['Entrega de módulos alimentarios', 'Programa social', 'beneficiarios', false, 'Inclusión social'],
+      ['Centro de primera infancia', 'Programa social', 'beneficiarios', false, 'Primera infancia'],
+      ['Mejoramiento habitacional', 'Obra', 'unidades', true, 'Inclusión social'],
+      ['Apoyo escolar en barrios', 'Programa social', 'beneficiarios', false, 'Trayectorias educativas'],
+      ['Refacción de jardín municipal', 'Obra', 'm²', true, 'Trayectorias educativas'],
+      ['Provisión de material didáctico', 'Adquisición', 'unidades', false, 'Trayectorias educativas'],
+      ['Ciclo de cultura en los barrios', 'Programa social', 'beneficiarios', false, 'Cultura de cercanía'],
+      ['Puesta en valor del centro cultural', 'Obra', 'm²', true, 'Cultura de cercanía'],
+      ['Escuela municipal de arte', 'Servicio', 'beneficiarios', false, 'Cultura de cercanía'],
+    ],
+    programa: 'Inclusión social',
+    eje: 'Inclusión y equidad',
   },
   'Secretaría de Salud': {
     proyectos: [
@@ -67,25 +92,17 @@ const PLANTILLAS = {
     programa: 'Atención primaria de la salud',
     eje: 'Salud y bienestar',
   },
-  'Subsecretaría de Educación': {
+  'Secretaría de Seguridad': {
     proyectos: [
-      ['Apoyo escolar en barrios', 'Programa social', 'beneficiarios', false],
-      ['Refacción de jardín municipal', 'Obra', 'm²', true],
-      ['Provisión de material didáctico', 'Adquisición', 'unidades', false],
+      ['Refuerzo de cámaras de seguridad', 'Adquisición', 'unidades', false],
+      ['Modernización del centro de monitoreo', 'Obra', 'm²', true],
+      ['Patrullaje barrial', 'Servicio', 'beneficiarios', false],
+      ['Capacitación en prevención comunitaria', 'Programa social', 'beneficiarios', false],
     ],
-    programa: 'Trayectorias educativas',
-    eje: 'Educación y cultura',
+    programa: 'Seguridad ciudadana',
+    eje: 'Seguridad ciudadana',
   },
-  'Subsecretaría de Cultura': {
-    proyectos: [
-      ['Ciclo de cultura en los barrios', 'Programa social', 'beneficiarios', false],
-      ['Puesta en valor del centro cultural', 'Obra', 'm²', true],
-      ['Escuela municipal de arte', 'Servicio', 'beneficiarios', false],
-    ],
-    programa: 'Cultura de cercanía',
-    eje: 'Educación y cultura',
-  },
-  'Dirección de Producción y Empleo': {
+  'Secretaría de Trabajo y Producción': {
     proyectos: [
       ['Formación en oficios', 'Programa social', 'beneficiarios', false],
       ['Registro de emprendedores', 'Gestión interna', '%', false],
@@ -94,26 +111,25 @@ const PLANTILLAS = {
     programa: 'Empleo joven',
     eje: 'Desarrollo económico',
   },
-  'Dirección de Ambiente': {
+  'Coordinación': {
     proyectos: [
-      ['Forestación urbana', 'Servicio', 'unidades', false],
-      ['Punto verde de reciclado', 'Obra', 'unidades', true],
-      ['Educación ambiental en escuelas', 'Programa social', 'beneficiarios', false],
+      ['Sistema de seguimiento de gestión municipal', 'Gestión interna', '%', false],
+      ['Digitalización de expedientes internos', 'Gestión interna', '%', false],
+      ['Convenio de cooperación institucional', 'Gestión interna', 'unidades', false],
     ],
-    programa: 'Espacios verdes',
-    eje: 'Ambiente y sustentabilidad',
+    programa: 'Modernización de la gestión',
+    eje: 'Modernización de la gestión',
   },
 };
 
 const PREFIJOS = {
-  'Secretaría de Obras Públicas': 'OBR',
-  'Secretaría de Desarrollo Social': 'DSO',
-  'Secretaría de Servicios Públicos': 'SPU',
+  'Secretaría de Obras': 'OBR',
+  'Secretaría de Ambiente y Servicios Públicos': 'AMB',
+  'Secretaría de Capital Humano': 'CAH',
   'Secretaría de Salud': 'SAL',
-  'Subsecretaría de Educación': 'EDU',
-  'Subsecretaría de Cultura': 'CUL',
-  'Dirección de Producción y Empleo': 'PRO',
-  'Dirección de Ambiente': 'AMB',
+  'Secretaría de Seguridad': 'SEG',
+  'Secretaría de Trabajo y Producción': 'TYP',
+  'Coordinación': 'COR',
 };
 
 /* ── Generador principal ────────────────────────────────────────────── */
@@ -157,7 +173,7 @@ export function generarDemo(hoy) {
 
   for (const area of areas) {
     const plantilla = PLANTILLAS[area];
-    for (const [nombreBase, tipo, unidad, esObra] of plantilla.proyectos) {
+    for (const [nombreBase, tipo, unidad, esObra, programaItem] of plantilla.proyectos) {
       correlativos[area] = (correlativos[area] ?? 0) + 1;
       const id = `${PREFIJOS[area]}-${anio}-${String(correlativos[area]).padStart(3, '0')}`;
       const objetivo = esObra ? entre(20, 400) : entre(150, 4000);
@@ -178,7 +194,7 @@ export function generarDemo(hoy) {
       bd.proyectos.push({
         id_proyecto: id,
         area,
-        programa: plantilla.programa,
+        programa: programaItem ?? plantilla.programa,
         proyecto: `${nombreBase} — ${zona}`,
         zona,
         ...puntoEnBarrio(zona, azar),
@@ -275,7 +291,7 @@ export function generarDemo(hoy) {
   }
 
   // Programados, próximos
-  for (const area of areas.slice(0, 6)) {
+  for (const area of areas.slice(0, 5)) {
     const fecha = desplazar(hoy, entre(1, 20));
     const s = {
       id: nuevoId('seg'),
@@ -399,7 +415,7 @@ export function generarDemo(hoy) {
 
   // Cobertura despareja a propósito: dos áreas quedan sin monitoreos, para que
   // el panel «monitoreos por área» muestre para qué sirve.
-  for (const area of areas.slice(0, 6)) {
+  for (const area of areas.slice(0, 5)) {
     for (let i = 0; i < entre(1, 3); i += 1) {
       const fecha = desplazar(hoy, -entre(1, 60));
       const m = {
@@ -785,8 +801,8 @@ export function generarDemo(hoy) {
 
   bd.reportes_guardados.push({
     id: nuevoId('rep'),
-    nombre: 'Informe semanal Obras Públicas',
-    filtros: { area: 'Secretaría de Obras Públicas', rango: 'semana' },
+    nombre: 'Informe semanal Obras',
+    filtros: { area: 'Secretaría de Obras', rango: 'semana' },
     bloques: { proyectos: true, compromisos: true, graficos: true, alertas: true, minutas: false, temas: false },
     activo: true,
     creado_por: usuario,

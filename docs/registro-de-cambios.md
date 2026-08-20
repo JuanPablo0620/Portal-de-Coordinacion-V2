@@ -11,6 +11,77 @@ y el resultado de `npm run verificar`.
 
 ---
 
+## 20/08/2026 — Catálogo de áreas: fuera las ocho genéricas, demo sobre las 7 reales
+
+**Pedido de JP**, mirando Configuración → Catálogos → Áreas: "¿Por qué hay
+secretarías erróneas o repetidas? Secretaría de Ambiente y Servicios
+Públicos es la correcta, no Dirección de Ambiente. Secretaría de Desarrollo
+Social tampoco existe, es Secretaría de Capital Humano." No era un error del
+relevamiento del 19/08 — eran las ocho áreas genéricas e inventadas que
+`demo.js` usaba desde antes de esa carga ("Secretaría de Obras Públicas",
+"Secretaría de Desarrollo Social", "Secretaría de Servicios Públicos",
+"Subsecretaría de Educación", "Subsecretaría de Cultura", "Dirección de
+Producción y Empleo", "Dirección de Ambiente", más una "Secretaría de Salud"
+que coincidía por casualidad con la real), conviviendo con las siete reales
+en el mismo catálogo sin ninguna marca que las distinguiera.
+
+**Decisión, entre tres opciones planteadas:** sacar las ocho del catálogo y
+reescribir `demo.js` para que genere proyectos ficticios sobre las siete
+secretarías reales (opción recomendada, elegida por JP), en vez de sacar los
+botones de datos de prueba o solo separar la vista sin tocar nada.
+
+**Por qué `base-completa.js` NO se tocó:** genera sus catorce áreas
+enteramente inventadas (Secretaría de Gobierno, Hacienda, Deportes,
+Juventud, Género y Diversidad, Modernización, más las ocho de siempre) con
+su propio `armarCatalogos()`, que **reemplaza entero** `bd.catalogos` al
+cargarse — nunca convive con la semilla real, así que nunca generaba la
+confusión que sí generaba `demo.js`. El diseño de catorce áreas es a
+propósito (probar el ordenamiento del tablero a escala), no un descuido.
+
+**Cambios:**
+
+1. `catalogos.js`: `CATALOGOS_SEMILLA.areas` pasó de 15 entradas (8
+   genéricas + 7 reales) a **7** (las reales). Se agregaron dos programas
+   ("Seguridad ciudadana", "Modernización de la gestión") y un eje
+   ("Seguridad ciudadana") nuevos, que hacían falta para las dos secretarías
+   que antes no tenían plantilla de demo (Seguridad, Coordinación).
+2. `demo.js`: `PLANTILLAS`/`PREFIJOS` reescritos con las siete secretarías
+   reales como claves — no ocho inventadas. Las plantillas que antes vivían
+   en áreas separadas se fusionaron donde correspondía (Desarrollo Social +
+   Educación + Cultura → Capital Humano; Servicios Públicos + Ambiente →
+   Ambiente y Servicios Públicos), agregando un quinto elemento opcional de
+   `programa` por ítem para no perder la variedad de programas dentro de una
+   misma secretaría fusionada. Se sumaron plantillas nuevas para Seguridad y
+   Coordinación, que antes no generaban proyectos de demo. El set sigue
+   siendo evidentemente ficticio por el CONTENIDO (proyectos, zonas,
+   personas inventados), ya no por el nombre de la secretaría.
+3. `pruebas/demo.test.mjs`, `pruebas/flujos.test.mjs`,
+   `pruebas/estrategicos.test.mjs`: fixtures que usaban los nombres/ids
+   viejos (`'Secretaría de Obras Públicas'`, `id_area: 'ar_obras'`, etc.)
+   actualizados a los reales.
+4. `ImportarProyectos.jsx`: el placeholder de ejemplo del CSV usaba el
+   nombre de área viejo — corregido.
+
+**Probado a mano:** sistema vacío → Catálogos muestra exactamente 7 áreas,
+todas reales (COR AMB CAH OBR SAL SEG TYP) → "Cargar datos de
+demostración" sin errores, Monitoreo muestra "7 de 7 secretarías" con los
+siete nombres reales y actividad en todas → "Cargar base completa" sin
+errores, Catálogos pasa a mostrar sus catorce áreas ficticias propias (OBR
+DSO SPU SAL EDU CUL PRO AMB GOB HAC DEP JUV GEN MOD) sin ninguna
+interferencia con las reales → "Vaciar sistema" vuelve a las 7 áreas reales
+limpias.
+
+**Archivos:** `src/datos/catalogos.js`, `src/datos/demo.js`,
+`src/modulos/proyectos/ImportarProyectos.jsx`,
+`src/datos/proyectos-reales-secretarias.js` (comentario actualizado),
+`pruebas/demo.test.mjs`, `pruebas/flujos.test.mjs`,
+`pruebas/estrategicos.test.mjs`.
+
+`npm run verificar`: 307/307 tests, build OK, 114 chequeos de render, 28
+rutas de accesibilidad.
+
+---
+
 ## 19/08/2026 — Datos reales de las siete secretarías, no solo Posicionamiento
 
 **Pedido de JP:** "Los datos que aparecen en el portal son datos que Salva le

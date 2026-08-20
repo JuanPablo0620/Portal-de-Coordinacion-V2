@@ -38,11 +38,10 @@
  *   texto en vez de resumir sin avisar.
  * - Capital Humano: 5 filas de "Protección Social" tienen `estado: '0'` en el
  *   sheet — mismo caso que Ambiente/Seguridad, no se corrigió el dato de origen.
- * - Salud: no suma un área de catálogo nueva. El nombre real ("Secretaría de
- *   Salud") coincide con el de una de las ocho áreas genéricas que usa
- *   `demo.js`/`base-completa.js` — es casualidad, no está tomado de ahí. Sus
- *   proyectos reales se cuelgan de esa misma entrada (`ar_salud`) en vez de
- *   crear una segunda con idéntico nombre, que rompía `nombresAreas()`.
+ * - Salud usa el id de catálogo `ar_salud`, el mismo que ya existía en la
+ *   semilla desde antes de esta carga (antes del 20/08/2026 lo compartía con
+ *   una de las ocho áreas genéricas que usaba `demo.js`; esas se sacaron del
+ *   todo del catálogo — ver la nota en `catalogos.js`).
  * - Seguridad: "Cámaras operativas" tiene fecha de última actualización de
  *   2025 (no 2026) — así figura en el sheet.
  */

@@ -144,36 +144,28 @@ export const DIAS_PERIODICIDAD = Object.freeze({
 /* ── Administrables ─────────────────────────────────────────────────── */
 
 /**
- * Semilla provisoria. Los catálogos institucionales reales (áreas, programas,
- * ejes y tipos vigentes del municipio) están diferidos a la etapa siguiente.
+ * Semilla del sistema — las siete secretarías reales de Tres de Febrero.
+ *
+ * Hasta el 19/08/2026 esta lista tenía ocho áreas GENÉRICAS e inventadas
+ * ("Secretaría de Obras Públicas", "Dirección de Ambiente", etc.), separadas
+ * de las reales, para que `demo.js`/`base-completa.js` tuvieran sobre qué
+ * generar datos de prueba. Se sacaron de acá porque confundían la pantalla
+ * de Configuración → Catálogos, que mostraba nombres inventados mezclados
+ * con los reales como si fueran errores de carga. `demo.js` ahora genera sus
+ * proyectos ficticios sobre estas mismas siete áreas reales (evidentemente
+ * ficticios por el contenido, no por el nombre de la secretaría);
+ * `base-completa.js` sigue con su propio catálogo de catorce áreas
+ * enteramente inventadas, pero autocontenido — lo reemplaza entero al
+ * cargarse (`armarCatalogos()` en base-completa-vocabulario.js) y nunca
+ * convive con esta lista, así que no genera la misma confusión.
  */
 export const CATALOGOS_SEMILLA = Object.freeze({
   areas: [
-    { id: 'ar_obras', nombre: 'Secretaría de Obras Públicas', prefijo: 'OBR', activo: true },
-    { id: 'ar_social', nombre: 'Secretaría de Desarrollo Social', prefijo: 'DSO', activo: true },
-    { id: 'ar_serv', nombre: 'Secretaría de Servicios Públicos', prefijo: 'SPU', activo: true },
-    { id: 'ar_salud', nombre: 'Secretaría de Salud', prefijo: 'SAL', activo: true },
-    { id: 'ar_educ', nombre: 'Subsecretaría de Educación', prefijo: 'EDU', activo: true },
-    { id: 'ar_cult', nombre: 'Subsecretaría de Cultura', prefijo: 'CUL', activo: true },
-    { id: 'ar_prod', nombre: 'Dirección de Producción y Empleo', prefijo: 'PRO', activo: true },
-    { id: 'ar_amb', nombre: 'Dirección de Ambiente', prefijo: 'AMB', activo: true },
-    // Reales, no genéricas como las ocho de arriba: son las siete secretarías
-    // verdaderas de Tres de Febrero, agregadas para poder cargar proyectos
-    // reales relevados de los `_db` (ver proyectos-reales-secretarias.js).
-    // Conviven con las genéricas de arriba a propósito: esas las siguen
-    // usando `demo.js`/`base-completa.js` y no se tocan (ver nota en
-    // docs/registro-de-cambios.md, 19/08/2026).
     { id: 'ar_coord', nombre: 'Coordinación', prefijo: 'COR', activo: true },
     { id: 'ar_r_ambiente', nombre: 'Secretaría de Ambiente y Servicios Públicos', prefijo: 'AMB', activo: true },
     { id: 'ar_r_capital', nombre: 'Secretaría de Capital Humano', prefijo: 'CAH', activo: true },
     { id: 'ar_r_obras', nombre: 'Secretaría de Obras', prefijo: 'OBR', activo: true },
-    // Salud NO suma una entrada nueva: "Secretaría de Salud" es también el
-    // nombre de una de las ocho áreas genéricas de arriba (ar_salud) — es el
-    // único caso donde el nombre real coincide con el genérico por
-    // casualidad. Los proyectos reales de Salud se cuelgan de esa misma
-    // entrada (ver proyectos-reales-secretarias.js) en vez de duplicarla:
-    // dos catálogos con idéntico `nombre` rompían nombresAreas() (tarjetas
-    // de secretaría duplicadas — el mismo bug que se arregló el 19/08/2026).
+    { id: 'ar_salud', nombre: 'Secretaría de Salud', prefijo: 'SAL', activo: true },
     { id: 'ar_r_seguridad', nombre: 'Secretaría de Seguridad', prefijo: 'SEG', activo: true },
     { id: 'ar_r_trabajo', nombre: 'Secretaría de Trabajo y Producción', prefijo: 'TYP', activo: true },
   ],
@@ -189,6 +181,8 @@ export const CATALOGOS_SEMILLA = Object.freeze({
     { id: 'pr_empleo', nombre: 'Empleo joven', activo: true },
     { id: 'pr_verde', nombre: 'Espacios verdes', activo: true },
     { id: 'pr_posic', nombre: 'Posicionamiento', activo: true },
+    { id: 'pr_seguridad', nombre: 'Seguridad ciudadana', activo: true },
+    { id: 'pr_gestion', nombre: 'Modernización de la gestión', activo: true },
   ],
   ejes: [
     { id: 'ej_urbano', nombre: 'Desarrollo urbano', activo: true },
@@ -199,6 +193,7 @@ export const CATALOGOS_SEMILLA = Object.freeze({
     { id: 'ej_amb', nombre: 'Ambiente y sustentabilidad', activo: true },
     { id: 'ej_gest', nombre: 'Modernización de la gestión', activo: true },
     { id: 'ej_posic', nombre: 'Posicionamiento', activo: true },
+    { id: 'ej_seguridad', nombre: 'Seguridad ciudadana', activo: true },
     // Reales — valores que toma el campo `Eje` en los `_db` (ver glosario:
     // POA, Compromisos, Puntual, más las mesas territoriales). Se agregan acá
     // porque los proyectos reales de las siete secretarías (no solo

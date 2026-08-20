@@ -26,8 +26,8 @@ async function limpio() {
 
 const PROYECTO = {
   proyecto: 'Obra de prueba',
-  area: 'Secretaría de Obras Públicas',
-  id_area: 'ar_obras',
+  area: 'Secretaría de Obras',
+  id_area: 'ar_r_obras',
   tipo: 'Obra',
   unidad: 'm²',
   objetivo: 100,

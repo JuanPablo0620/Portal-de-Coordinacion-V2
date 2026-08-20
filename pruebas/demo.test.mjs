@@ -35,7 +35,9 @@ test('el set puebla todas las colecciones que alimentan los módulos', () => {
 
 test('hay proyectos de todas las áreas del catálogo semilla', () => {
   const areasConProyectos = new Set(bd.proyectos.map((p) => p.area));
-  assert.ok(areasConProyectos.size >= 8, 'se esperaban al menos 8 áreas representadas');
+  // Las siete secretarías reales — ver la nota en catalogos.js (20/08/2026):
+  // el generador ya no usa nombres de área inventados.
+  assert.ok(areasConProyectos.size >= 7, 'se esperaban al menos 7 áreas representadas');
   assert.ok(bd.proyectos.length >= 30, 'se esperaban al menos 30 proyectos');
 });
 

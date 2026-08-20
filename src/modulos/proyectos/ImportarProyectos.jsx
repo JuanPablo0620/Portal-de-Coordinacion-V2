@@ -130,7 +130,7 @@ export function ImportarProyectos({ abierto, alCerrar }) {
               filas={5}
               value={texto}
               onChange={(e) => alCargarTexto(e.target.value)}
-              placeholder={`${PLANTILLA}\nRepavimentación Los Álamos,Secretaría de Obras Públicas,…`}
+              placeholder={`${PLANTILLA}\nRepavimentación Los Álamos,Secretaría de Obras,…`}
               className="font-mono"
             />
             <p className="text-[11px] text-tenue">

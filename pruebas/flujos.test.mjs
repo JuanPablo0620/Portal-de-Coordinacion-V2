@@ -45,8 +45,8 @@ async function limpio() {
 
 const PROYECTO_BASE = {
   proyecto: 'Repavimentación — Barrio de prueba',
-  area: 'Secretaría de Obras Públicas',
-  id_area: 'ar_obras',
+  area: 'Secretaría de Obras',
+  id_area: 'ar_r_obras',
   programa: 'Infraestructura urbana',
   eje: 'Desarrollo urbano',
   tipo: 'Obra',
@@ -339,7 +339,7 @@ test('los compromisos de una mesa entran a la lista general con origen mesa', as
   await repo.crearCompromisos([
     {
       origen_tipo: 'mesa', id_origen: mesa.id, id_proyecto: null,
-      area: 'Secretaría de Servicios Públicos', descripcion: 'Relevar luminarias',
+      area: 'Secretaría de Ambiente y Servicios Públicos', descripcion: 'Relevar luminarias',
       responsable: 'T. Ojeda', fecha_limite: FUTURO,
     },
   ]);
@@ -356,7 +356,7 @@ test('confirmar requerimientos sube el porcentaje y apaga la alerta del evento',
   await limpio();
   const evento = await repo.crearEvento({
     nombre: 'Feria de prueba', fecha: '2026-08-11', hora: '10:00', lugar: 'Plaza',
-    area_organizadora: 'Subsecretaría de Cultura', tipo: 'Feria', estado: 'confirmado', id_proyecto: null,
+    area_organizadora: 'Secretaría de Capital Humano', tipo: 'Feria', estado: 'confirmado', id_proyecto: null,
   });
   const r1 = await repo.crearRequerimiento({ id_evento: evento.id, item: 'Sonido', cantidad: 1, area_responsable: 'X' });
   await repo.crearRequerimiento({ id_evento: evento.id, item: 'Sillas', cantidad: 50, area_responsable: 'X', estado: 'confirmado' });
@@ -520,7 +520,7 @@ test('una importación en lote escribe y notifica una sola vez', async () => {
   });
 
   const filas = Array.from({ length: 25 }, (_, i) => ({
-    area: 'Secretaría de Obras Públicas',
+    area: 'Secretaría de Obras',
     proyecto: `Proyecto importado ${i + 1}`,
     estado: 'planificado',
     objetivo: 100,
