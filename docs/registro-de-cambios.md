@@ -11,6 +11,79 @@ y el resultado de `npm run verificar`.
 
 ---
 
+## 21/08/2026 — Módulo nuevo «Mis áreas»
+
+**Pedido de JP** (dejado corriendo mientras se iba a una reunión, con
+autorización explícita para asumir lo que faltara y avisar después qué se
+asumió): cada integrante de Coordinación monitorea un subconjunto de las
+siete secretarías, no las siete. Quería una pestaña nueva en el sidebar
+donde cada persona elija sus áreas y vea de un vistazo las alertas y los
+compromisos pendientes de esas áreas.
+
+### Qué se construyó
+
+Un módulo nuevo, `/mis-areas`, con dos partes:
+
+1. **Selector de áreas** — check-list de las secretarías del catálogo, con
+   un botón «Guardar» que reemplaza de una sola vez la asignación de esa
+   persona (no altas/bajas incrementales).
+2. **Vista filtrada** — reutiliza, sin duplicar código, las mismas piezas
+   que ya usa Monitoreo: `ListaAlertas` para las alertas (mismo motor
+   central, mismos días de atraso), `Tabla` + `COLUMNAS_COMPROMISO` para los
+   compromisos vigentes, y **`TarjetaSecretaria`** (recién exportada desde
+   `TableroSecretarias.jsx` para este fin) para la tarjeta de estado de cada
+   secretaría — semáforo, mini-serie, criticidad de temas, avance agregado,
+   todo idéntico a lo que ya se ve en Monitoreo, solo que acotado a las
+   áreas elegidas. Cada tarjeta abre la hoja completa real de esa secretaría
+   (`/monitoreo?tab=secretarias&secretaria=...`), no una versión reducida.
+
+### Decisiones que tomé sin poder preguntar (para revisar)
+
+1. **Identidad = `config.usuario`.** El sistema no tiene login; la
+   asignación de áreas se guarda contra el nombre libre que cada quien
+   carga en Configuración → «Usuario actual». Si dos personas comparten
+   una computadora, tienen que cambiar ese nombre para ver su propia
+   selección — es la misma convención que ya usa todo el sistema para
+   «quién cargó esto», no algo nuevo que inventé para este módulo.
+2. **Reemplazo atómico, no incremental.** Guardar pisa toda la lista de
+   áreas de esa persona (como `guardarCatalogo`), no agrega/quita de a una.
+3. **Sin bitácora.** No queda asiento en el historial: es preferencia de
+   uso, no dato de gestión institucional, mismo criterio que `config.usuario`.
+4. **Ubicación en el sidebar**: la puse justo debajo de «Inicio» — es la
+   pantalla de uso diario más frecuente después del dashboard general, así
+   que le di prioridad de posición.
+5. **Sin selector de período** (a diferencia de Monitoreo): esta pantalla es
+   para un vistazo rápido del estado actual, no para analizar una ventana de
+   tiempo específica. Si hace falta, se puede agregar después.
+6. **Ícono**: `UserCheck` de lucide-react.
+
+Si alguna de estas seis no es lo que tenías pensado, avisame y la ajusto.
+
+### Encontrado de paso (no pedido, corregido igual)
+
+`scripts/humo.mjs` seguía comprobando `/monitoreo?secretaria=Secretaría de
+Obras Públicas` — el nombre viejo, de antes del rediseño del catálogo del
+20/08. Como `resumenSecretaria()` no valida que el área exista en el
+catálogo (devuelve un resumen vacío para cualquier string), la prueba de
+humo seguía "pasando" pero contra una secretaría fantasma, sin ejercer
+datos reales de la demo. Corregido a `Secretaría de Obras` — ahora vuelve a
+probar contra contenido real.
+
+**Archivos:** `src/datos/esquema.js`, `src/datos/repositorio.js`,
+`src/datos/selectores.js`, `src/modulos/monitoreo/TableroSecretarias.jsx`
+(export de `TarjetaSecretaria`), `src/modulos/mis-areas/MisAreas.jsx`
+(nuevo), `src/App.jsx`, `src/componentes/Layout.jsx`, `scripts/humo.mjs`.
+
+**Probado a mano** con gstack: elegir Obras + Salud → Guardar → aparecen
+las alertas y compromisos reales de esas dos áreas (y de ninguna otra) →
+recargar la página conserva la selección → clic en «Abrir hoja» navega a
+la hoja real de Monitoreo para esa secretaría → sin errores de consola.
+
+`npm run verificar`: 307/307 tests, build OK, 118 comprobaciones de render
+(+4), 29 rutas de accesibilidad (+1).
+
+---
+
 ## 20/08/2026 — Catálogo de áreas: fuera las ocho genéricas, demo sobre las 7 reales
 
 **Pedido de JP**, mirando Configuración → Catálogos → Áreas: "¿Por qué hay

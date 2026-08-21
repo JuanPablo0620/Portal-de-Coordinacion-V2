@@ -166,6 +166,24 @@ export async function guardarCatalogo(nombre, items) {
   return persistir();
 }
 
+/* ── Asignación de áreas por persona ─────────────────────────────────── */
+
+/**
+ * Reemplaza, de una sola vez, qué áreas monitorea `usuario`. No es un alta ni
+ * una baja incremental a propósito: la pantalla es un check-list con un solo
+ * botón «Guardar», así que lo natural es mandar la lista completa deseada y
+ * pisar la anterior — igual que `guardarCatalogo`. Sin login real, `usuario`
+ * es el nombre libre de `config.usuario`; no lleva bitácora porque es
+ * preferencia de quien usa el sistema, no dato de gestión institucional.
+ */
+export async function guardarAsignacionesMonitoreo(usuario, areas) {
+  const bd = await obtenerBD();
+  const deOtros = (bd.asignaciones_monitoreo ?? []).filter((a) => a.usuario !== usuario);
+  const propias = areas.map((area) => ({ usuario, area }));
+  bd.asignaciones_monitoreo = [...deOtros, ...propias];
+  return persistir();
+}
+
 /* ── Proyectos ──────────────────────────────────────────────────────── */
 
 export async function crearProyecto(datos) {

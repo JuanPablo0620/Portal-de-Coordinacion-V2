@@ -14,12 +14,14 @@ import {
   Radar,
   Settings,
   Target,
+  UserCheck,
   Users,
   X,
 } from 'lucide-react';
 
 const MODULOS = [
   { ruta: '/', titulo: 'Inicio', icono: LayoutDashboard, exacta: true },
+  { ruta: '/mis-areas', titulo: 'Mis áreas', icono: UserCheck },
   { ruta: '/proyectos', titulo: 'Proyectos', icono: FolderKanban },
   { ruta: '/obras', titulo: 'Obras', icono: HardHat },
   { ruta: '/seguimiento', titulo: 'Seguimiento', icono: CalendarCheck },

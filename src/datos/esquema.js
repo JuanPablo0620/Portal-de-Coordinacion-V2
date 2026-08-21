@@ -23,6 +23,11 @@ export const COLECCIONES = Object.freeze([
   'acciones_internacionales',
   'historial',
   'reportes_guardados',
+  // Qué áreas monitorea cada persona — no es dato institucional de gestión,
+  // es preferencia de quién usa el sistema. Como no hay login real, la clave
+  // es el nombre de `config.usuario` (ver `guardarAsignacionesMonitoreo` en
+  // repositorio.js).
+  'asignaciones_monitoreo',
 ]);
 
 /** Clave primaria de cada colección. `proyectos` es la excepción: usa el id canónico. */

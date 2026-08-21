@@ -4,6 +4,7 @@ import { Layout } from './componentes/Layout.jsx';
 import { useCargando, useTienda } from './estado/tienda.js';
 
 import Dashboard from './modulos/dashboard/Dashboard.jsx';
+import MisAreas from './modulos/mis-areas/MisAreas.jsx';
 import Proyectos from './modulos/proyectos/Proyectos.jsx';
 import FichaProyecto from './modulos/proyectos/FichaProyecto.jsx';
 import Obras from './modulos/obras/Obras.jsx';
@@ -36,6 +37,7 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
+        <Route path="mis-areas" element={<MisAreas />} />
         <Route path="proyectos" element={<Proyectos />} />
         <Route path="proyectos/:id" element={<FichaProyecto />} />
         <Route path="obras" element={<Obras />} />

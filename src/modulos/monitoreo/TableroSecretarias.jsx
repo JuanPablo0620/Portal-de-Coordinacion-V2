@@ -235,7 +235,12 @@ function Grilla({ bd, periodo, filtros, setFiltros, alertas, areas, hoy }) {
   );
 }
 
-function TarjetaSecretaria({ resumen, prefijo, alertas, alAbrir }) {
+/**
+ * Exportada para «Mis áreas» (`src/modulos/mis-areas/MisAreas.jsx`): la
+ * reutiliza tal cual, filtrada a las áreas que cada persona eligió monitorear,
+ * para no duplicar el semáforo, la mini-serie ni el resto de esta tarjeta.
+ */
+export function TarjetaSecretaria({ resumen, prefijo, alertas, alAbrir }) {
   const { temas, compromisos, proyectos, comparativo } = resumen;
   const maximo = Math.max(1, ...resumen.serie.map((s) => s.monitoreos));
 

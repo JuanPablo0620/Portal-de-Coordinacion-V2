@@ -461,6 +461,13 @@ export function nombresAreas(bd) {
     .sort((a, b) => a.localeCompare(b, 'es'));
 }
 
+/** Áreas que `usuario` eligió monitorear, en Configuración → «Mis áreas». */
+export function areasAsignadas(bd, usuario) {
+  return (bd.asignaciones_monitoreo ?? [])
+    .filter((a) => a.usuario === usuario)
+    .map((a) => a.area);
+}
+
 /** Orden de presentación: primero las secretarías que necesitan intervención. */
 const ORDEN_NIVEL = { vencido: 0, proximo: 1, atencion: 2, sindato: 3, enregla: 4 };
 

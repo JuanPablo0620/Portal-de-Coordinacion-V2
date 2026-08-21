@@ -28,6 +28,8 @@ const SALIDA = 'node_modules/.humo';
 const CON_DEMO = [
   ['/', 'Próximos vencimientos importantes'],
   ['/', 'Proyectos activos'],
+  ['/mis-areas', 'Tus áreas'],
+  ['/mis-areas', 'Todavía no elegiste ninguna área'],
   ['/proyectos', 'Base maestra de proyectos'],
   ['/proyectos?solo_activos=1&es_obra=1', 'Sólo obras'],
   ['/obras', 'Dónde están las obras'],
@@ -45,10 +47,10 @@ const CON_DEMO = [
   ['/monitoreo', 'Panel de alertas'],
   ['/monitoreo', 'Secretarías en la hoja'],
   ['/monitoreo', 'Criticidad de los temas'],
-  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras%20P%C3%BAblicas', 'Temas del período'],
-  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras%20P%C3%BAblicas', 'Compromisos vigentes'],
-  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras%20P%C3%BAblicas', 'Ejecución presupuestaria'],
-  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras%20P%C3%BAblicas', 'Proyectos de la secretaría'],
+  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras', 'Temas del período'],
+  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras', 'Compromisos vigentes'],
+  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras', 'Ejecución presupuestaria'],
+  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras', 'Proyectos de la secretaría'],
   ['/monitoreo?tab=ultimos', 'Criticidad máxima'],
   ['/monitoreo?tab=cobertura', 'Secretarías sin cobertura'],
   ['/monitoreo?tab=cargar', 'Iniciar monitoreo'],
@@ -87,6 +89,7 @@ const CON_DEMO = [
 const CON_BASE_COMPLETA = [
   ['/', 'Próximos vencimientos importantes'],
   ['/', 'Proyectos activos'],
+  ['/mis-areas', 'Tus áreas'],
   ['/proyectos', 'Base maestra de proyectos'],
   ['/proyectos?solo_activos=1&es_obra=1', 'Sólo obras'],
   ['/obras', 'Dónde están las obras'],
@@ -95,7 +98,7 @@ const CON_BASE_COMPLETA = [
   ['/seguimiento?tab=compromisos', 'Compromiso'],
   ['/seguimiento?vista=lista', 'Temas a tratar'],
   ['/monitoreo', 'Secretarías en la hoja'],
-  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras%20P%C3%BAblicas', 'Proyectos de la secretaría'],
+  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras', 'Proyectos de la secretaría'],
   ['/monitoreo?tab=cobertura', 'Secretarías sin cobertura'],
   ['/monitoreo?tab=alertas', 'Compromisos vencidos'],
   ['/estrategicos', 'Lo que hay que mirar esta semana'],
@@ -118,6 +121,7 @@ const CON_BASE_COMPLETA = [
 /** Con el sistema vacío: se espera el estado vacío, no un error ni una pantalla en blanco. */
 const CON_SISTEMA_VACIO = [
   ['/', 'El sistema está vacío'],
+  ['/mis-areas', 'Todavía no elegiste ninguna área'],
   ['/proyectos', 'La base maestra está vacía'],
   ['/obras', 'No hay ninguna obra cargada'],
   ['/seguimiento', 'Sin seguimientos agendados'],
