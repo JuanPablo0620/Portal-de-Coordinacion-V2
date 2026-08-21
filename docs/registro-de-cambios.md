@@ -11,6 +11,50 @@ y el resultado de `npm run verificar`.
 
 ---
 
+## 21/08/2026 — Seguimiento: el vínculo a proyecto es del compromiso, no de la carga entera
+
+**Pedido de JP**, surgido de una conversación sobre qué es y qué no es un
+compromiso: un compromiso puede o no ser de un proyecto puntual — "hablar
+con Sistemas porque un CAPS no tiene internet" no es de ningún proyecto,
+"hablar con Legales por el suministro del túnel Hornos" sí es del túnel
+Hornos. Esa distinción es de CADA compromiso. El pedido concreto: sacar el
+selector de "Proyectos tratados" de la sección "1 · De qué seguimiento se
+trata" en Seguimiento → Cargar realizado — no hace falta declarar de
+entrada de qué proyectos habla toda la carga.
+
+**Dos cosas dependían de ese selector, resueltas antes de tocar nada:**
+
+1. **¿Cómo se vincula un compromiso a un proyecto sin la lista de arriba?**
+   Cada fila de compromiso suma su propio campo opcional "Vincular a un
+   proyecto" — arranca colapsado (mismo patrón que el proyecto vinculado de
+   un tema en `CargarMonitoreo.jsx`), porque la mayoría de los compromisos
+   no son de ningún proyecto en particular.
+2. **La sección "4 · Avance de cada proyecto"** (el número de avance por
+   proyecto, que dependía de esa lista) **se sacó del formulario** — el
+   avance de un proyecto se actualiza desde Proyectos/Obras, no desde acá.
+   Con ella se fue también el campo `estado_reportado` de este formulario.
+
+**Cómo queda `seguimientos_proyectos`** (la tabla que hace que el historial
+de un proyecto muestre sus seguimientos): ya no es una declaración aparte,
+se **deriva** de a qué proyectos terminaron vinculados los compromisos de
+esa carga (`[...new Set(compromisos.map(c => c.id_proyecto).filter(Boolean))]`).
+Si ningún compromiso se vincula a un proyecto, el seguimiento no aparece en
+el historial de ningún proyecto — que es exactamente lo esperable si de
+verdad no tocó ninguno.
+
+**Archivos:** `src/modulos/seguimiento/CargarSeguimiento.jsx` (reescrito).
+
+**Probado a mano** con gstack: cargué un seguimiento de Obras con un
+compromiso "Hablar con Legales para apurar el suministro" vinculado a Túnel
+Hornos (OBR-2026-006) → guardó sin error → la ficha del proyecto muestra
+"Seguimientos 1" y "Compromisos 1" → el compromiso aparece en la pestaña
+Compromisos con su chip de proyecto. Sin errores de consola.
+
+`npm run verificar`: 307/307 tests, build OK, 118 comprobaciones de render,
+29 rutas de accesibilidad.
+
+---
+
 ## 21/08/2026 — Color por secretaría en el chip de ID (Proyectos)
 
 **Pedido de JP**: en la página de Proyectos, que el chip que muestra el ID

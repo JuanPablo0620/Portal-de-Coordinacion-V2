@@ -3,45 +3,53 @@
  *
  * El orden de la pantalla sigue el orden real del trabajo: primero de qué
  * reunión se trata, después el texto crudo, después la transferencia a campos
- * revisables y recién al final el número de avance, que es lo único que se
- * decide DESPUÉS de haber leído lo que pasó.
+ * revisables. La transferencia PRECARGA los tres bloques; no persiste nada. El
+ * usuario corrige y recién al confirmar se escriben seguimiento y compromisos.
  *
- * La transferencia PRECARGA los tres bloques; no persiste nada. El usuario
- * corrige y recién al confirmar se escriben seguimiento, compromisos y avances
- * corregidos.
+ * A qué proyecto pertenece cada cosa es una decisión de CADA COMPROMISO, no
+ * del seguimiento entero — un seguimiento habla de una secretaría, no de una
+ * lista fija de proyectos tratados (20/08/2026, a pedido de JP): "hablar con
+ * Sistemas porque un CAPS no tiene internet" no es de ningún proyecto, y
+ * "hablar con Legales por el suministro" sí es del túnel Hornos, y esa
+ * distinción se hace compromiso por compromiso. Por eso no hay un selector de
+ * "proyectos tratados" acá arriba: cada fila de compromiso tiene su propio
+ * vínculo opcional a un proyecto (colapsado por defecto, igual que en
+ * `CargarMonitoreo.jsx`), y `seguimientos_proyectos` —para que el historial de
+ * un proyecto siga mostrando sus seguimientos— se arma solo, derivado de a
+ * qué proyectos terminaron vinculados los compromisos de la carga.
  */
-import { useMemo, useState } from 'react';
-import { Check, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Link2, Plus, Trash2, X } from 'lucide-react';
 import { Aviso, Boton, Chip, Semaforo, Tarjeta } from '../../componentes/Basicos.jsx';
 import { CampoFecha, CampoHora, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarMinuta } from '../../datos/minutas/separarMinuta.js';
-import { ESTADOS_PROYECTO } from '../../datos/catalogos.js';
-import { hoyISO, porcentajeAvance, proyectoPorId, ultimaActualizacion } from '../../datos/selectores.js';
-import { haceCuanto, numero } from '../../utilidades/formato.js';
+import { hoyISO } from '../../datos/selectores.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
-import { acciones, useBD } from '../../estado/tienda.js';
+import { acciones } from '../../estado/tienda.js';
 
-const filaVacia = () => ({ clave: Math.random().toString(36).slice(2), descripcion: '', responsable: '', fecha_limite: '' });
+const filaVacia = () => ({
+  clave: Math.random().toString(36).slice(2),
+  descripcion: '',
+  responsable: '',
+  fecha_limite: '',
+  id_proyecto: '',
+});
 
 const EJEMPLO =
   'Ej.: Se ejecutaron 200 metros de cordón cuneta en el sector norte. Falta la conformidad ' +
   'del área técnica para avanzar. Ferreyra va a presentar el informe actualizado antes del 15/09.';
 
 export function CargarSeguimiento({ alTerminar }) {
-  const bd = useBD();
   const hoy = hoyISO();
   const opcionesArea = useOpciones('areas');
 
   const [area, setArea] = useState('');
-  const [ids, setIds] = useState([]);
   const [fecha, setFecha] = useState(hoy);
   const [hora, setHora] = useState('');
   const [participantes, setParticipantes] = useState('');
   const [texto, setTexto] = useState('');
-  const [avancesCorregidos, setAvancesCorregidos] = useState({});
-  const [estadoReportado, setEstadoReportado] = useState('');
 
   const [compromisos, setCompromisos] = useState([]);
   const [avances, setAvances] = useState([]);
@@ -50,16 +58,11 @@ export function CargarSeguimiento({ alTerminar }) {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
-  const elegidos = useMemo(
-    () => (bd ? ids.map((id) => proyectoPorId(bd, id)).filter(Boolean) : []),
-    [bd, ids],
-  );
-
   const hayCampos = compromisos.length + avances.length + problemas.length > 0;
 
   function transferir() {
     const r = separarMinuta(texto, hoy);
-    setCompromisos(r.compromisos.map((c) => ({ ...c, clave: Math.random().toString(36).slice(2) })));
+    setCompromisos(r.compromisos.map((c) => ({ ...c, id_proyecto: '', clave: Math.random().toString(36).slice(2) })));
     setAvances(r.avances);
     setProblemas(r.problemas);
     setTransferido(true);
@@ -67,7 +70,6 @@ export function CargarSeguimiento({ alTerminar }) {
 
   function validar() {
     if (!area) return 'Elegí el área.';
-    if (!ids.length) return 'Elegí al menos un proyecto.';
     if (!fecha) return 'Indicá la fecha del seguimiento.';
     // Validación §8.6: las fechas límite no pueden ser anteriores a la carga.
     for (const c of compromisos) {
@@ -87,13 +89,19 @@ export function CargarSeguimiento({ alTerminar }) {
     setError('');
     setGuardando(true);
     try {
-      // Guardar una minuta son varias escrituras —el seguimiento, sus
-      // compromisos y el avance corregido de cada proyecto— que para quien
-      // carga son un solo acto. En lote se persiste una vez y la pantalla no se
-      // repinta con la minuta a medio guardar.
+      // A qué proyectos "tocó" este seguimiento se deriva de a cuáles quedaron
+      // vinculados sus compromisos — no es una declaración aparte. Así el
+      // historial de un proyecto sigue mostrando el seguimiento sin que haga
+      // falta aclarar de entrada de qué proyectos se habla.
+      const idsProyectoDerivados = [...new Set(compromisos.map((c) => c.id_proyecto).filter(Boolean))];
+
+      // Guardar una minuta son varias escrituras —el seguimiento y sus
+      // compromisos— que para quien carga son un solo acto. En lote se
+      // persiste una vez y la pantalla no se repinta con la minuta a medio
+      // guardar.
       await acciones.enLote(async () => {
         const seguimiento = await acciones.crearSeguimiento({
-          ids_proyecto: ids,
+          ids_proyecto: idsProyectoDerivados,
           area,
           fecha,
           hora,
@@ -104,7 +112,6 @@ export function CargarSeguimiento({ alTerminar }) {
           resumen: avances[0] ?? '',
           avances,
           problemas,
-          estado_reportado: estadoReportado,
         });
 
         const aCrear = compromisos
@@ -112,25 +119,13 @@ export function CargarSeguimiento({ alTerminar }) {
           .map((c) => ({
             origen_tipo: 'seguimiento',
             id_origen: seguimiento.id,
-            id_proyecto: ids[0] ?? null,
+            id_proyecto: c.id_proyecto || null,
             area,
             descripcion: c.descripcion.trim(),
             responsable: c.responsable.trim(),
             fecha_limite: c.fecha_limite || null,
           }));
         if (aCrear.length) await acciones.crearCompromisos(aCrear);
-
-        // Actualiza el avance de los proyectos que el usuario corrigió
-        for (const [id, valor] of Object.entries(avancesCorregidos)) {
-          if (valor === '' || valor === null) continue;
-          const previo = proyectoPorId(bd, id);
-          if (previo && Number(valor) !== Number(previo.avance)) {
-            await acciones.actualizarProyecto(id, {
-              avance: Number(valor),
-              ...(estadoReportado ? { estado: estadoReportado } : {}),
-            });
-          }
-        }
       });
 
       alTerminar?.();
@@ -142,16 +137,14 @@ export function CargarSeguimiento({ alTerminar }) {
   return (
     <div className="flex flex-col gap-4">
       {/* 1 · De qué reunión se trata */}
-      <Tarjeta titulo="1 · De qué seguimiento se trata" descripcion="Área, fecha y proyectos tratados.">
+      <Tarjeta titulo="1 · De qué seguimiento se trata" descripcion="Área, fecha y participantes.">
         <GrillaCampos columnas={3} className="mb-3">
           <CampoSelect etiqueta="Área" requerido opciones={opcionesArea} value={area} onChange={(e) => setArea(e.target.value)} />
           <CampoFecha etiqueta="Fecha del seguimiento" requerido value={fecha} onChange={(e) => setFecha(e.target.value)} />
           <CampoHora etiqueta="Hora" value={hora} onChange={(e) => setHora(e.target.value)} />
         </GrillaCampos>
-        <SelectorProyecto multiple valor={ids} alCambiar={setIds} etiqueta="Proyectos tratados" requerido />
         <CampoTexto
           etiqueta="Participantes"
-          className="mt-3"
           value={participantes}
           onChange={(e) => setParticipantes(e.target.value)}
           placeholder="Nombres separados por coma"
@@ -208,73 +201,7 @@ export function CargarSeguimiento({ alTerminar }) {
         </div>
       </Tarjeta>
 
-      {/* 4 · El número de avance, después de haber leído lo que pasó */}
-      {elegidos.length > 0 && (
-        <Tarjeta
-          titulo="4 · Avance de cada proyecto"
-          descripcion="Contra lo registrado en la carga anterior. Dejalo vacío si no cambió."
-          sinPadding
-        >
-          <ul className="divide-y divide-borde/60">
-            {elegidos.map((p) => {
-              const ultima = ultimaActualizacion(bd, p.id_proyecto);
-              const corregido = avancesCorregidos[p.id_proyecto];
-              return (
-                <li key={p.id_proyecto} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                  <div className="min-w-40 flex-1">
-                    <p className="text-sm font-medium leading-tight text-tinta">{p.proyecto}</p>
-                    <p className="text-[11px] text-tenue">
-                      {p.id_proyecto} · última carga {ultima ? haceCuanto(ultima) : 'sin registro'}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-[11px] text-gris">Registrado</p>
-                    <p className="tabular text-sm text-tinta">
-                      {numero(p.avance)} / {numero(p.objetivo)} {p.unidad}
-                    </p>
-                    <Chip tono="neutro">{p.estado}</Chip>
-                  </div>
-                  <div className="w-36 shrink-0">
-                    <label className="mb-1 block text-[11px] font-medium text-gris" htmlFor={`avance-${p.id_proyecto}`}>
-                      Avance actual
-                    </label>
-                    <input
-                      id={`avance-${p.id_proyecto}`}
-                      type="number"
-                      className="campo-base tabular py-1.5 text-sm"
-                      placeholder={String(p.avance)}
-                      value={corregido ?? ''}
-                      onChange={(e) =>
-                        setAvancesCorregidos((a) => ({ ...a, [p.id_proyecto]: e.target.value }))
-                      }
-                    />
-                    {corregido !== undefined && corregido !== '' && Number(corregido) !== Number(p.avance) && (
-                      <p className="mt-0.5 text-[11px] text-acento">
-                        {Number(corregido) > Number(p.avance) ? '+' : ''}
-                        {numero(Number(corregido) - Number(p.avance))} ·{' '}
-                        {porcentajeAvance({ avance: corregido, objetivo: p.objetivo })}%
-                      </p>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="border-t border-borde px-4 py-3">
-            <CampoSelect
-              etiqueta="Estado reportado por el área"
-              ayuda="se aplica a los proyectos con avance corregido"
-              opciones={ESTADOS_PROYECTO}
-              value={estadoReportado}
-              onChange={(e) => setEstadoReportado(e.target.value)}
-              placeholder="Sin cambios"
-              className="max-w-64"
-            />
-          </div>
-        </Tarjeta>
-      )}
-
-      {/* 5 · Confirmación */}
+      {/* 4 · Confirmación */}
       <Tarjeta>
         {error && (
           <div className="mb-3">
@@ -305,7 +232,7 @@ function BloqueCompromisos({ filas, setFilas, hoy }) {
         Compromisos
         <Chip tono="acento">{filas.filter((f) => f.descripcion.trim()).length}</Chip>
       </legend>
-      <div className="flex flex-col gap-2 p-3">
+      <div className="flex flex-col gap-3 p-3">
         {filas.length === 0 && (
           <p className="py-2 text-center text-xs text-tenue">
             Sin compromisos. Agregá uno a mano o transferilos desde el texto.
@@ -314,37 +241,44 @@ function BloqueCompromisos({ filas, setFilas, hoy }) {
         {filas.map((fila) => {
           const fechaInvalida = fila.fecha_limite && fila.fecha_limite < hoy;
           return (
-            <div key={fila.clave} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_150px_140px_auto]">
-              <input
-                className="campo-base py-1.5 text-sm"
-                placeholder="Descripción de la acción comprometida"
-                value={fila.descripcion}
-                onChange={(e) => actualizar(fila.clave, 'descripcion', e.target.value)}
-              />
-              <input
-                className="campo-base py-1.5 text-sm"
-                placeholder="Responsable"
-                value={fila.responsable}
-                onChange={(e) => actualizar(fila.clave, 'responsable', e.target.value)}
-              />
-              <div>
+            <div key={fila.clave} className="rounded-chip border border-borde/60 p-2.5">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_150px_140px_auto]">
                 <input
-                  type="date"
                   className="campo-base py-1.5 text-sm"
-                  value={fila.fecha_limite}
-                  onChange={(e) => actualizar(fila.clave, 'fecha_limite', e.target.value)}
-                  style={fechaInvalida ? { borderColor: 'var(--color-vencido)' } : undefined}
+                  placeholder="Descripción de la acción comprometida"
+                  value={fila.descripcion}
+                  onChange={(e) => actualizar(fila.clave, 'descripcion', e.target.value)}
                 />
-                {fechaInvalida && <p className="mt-0.5 text-[10px] text-vencido-texto">Anterior a hoy</p>}
+                <input
+                  className="campo-base py-1.5 text-sm"
+                  placeholder="Responsable"
+                  value={fila.responsable}
+                  onChange={(e) => actualizar(fila.clave, 'responsable', e.target.value)}
+                />
+                <div>
+                  <input
+                    type="date"
+                    className="campo-base py-1.5 text-sm"
+                    value={fila.fecha_limite}
+                    onChange={(e) => actualizar(fila.clave, 'fecha_limite', e.target.value)}
+                    style={fechaInvalida ? { borderColor: 'var(--color-vencido)' } : undefined}
+                  />
+                  {fechaInvalida && <p className="mt-0.5 text-[10px] text-vencido-texto">Anterior a hoy</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFilas((f) => f.filter((x) => x.clave !== fila.clave))}
+                  className="shrink-0 self-start rounded-chip p-2 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
+                  aria-label="Quitar compromiso"
+                >
+                  <Trash2 size={15} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setFilas((f) => f.filter((x) => x.clave !== fila.clave))}
-                className="shrink-0 self-start rounded-chip p-2 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
-                aria-label="Quitar compromiso"
-              >
-                <Trash2 size={15} />
-              </button>
+
+              <VinculoProyecto
+                valor={fila.id_proyecto}
+                alCambiar={(id) => actualizar(fila.clave, 'id_proyecto', id)}
+              />
             </div>
           );
         })}
@@ -353,6 +287,48 @@ function BloqueCompromisos({ filas, setFilas, hoy }) {
         </Boton>
       </div>
     </fieldset>
+  );
+}
+
+/**
+ * Vínculo opcional de un compromiso a un proyecto puntual — arranca plegado
+ * (mismo patrón que el proyecto vinculado de un tema en `CargarMonitoreo.jsx`):
+ * la mayoría de los compromisos no son de ningún proyecto en particular
+ * («hablar con Sistemas porque un CAPS no tiene internet»), así que mostrar el
+ * buscador entero en cada fila por las dudas sería ruido para el caso común.
+ */
+function VinculoProyecto({ valor, alCambiar }) {
+  const [abierto, setAbierto] = useState(Boolean(valor));
+
+  if (!abierto) {
+    return (
+      <Boton tamanio="sm" variante="fantasma" icono={Link2} onClick={() => setAbierto(true)} className="mt-2">
+        Vincular a un proyecto
+      </Boton>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex items-start gap-2">
+      <SelectorProyecto
+        etiqueta="Proyecto"
+        ayuda="opcional — dejalo vacío si el compromiso no es de ningún proyecto puntual"
+        valor={valor}
+        alCambiar={alCambiar}
+        maxAltura={160}
+        className="flex-1"
+      />
+      {!valor && (
+        <button
+          type="button"
+          onClick={() => setAbierto(false)}
+          className="mt-6 shrink-0 rounded-chip p-1.5 text-tenue transition hover:bg-paper hover:text-tinta"
+          aria-label="Cerrar el vínculo a proyecto"
+        >
+          <X size={14} />
+        </button>
+      )}
+    </div>
   );
 }
 
