@@ -59,12 +59,6 @@ create type public.estado_mesa as enum ('activa', 'latente', 'cerrada');
 create type public.estado_requerimiento as enum
   ('solicitado', 'confirmado', 'entregado');
 
-create type public.alcance_internacional as enum
-  ('bilateral', 'regional', 'multilateral');
-
-create type public.estado_accion_internacional as enum
-  ('identificada', 'en_preparacion', 'presentada', 'vigente', 'cerrada', 'no_prospero');
-
 -- ---------------------------------------------------------------------------
 -- Catalogos — reemplazan las listas hardcodeadas de catalogos.js de v2 y la
 -- pestaña `Desplegables` de los Sheets. Que sean tablas es lo que hace
@@ -130,13 +124,12 @@ create table public.motivos_estrategicos (
   activo boolean not null default true
 );
 
-create table public.organismos_internacionales (
-  id     uuid primary key default gen_random_uuid(),
-  nombre text not null,
-  activo boolean not null default true
-);
-
-create table public.paises_contraparte (
+-- Rediseño del 21/08/2026 (a pedido de JP, revisando el DER en Lucidchart):
+-- reemplaza a `organismos_internacionales` — nombre simplificado, mismas dos
+-- columnas. `paises_contraparte` se elimina del todo: era exclusiva de
+-- `acciones_internacionales` (campo `pais_id`), que este mismo cambio saca del
+-- esquema — ver la nota junto a `proyectos_posicionamiento` más abajo.
+create table public.organismos (
   id     uuid primary key default gen_random_uuid(),
   nombre text not null,
   activo boolean not null default true
@@ -528,42 +521,55 @@ create table public.hitos_planificacion (
 );
 
 -- ---------------------------------------------------------------------------
--- Posicionamiento internacional (nuevo de v2) — entidad propia a proposito:
--- un hermanamiento o una postulacion no tiene objetivo fisico ni avance.
+-- Posicionamiento internacional — rediseñado el 21/08/2026 (a pedido de JP,
+-- revisando el DER en Lucidchart). Reemplaza por completo la version anterior
+-- (`acciones_internacionales` + sus dos tablas puente): se van tipo, pais_id,
+-- alcance, fecha_inicio, fecha_limite, fecha_resolucion, resultado,
+-- descripcion y referente — ninguno confirmado contra el dato real relevado
+-- de Coordinacion_db (ver docs/der-esquema-datos.md). Tambien se va el
+-- vinculo M:N con `proyectos`: un proyecto de posicionamiento ya no depende
+-- de la tabla general de proyectos, es su propia entidad.
+--
+-- OJO — sin confirmar contra el sheet real (mismo aviso que ya se hizo antes
+-- por ODS): `organismo_id`, `area_id` y `financiamiento_usd` tampoco
+-- aparecieron en la pestaña "Estado de proyectos" que se relevo el
+-- 19/08/2026 (los 8 proyectos reales: CIPPEC, UBA, CIIAR, etc. solo traian
+-- Programa/Proyecto/Estado/Comentarios/Fecha). Son campos heredados del
+-- diseño original de v2, no verificados — igual que ODS, que por eso se
+-- elimino del esquema en este mismo cambio.
 -- ---------------------------------------------------------------------------
-create table public.acciones_internacionales (
+create table public.proyectos_posicionamiento (
   id                  uuid primary key default gen_random_uuid(),
   nombre              text not null,
-  tipo                text,
-  organismo_id        uuid references public.organismos_internacionales(id),
-  pais_id             uuid references public.paises_contraparte(id),
-  alcance             public.alcance_internacional,
-  estado              public.estado_accion_internacional not null default 'identificada',
+  organismo_id        uuid references public.organismos(id),
+  estado              text,
   area_id             uuid references public.areas(id),
-  referente           text,
-  descripcion         text,
-  fecha_inicio        date,
-  fecha_limite        date,
-  fecha_resolucion    date,
   financiamiento_usd  numeric,
-  resultado           text,
+  -- Lo que se espera conseguir o realizar (texto, no numerico: un
+  -- hermanamiento o una certificacion no se mide con un objetivo/avance
+  -- como los proyectos de la cartera general).
+  objetivo            text,
   activo              boolean not null default true,
   creado_por          uuid references public.perfiles(id),
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now()
 );
 
-create table public.acciones_internacionales_proyectos (
-  accion_id   uuid not null references public.acciones_internacionales(id) on delete cascade,
-  proyecto_id uuid not null references public.proyectos(id) on delete cascade,
-  primary key (accion_id, proyecto_id)
+-- Una fila por observacion fechada — mismo patron que `actualizaciones` de la
+-- cartera general: nunca se pisa una carga vieja, se acumulan en el tiempo.
+create table public.actualizaciones_posicionamiento (
+  id                            uuid primary key default gen_random_uuid(),
+  proyecto_posicionamiento_id  uuid not null
+                                references public.proyectos_posicionamiento(id) on delete cascade,
+  fecha_actualizacion          date not null,
+  estado                       text,
+  comentarios                  text,
+  cargado_por                  uuid references public.perfiles(id),
+  created_at                   timestamptz not null default now()
 );
 
-create table public.acciones_internacionales_ods (
-  accion_id  uuid not null references public.acciones_internacionales(id) on delete cascade,
-  ods_numero int not null check (ods_numero between 1 and 17),
-  primary key (accion_id, ods_numero)
-);
+create index actualizaciones_posicionamiento_proyecto_idx
+  on public.actualizaciones_posicionamiento (proyecto_posicionamiento_id);
 
 create table public.reportes_guardados (
   id                uuid primary key default gen_random_uuid(),

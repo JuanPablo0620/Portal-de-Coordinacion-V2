@@ -29,7 +29,7 @@ definido contra el esquema:
 | `mesas` | `mesas`, `reuniones_mesa`, `mesas_proyectos` |
 | `eventos` | `eventos`, `requerimientos_evento` |
 | `estrategicos` | `proyectos` (marca), `motivos_estrategicos` |
-| `posicionamiento` | `acciones_internacionales` y sus tablas puente |
+| `posicionamiento` | `proyectos_posicionamiento`, `actualizaciones_posicionamiento` (rediseñado el 21/08/2026 — ver `docs/der-esquema-datos.md` §2.9; **importante:** hoy el front real guarda estos datos en la tabla general `proyectos` con `programa = 'Posicionamiento'`, así que migrar este módulo implica un cambio de contrato, no solo una migración de filas) |
 | `obras` | `proyectos` + `actividades` (con lat/lng para el mapa) |
 | `reportes` | solo lectura + `reportes_guardados` |
 
