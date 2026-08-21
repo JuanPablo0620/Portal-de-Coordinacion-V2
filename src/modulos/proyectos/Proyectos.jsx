@@ -3,7 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { Database, FolderKanban, Gem, HardHat, Plus, Upload } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
-import { BarraAvance, Boton, Chip, EstadoProyecto, Prioridad, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
+import {
+  BarraAvance,
+  Boton,
+  Chip,
+  EstadoProyecto,
+  Prioridad,
+  Tarjeta,
+  Vacio,
+  tonoPorIdProyecto,
+} from '../../componentes/Basicos.jsx';
 import { CampoSelect } from '../../componentes/Campo.jsx';
 import { Alternadores, GrillaFiltros, TarjetaFiltros } from '../../componentes/Filtros.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
@@ -47,7 +56,12 @@ export default function Proyectos() {
   const hayProyectos = (bd?.proyectos ?? []).some((p) => p.activo !== false);
 
   const columnas = [
-    { clave: 'id_proyecto', titulo: 'ID', ancho: 130, render: (f) => <Chip tono="acento">{f.id_proyecto}</Chip> },
+    {
+      clave: 'id_proyecto',
+      titulo: 'ID',
+      ancho: 130,
+      render: (f) => <Chip tono={tonoPorIdProyecto(f.id_proyecto)}>{f.id_proyecto}</Chip>,
+    },
     {
       clave: 'proyecto',
       titulo: 'Proyecto',

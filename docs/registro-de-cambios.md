@@ -11,6 +11,53 @@ y el resultado de `npm run verificar`.
 
 ---
 
+## 21/08/2026 — Color por secretaría en el chip de ID (Proyectos)
+
+**Pedido de JP**: en la página de Proyectos, que el chip que muestra el ID
+(`AMB-2026-018`, `CAH-2026-001`...) tenga un color distinguible por
+secretaría, en vez del mismo azul genérico para todas.
+
+**Cómo se armó el color**: cargué la skill de `dataviz` en vez de elegir
+tonos a ojo. La paleta categórica que la app ya usa para gráficos
+(`--color-serie-1..8`) no sirvió — corrida por el validador de la skill,
+3 de los 8 tonos leen grisáceos y dos son casi indistinguibles entre sí—, así
+que arme una paleta nueva y chica, acotada a este uso, y la validé con
+`node scripts/validate_palette.js` contra el fondo real de la app (blanco):
+lightness band, piso de croma, separación CVD (daltonismo) y piso de
+distinción a ojo normal, los cuatro en verde. Deliberadamente ningún tono
+coincide con los cuatro colores de estado que ya tiene el sistema
+(vencido/próximo/atención/en regla), para que un chip de área nunca se lea
+como un semáforo de estado. Cada color sigue el mismo patrón de tres
+variantes que ya usa el resto de la app (base, `-texto` oscurecido a ≥4,5:1
+para que el texto sea legible, `-suave` aclarado para el fondo del chip) —
+las derivé con un script en vez de a ojo, buscando el oscurecimiento mínimo
+que llega al contraste pedido.
+
+Un aviso quedó en el amarillo (banda 6-8 de separación CVD contra el verde,
+límite legal solo con "codificación secundaria" — la skill lo exige
+explícitamente). Acá se cumple sin agregar nada: el propio texto del ID
+(las letras del prefijo) ya identifica la secretaría independientemente del
+color, así que el color es un refuerzo visual, nunca la única señal.
+
+**Alcance**: las 7 secretarías reales tienen color fijo por prefijo
+(AMB/CAH/OBR/SAL/SEG/TYP/COR). Cualquier otro prefijo — por ejemplo, las 14
+áreas ficticias de la base completa — cae en el tono acento genérico de
+siempre: no vale la pena mantener un color propio por área de prueba.
+
+**Archivos:** `src/estilos/index.css` (21 tokens nuevos: 7 colores × 3
+variantes), `src/componentes/Basicos.jsx` (7 tonos nuevos de `Chip` +
+`tonoPorIdProyecto()`), `src/modulos/proyectos/Proyectos.jsx` (columna ID).
+
+**Probado a mano** con gstack, datos reales cargados: Ambiente en azul,
+Capital Humano en naranja, Obras en verde-teal, Salud en mostaza — los
+cuatro claramente distintos entre sí y de los chips de estado
+(planificado/en ejecución/demorado/finalizado). Sin errores de consola.
+
+`npm run verificar`: 307/307 tests, build OK, 118 comprobaciones de render,
+29 rutas de accesibilidad.
+
+---
+
 ## 21/08/2026 — Módulo nuevo «Mis áreas»
 
 **Pedido de JP** (dejado corriendo mientras se iba a una reunión, con

@@ -166,7 +166,37 @@ const TONOS_CHIP = {
   proximo: 'bg-proximo-suave text-proximo-texto border-proximo/30',
   atencion: 'bg-atencion-suave text-atencion-texto border-atencion/40',
   enregla: 'bg-enregla-suave text-enregla-texto border-enregla/30',
+  'area-amb': 'bg-area-amb-suave text-area-amb-texto border-area-amb/30',
+  'area-cah': 'bg-area-cah-suave text-area-cah-texto border-area-cah/30',
+  'area-obr': 'bg-area-obr-suave text-area-obr-texto border-area-obr/30',
+  'area-sal': 'bg-area-sal-suave text-area-sal-texto border-area-sal/30',
+  'area-seg': 'bg-area-seg-suave text-area-seg-texto border-area-seg/30',
+  'area-typ': 'bg-area-typ-suave text-area-typ-texto border-area-typ/30',
+  'area-cor': 'bg-area-cor-suave text-area-cor-texto border-area-cor/30',
 };
+
+/**
+ * De qué prefijo de `id_proyecto` (AMB-2026-018 → AMB) a qué tono de `Chip`.
+ * Las siete secretarías reales tienen su color fijo; cualquier prefijo que no
+ * esté acá (por ejemplo, alguna de las catorce áreas ficticias de la base
+ * completa) cae en un tono acento genérico — no vale la pena mantener un
+ * color propio por cada área de prueba.
+ */
+const TONO_POR_PREFIJO = {
+  AMB: 'area-amb',
+  CAH: 'area-cah',
+  OBR: 'area-obr',
+  SAL: 'area-sal',
+  SEG: 'area-seg',
+  TYP: 'area-typ',
+  COR: 'area-cor',
+};
+
+/** Tono de `Chip` para un `id_proyecto` tipo «AMB-2026-018», por su prefijo. */
+export function tonoPorIdProyecto(idProyecto) {
+  const prefijo = String(idProyecto ?? '').split('-')[0];
+  return TONO_POR_PREFIJO[prefijo] ?? 'acento';
+}
 
 export function Chip({ tono = 'neutro', children, className = '' }) {
   return (

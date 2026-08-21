@@ -53,6 +53,38 @@
   --color-sindato-texto: #6a727b;
   --color-sindato-suave: #eef1f4;
 
+  /* Identidad por secretaría — para distinguir de un vistazo a qué área
+     pertenece un `id_proyecto` (prefijo AMB/CAH/OBR/SAL/SEG/TYP/COR) en
+     listados donde conviven proyectos de varias áreas, sin depender solo del
+     texto del prefijo. Paleta categórica validada con la skill de dataviz
+     (`node scripts/validate_palette.js`, ver docs/registro-de-cambios.md,
+     21/08/2026): CVD-safe y con ≥4,5:1 la variante `-texto`, igual que el
+     semáforo. Deliberadamente NO reutiliza los 8 `--color-serie-*` de los
+     gráficos: tres de esos leen grisáceos o quedan indistinguibles entre sí,
+     y ninguno de los siete de acá coincide con los cuatro colores de estado
+     (vencido/próximo/atención/en regla) para no leerse como semáforo. */
+  --color-area-amb: #2a78d6;
+  --color-area-amb-texto: #2876d2;
+  --color-area-amb-suave: #e7eff8;
+  --color-area-cah: #eb6834;
+  --color-area-cah-texto: #ce4914;
+  --color-area-cah-suave: #f8ece7;
+  --color-area-obr: #1baf7a;
+  --color-area-obr-texto: #14835b;
+  --color-area-obr-suave: #e7f8f2;
+  --color-area-sal: #eda100;
+  --color-area-sal-texto: #9b6a00;
+  --color-area-sal-suave: #f8f3e7;
+  --color-area-seg: #e87ba4;
+  --color-area-seg-texto: #da2d6e;
+  --color-area-seg-suave: #f8e7ee;
+  --color-area-typ: #008300;
+  --color-area-typ-texto: #008300;
+  --color-area-typ-suave: #e7f8e7;
+  --color-area-cor: #4a3aa7;
+  --color-area-cor-texto: #4a3aa7;
+  --color-area-cor-suave: #eae8f7;
+
   /* Capas del calendario y del historial de proyecto */
   --color-capa-seguimiento: #1d5fa8;
   --color-capa-evento: #8b5cb8;
