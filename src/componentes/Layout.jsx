@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import logo3f from '../assets/logo-3f.png';
 import {
-  Building2,
   CalendarCheck,
   CalendarDays,
   FileBarChart,
@@ -63,9 +63,7 @@ function Navegacion({ alNavegar }) {
 function Marca() {
   return (
     <div className="flex items-center gap-2.5 border-b border-borde px-4 py-3.5">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-chip bg-acento text-white">
-        <Building2 size={19} />
-      </span>
+      <img src={logo3f} alt="" className="h-9 w-9 shrink-0 rounded-chip" />
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold leading-tight text-tinta">Coordinación</p>
         <p className="truncate text-[11px] leading-tight text-tenue">Municipio de Tres de Febrero</p>
