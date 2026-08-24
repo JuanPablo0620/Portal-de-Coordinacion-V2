@@ -1195,7 +1195,11 @@ export function candidatosEstrategicos(bd, filtros = {}, hoy = hoyISO()) {
         id_proyecto: id,
         area: s.area ?? '',
         fecha: s.fecha ?? null,
-        titulo: s.problemas[0],
+        // Un problema es hoy { descripcion, id_proyecto } (24/08/2026);
+        // defensivo contra el string simple de antes, que puede seguir
+        // guardado en el navegador de quien cargó un seguimiento con la
+        // versión vieja del formulario.
+        titulo: typeof s.problemas[0] === 'string' ? s.problemas[0] : s.problemas[0]?.descripcion ?? '',
         detalle: `${s.problemas.length} problema(s) informados en el seguimiento`,
         ruta: `/seguimiento?vista=lista&seguimiento=${s.id}`,
       });

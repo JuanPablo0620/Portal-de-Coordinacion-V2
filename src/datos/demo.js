@@ -277,8 +277,10 @@ export function generarDemo(hoy) {
           'para el período. Falta la conformidad del área técnica para avanzar con la etapa siguiente. ' +
           `${elegir(personas)} va a presentar el informe actualizado antes de fin de mes.`,
         resumen: 'Revisión de avance y definición de próximos pasos.',
-        avances: ['Se ejecutaron los trabajos previstos para el período.'],
-        problemas: ['Falta la conformidad del área técnica para avanzar con la etapa siguiente.'],
+        // { descripcion, id_proyecto } desde el 24/08/2026 — cada avance o
+        // problema puede vincularse a un proyecto puntual del área.
+        avances: [{ descripcion: 'Se ejecutaron los trabajos previstos para el período.', id_proyecto: elegidos[0] ?? null }],
+        problemas: [{ descripcion: 'Falta la conformidad del área técnica para avanzar con la etapa siguiente.', id_proyecto: null }],
         estado_reportado: 'en ejecución',
         activo: true,
         creado_por: usuario,

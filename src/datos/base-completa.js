@@ -363,6 +363,14 @@ export function generarBaseCompleta(hoy) {
       const problemas = tomar(FRASES_PROBLEMA, entre(0, 2));
       const pedidos = tomar(FRASES_COMPROMISO, entre(1, 3));
       const firma = elegir(EQUIPO);
+      // { descripcion, id_proyecto } desde el 24/08/2026: cada avance o
+      // problema puede vincularse a uno de los proyectos que tocó el
+      // seguimiento, no solo el seguimiento en su conjunto.
+      const conProyecto = (frases) =>
+        frases.map((descripcion, i) => ({
+          descripcion,
+          id_proyecto: vinculados.length ? vinculados[i % vinculados.length] : null,
+        }));
 
       const s = {
         id: nuevoId('seg'),
@@ -382,8 +390,8 @@ export function generarBaseCompleta(hoy) {
         resumen: problemas.length
           ? 'Revisión de avance con puntos pendientes de resolución.'
           : 'Revisión de avance y definición de próximos pasos.',
-        avances,
-        problemas,
+        avances: conProyecto(avances),
+        problemas: conProyecto(problemas),
         estado_reportado: problemas.length > 1 ? 'demorado' : 'en ejecución',
         activo: true,
         creado_por: firma,

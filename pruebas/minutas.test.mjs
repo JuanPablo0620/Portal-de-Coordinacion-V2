@@ -175,15 +175,16 @@ test('el separador clasifica bien el corpus completo de minutas', () => {
     const r = separarMinuta(s.texto_crudo, '2026-08-10');
     const todo = [...r.avances, ...r.problemas, ...r.compromisos.map((c) => c.descripcion)];
 
+    // avances/problemas son { descripcion, id_proyecto } desde el 24/08/2026.
     for (const a of s.avances) {
       totalAvances += 1;
-      const trozo = a.slice(0, 25);
+      const trozo = a.descripcion.slice(0, 25);
       if (!todo.some((x) => x.includes(trozo))) perdidas += 1;
       else if (!r.avances.some((x) => x.includes(trozo))) avancesMal += 1;
     }
     for (const p of s.problemas) {
       totalProblemas += 1;
-      const trozo = p.slice(0, 25);
+      const trozo = p.descripcion.slice(0, 25);
       if (!todo.some((x) => x.includes(trozo))) perdidas += 1;
       else if (!r.problemas.some((x) => x.includes(trozo))) problemasMal += 1;
     }

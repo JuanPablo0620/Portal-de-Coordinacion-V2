@@ -11,6 +11,60 @@ y el resultado de `npm run verificar`.
 
 ---
 
+## 24/08/2026 — Seguimiento: selector de proyecto en avances y problemas también
+
+**Pedido de JP**, probando la carga real de Trabajo y Producción: en la
+sección "3 · Campos transferidos", cada fila —no solo los compromisos—
+necesita un selector a su izquierda para elegir a qué proyecto pertenece,
+acotado a los proyectos del área elegida en la sección 1 (si el área es
+Trabajo y Producción, el selector solo ofrece los proyectos de esa
+secretaría).
+
+**Cambio de forma de dato**: `avances` y `problemas` pasan de ser arrays de
+string simples a arrays de `{ descripcion, id_proyecto }` — mismo patrón que
+ya tenían los compromisos. Reemplaza el patrón anterior de "vínculo
+colapsado" (botón "Vincular a un proyecto" que expandía el buscador
+completo) por un `<select>` siempre visible a la izquierda de cada fila,
+igual para compromisos, avances y problemas — más simple que el buscador
+completo porque la lista ya viene acotada al área, no hace falta buscar
+entre todos los proyectos del sistema.
+
+**Derivación de `seguimientos_proyectos`** (para que el historial de un
+proyecto muestre sus seguimientos) ahora considera las tres listas, no solo
+compromisos: se arma de a qué proyectos quedó vinculada CUALQUIER fila de
+la carga.
+
+**Efecto colateral resuelto**: cambiar la forma de `avances`/`problemas`
+rompía dos consumidores que asumían strings simples —
+`VistaPrevia.jsx` (Reportes, renderizaba el string directo) y
+`candidatosEstrategicos()` en `selectores.js` (usaba `problemas[0]` como
+título)—, además de un test que corre el corpus completo de
+`base-completa.js` contra el clasificador. Los tres se actualizaron; los dos
+primeros quedaron defensivos contra la forma vieja (`typeof x === 'string'
+? x : x.descripcion`), porque un seguimiento cargado con el formulario
+anterior puede seguir guardado así en el navegador de quien lo cargó.
+`demo.js` y `base-completa.js` también se actualizaron para generar la
+forma nueva, así el sistema no mezcla dos formas distintas para el mismo
+campo.
+
+**Archivos:** `src/modulos/seguimiento/CargarSeguimiento.jsx` (reescrito),
+`src/modulos/reportes/VistaPrevia.jsx`, `src/datos/selectores.js`,
+`src/datos/demo.js`, `src/datos/base-completa.js`,
+`pruebas/minutas.test.mjs`.
+
+**Probado a mano** con gstack, sobre Trabajo y Producción: el selector de
+cada fila mostró únicamente "Cursos y Capacitaciones" (el único proyecto
+real de esa secretaría) → cargué un avance vinculado a ese proyecto y
+guardé → sin errores de consola → la ficha del proyecto pasó a mostrar
+"Seguimientos 1" sin que hiciera falta ningún compromiso → confirmado
+también consultando el dato tal como quedó persistido: `{ descripcion:
+"...", id_proyecto: "TYP-2026-001" }`.
+
+`npm run verificar`: 307/307 tests, build OK, 118 comprobaciones de render,
+29 rutas de accesibilidad.
+
+---
+
 ## 21/08/2026 — Seguimiento: el vínculo a proyecto es del compromiso, no de la carga entera
 
 **Pedido de JP**, surgido de una conversación sobre qué es y qué no es un

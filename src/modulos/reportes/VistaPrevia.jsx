@@ -16,6 +16,14 @@ import { GraficoBarras, GraficoTorta } from '../../componentes/Graficos.jsx';
 import { ETIQUETAS_ALERTA } from '../../datos/alertas.js';
 import { fecha as fFecha, fechaLarga, moneda, numero } from '../../utilidades/formato.js';
 
+/**
+ * Un avance/problema de seguimiento es hoy `{ descripcion, id_proyecto }`
+ * (24/08/2026, para poder vincular cada fila a un proyecto). Defensivo contra
+ * el string simple de antes: un seguimiento cargado con la versión vieja del
+ * formulario ya está guardado así en el navegador de quien lo cargó.
+ */
+const textoDe = (item) => (typeof item === 'string' ? item : item?.descripcion ?? '');
+
 export function VistaPrevia({ reporte, bloques, hoy }) {
   const nada = !Object.values(bloques).some(Boolean);
 
@@ -294,7 +302,7 @@ function BloqueMinutas({ seguimientos }) {
                       <p className="mb-1 text-[11px] font-semibold text-enregla-texto">Avances informados</p>
                       <ul className="list-inside list-disc text-[11px] text-gris">
                         {s.avances.map((a, i) => (
-                          <li key={i}>{a}</li>
+                          <li key={i}>{textoDe(a)}</li>
                         ))}
                       </ul>
                     </div>
@@ -304,7 +312,7 @@ function BloqueMinutas({ seguimientos }) {
                       <p className="mb-1 text-[11px] font-semibold text-vencido-texto">Problemas / trabas</p>
                       <ul className="list-inside list-disc text-[11px] text-gris">
                         {s.problemas.map((p, i) => (
-                          <li key={i}>{p}</li>
+                          <li key={i}>{textoDe(p)}</li>
                         ))}
                       </ul>
                     </div>
