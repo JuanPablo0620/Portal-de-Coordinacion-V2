@@ -48,7 +48,7 @@ const PROYECTO_BASE = {
   area: 'Secretaría de Obras',
   id_area: 'ar_r_obras',
   programa: 'Infraestructura urbana',
-  eje: 'Desarrollo urbano',
+  eje: 'POA',
   tipo: 'Obra',
   unidad: 'cuadras',
   objetivo: 100,

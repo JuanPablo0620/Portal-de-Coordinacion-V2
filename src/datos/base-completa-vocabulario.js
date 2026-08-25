@@ -35,7 +35,7 @@ export const AREAS = [
   {
     nombre: 'Secretaría de Obras Públicas',
     prefijo: 'OBR',
-    eje: 'Desarrollo urbano',
+    eje: 'POA',
     programas: ['Infraestructura urbana', 'Hábitat y vivienda', 'Espacios verdes'],
     porAnio: [14, 16, 12],
     cumplimiento: 0.9,
@@ -55,7 +55,7 @@ export const AREAS = [
   {
     nombre: 'Secretaría de Desarrollo Social',
     prefijo: 'DSO',
-    eje: 'Inclusión y equidad',
+    eje: 'POA',
     programas: ['Inclusión social', 'Primera infancia', 'Hábitat y vivienda'],
     porAnio: [10, 11, 9],
     cumplimiento: 0.995,
@@ -73,7 +73,7 @@ export const AREAS = [
   {
     nombre: 'Secretaría de Servicios Públicos',
     prefijo: 'SPU',
-    eje: 'Ambiente y sustentabilidad',
+    eje: 'POA',
     programas: ['Higiene urbana', 'Espacios verdes'],
     porAnio: [9, 10, 8],
     cumplimiento: 0.86,
@@ -90,7 +90,7 @@ export const AREAS = [
   {
     nombre: 'Secretaría de Salud',
     prefijo: 'SAL',
-    eje: 'Salud y bienestar',
+    eje: 'POA',
     programas: ['Atención primaria de la salud', 'Salud comunitaria'],
     porAnio: [8, 9, 7],
     cumplimiento: 0.998,
@@ -107,7 +107,7 @@ export const AREAS = [
   {
     nombre: 'Subsecretaría de Educación',
     prefijo: 'EDU',
-    eje: 'Educación y cultura',
+    eje: 'POA',
     programas: ['Trayectorias educativas', 'Primera infancia'],
     porAnio: [7, 7, 6],
     cumplimiento: 0.999,
@@ -123,7 +123,7 @@ export const AREAS = [
   {
     nombre: 'Subsecretaría de Cultura',
     prefijo: 'CUL',
-    eje: 'Educación y cultura',
+    eje: 'POA',
     programas: ['Cultura de cercanía'],
     porAnio: [6, 6, 5],
     cumplimiento: 0.997,
@@ -139,7 +139,7 @@ export const AREAS = [
   {
     nombre: 'Dirección de Producción y Empleo',
     prefijo: 'PRO',
-    eje: 'Desarrollo económico',
+    eje: 'POA',
     programas: ['Empleo joven', 'Economía social'],
     porAnio: [6, 6, 5],
     cumplimiento: 0.99,
@@ -155,7 +155,7 @@ export const AREAS = [
   {
     nombre: 'Dirección de Ambiente',
     prefijo: 'AMB',
-    eje: 'Ambiente y sustentabilidad',
+    eje: 'POA',
     programas: ['Espacios verdes', 'Higiene urbana'],
     porAnio: [6, 7, 5],
     cumplimiento: 0.995,
@@ -171,7 +171,7 @@ export const AREAS = [
   {
     nombre: 'Secretaría de Gobierno',
     prefijo: 'GOB',
-    eje: 'Modernización de la gestión',
+    eje: 'POA',
     programas: ['Cercanía y atención al vecino', 'Modernización administrativa'],
     porAnio: [5, 5, 4],
     cumplimiento: 0.88,
@@ -186,7 +186,7 @@ export const AREAS = [
   {
     nombre: 'Secretaría de Hacienda',
     prefijo: 'HAC',
-    eje: 'Modernización de la gestión',
+    eje: 'POA',
     programas: ['Modernización administrativa'],
     porAnio: [4, 5, 4],
     cumplimiento: 1,
@@ -201,7 +201,7 @@ export const AREAS = [
   {
     nombre: 'Dirección de Deportes',
     prefijo: 'DEP',
-    eje: 'Salud y bienestar',
+    eje: 'POA',
     programas: ['Deporte comunitario', 'Espacios verdes'],
     porAnio: [5, 5, 4],
     cumplimiento: 0.997,
@@ -216,7 +216,7 @@ export const AREAS = [
   {
     nombre: 'Dirección de Juventud',
     prefijo: 'JUV',
-    eje: 'Inclusión y equidad',
+    eje: 'POA',
     programas: ['Empleo joven', 'Inclusión social'],
     porAnio: [4, 4, 3],
     cumplimiento: 1,
@@ -230,7 +230,7 @@ export const AREAS = [
   {
     nombre: 'Dirección de Género y Diversidad',
     prefijo: 'GEN',
-    eje: 'Inclusión y equidad',
+    eje: 'POA',
     programas: ['Inclusión social'],
     porAnio: [3, 4, 3],
     cumplimiento: 0.999,
@@ -244,7 +244,7 @@ export const AREAS = [
   {
     nombre: 'Dirección de Modernización',
     prefijo: 'MOD',
-    eje: 'Modernización de la gestión',
+    eje: 'POA',
     programas: ['Modernización administrativa'],
     porAnio: [4, 4, 4],
     cumplimiento: 1,
@@ -265,11 +265,11 @@ export const PROGRAMAS = [
   'Seguridad vial', 'Turismo local', 'Cooperación institucional',
 ];
 
-export const EJES = [
-  'Desarrollo urbano', 'Inclusión y equidad', 'Salud y bienestar', 'Educación y cultura',
-  'Desarrollo económico', 'Ambiente y sustentabilidad', 'Modernización de la gestión',
-  'Participación ciudadana',
-];
+// Mismos valores reales que `CATALOGOS_SEMILLA.ejes` (ver catalogos.js) — antes
+// tenía ocho ejes genéricos inventados que no existen en ningún sheet. Los
+// proyectos de `AREAS` de acá arriba usan todos 'POA'; el resto queda listado
+// para que el catálogo de "base completa" no sea más pobre que el real.
+export const EJES = ['POA', 'Puntual', 'Mesa Esperanza', 'Mesa EDLA', 'Mesa Favelita / El Libertador', 'Posicionamiento', 'Compromisos'];
 
 export const TIPOS_PROYECTO = [
   ['Obra', true], ['Servicio', false], ['Programa social', false],

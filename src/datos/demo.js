@@ -51,7 +51,7 @@ const PLANTILLAS = {
       ['Refacción de edificio municipal', 'Obra', 'm²', true],
     ],
     programa: 'Infraestructura urbana',
-    eje: 'Desarrollo urbano',
+    eje: 'POA',
   },
   'Secretaría de Ambiente y Servicios Públicos': {
     proyectos: [
@@ -64,7 +64,7 @@ const PLANTILLAS = {
       ['Educación ambiental en escuelas', 'Programa social', 'beneficiarios', false, 'Espacios verdes'],
     ],
     programa: 'Higiene urbana',
-    eje: 'Ambiente y sustentabilidad',
+    eje: 'POA',
   },
   'Secretaría de Capital Humano': {
     proyectos: [
@@ -80,7 +80,7 @@ const PLANTILLAS = {
       ['Escuela municipal de arte', 'Servicio', 'beneficiarios', false, 'Cultura de cercanía'],
     ],
     programa: 'Inclusión social',
-    eje: 'Inclusión y equidad',
+    eje: 'POA',
   },
   'Secretaría de Salud': {
     proyectos: [
@@ -90,7 +90,7 @@ const PLANTILLAS = {
       ['Ampliación de sala de atención', 'Obra', 'm²', true],
     ],
     programa: 'Atención primaria de la salud',
-    eje: 'Salud y bienestar',
+    eje: 'POA',
   },
   'Secretaría de Seguridad': {
     proyectos: [
@@ -100,7 +100,7 @@ const PLANTILLAS = {
       ['Capacitación en prevención comunitaria', 'Programa social', 'beneficiarios', false],
     ],
     programa: 'Seguridad ciudadana',
-    eje: 'Seguridad ciudadana',
+    eje: 'POA',
   },
   'Secretaría de Trabajo y Producción': {
     proyectos: [
@@ -109,7 +109,7 @@ const PLANTILLAS = {
       ['Feria de productores locales', 'Servicio', 'beneficiarios', false],
     ],
     programa: 'Empleo joven',
-    eje: 'Desarrollo económico',
+    eje: 'POA',
   },
   'Coordinación': {
     proyectos: [
@@ -118,7 +118,7 @@ const PLANTILLAS = {
       ['Convenio de cooperación institucional', 'Gestión interna', 'unidades', false],
     ],
     programa: 'Modernización de la gestión',
-    eje: 'Modernización de la gestión',
+    eje: 'POA',
   },
 };
 

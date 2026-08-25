@@ -184,23 +184,38 @@ export const CATALOGOS_SEMILLA = Object.freeze({
     { id: 'pr_seguridad', nombre: 'Seguridad ciudadana', activo: true },
     { id: 'pr_gestion', nombre: 'Modernización de la gestión', activo: true },
   ],
+  /**
+   * Valores reales del campo `Eje` de los `_db` (ver glosario). Hasta el
+   * 25/08/2026 esta lista mezclaba estos con ocho ejes genéricos inventados
+   * ("Desarrollo urbano", "Inclusión y equidad"...) que no existen en ningún
+   * sheet — se sacaron: confundían la pantalla de Configuración → Catálogos
+   * igual que pasaba con las áreas ficticias antes del 20/08.
+   *
+   * `Mesa Esperanza` / `Mesa EDLA` / `Mesa Favelita / El Libertador` son las
+   * tres mesas de barrios populares releveadas — no un genérico "Mesa": el
+   * campo `Eje` real nombra la mesa puntual, no la categoría.
+   *
+   * `Puntual` sigue acá como valor de `eje` de PROYECTOS a propósito, aunque
+   * el esquema de Supabase que se está armando en paralelo (PR de Tomás,
+   * 25/08) modela los puntuales como tabla PROPIA — nunca `eje='Puntual'` en
+   * `proyectos`. Separar esa colección en el prototipo es un cambio más
+   * grande que JP pidió dejar para después: por ahora los proyectos reales
+   * de las 6 secretarías (no Posicionamiento) siguen cayendo acá como
+   * aproximación, documentada en `proyectos-reales-secretarias.js`.
+   *
+   * `Compromisos` es un valor real observado en los `_db` pero de sentido sin
+   * confirmar del todo (ver glosario, "(confirmar qué son exactamente)") y
+   * ninguna carga real lo usa todavía — queda listado para no perder
+   * vocabulario institucional, no como recomendación de uso.
+   */
   ejes: [
-    { id: 'ej_urbano', nombre: 'Desarrollo urbano', activo: true },
-    { id: 'ej_social', nombre: 'Inclusión y equidad', activo: true },
-    { id: 'ej_salud', nombre: 'Salud y bienestar', activo: true },
-    { id: 'ej_educ', nombre: 'Educación y cultura', activo: true },
-    { id: 'ej_econ', nombre: 'Desarrollo económico', activo: true },
-    { id: 'ej_amb', nombre: 'Ambiente y sustentabilidad', activo: true },
-    { id: 'ej_gest', nombre: 'Modernización de la gestión', activo: true },
-    { id: 'ej_posic', nombre: 'Posicionamiento', activo: true },
-    { id: 'ej_seguridad', nombre: 'Seguridad ciudadana', activo: true },
-    // Reales — valores que toma el campo `Eje` en los `_db` (ver glosario:
-    // POA, Compromisos, Puntual, más las mesas territoriales). Se agregan acá
-    // porque los proyectos reales de las siete secretarías (no solo
-    // Posicionamiento) necesitan un eje real, no uno genérico inventado.
     { id: 'ej_poa', nombre: 'POA', activo: true },
-    { id: 'ej_compromisos', nombre: 'Compromisos', activo: true },
     { id: 'ej_puntual', nombre: 'Puntual', activo: true },
+    { id: 'ej_mesa_esperanza', nombre: 'Mesa Esperanza', activo: true },
+    { id: 'ej_mesa_edla', nombre: 'Mesa EDLA', activo: true },
+    { id: 'ej_mesa_favelita', nombre: 'Mesa Favelita / El Libertador', activo: true },
+    { id: 'ej_posic', nombre: 'Posicionamiento', activo: true },
+    { id: 'ej_compromisos', nombre: 'Compromisos', activo: true },
   ],
   tipos: [
     { id: 'ti_obra', nombre: 'Obra', es_obra: true, activo: true },
