@@ -508,10 +508,11 @@ create table public.temas_monitoreo (
   activo           boolean not null default true,
   creado_por       uuid references public.perfiles(id),
   created_at       timestamptz not null default now(),
-  updated_at       timestamptz not null default now(),
-  constraint temas_monitoreo_vinculo_unico check (
-    num_nonnulls(proyecto_id, puntual_id) <= 1
-  )
+  updated_at       timestamptz not null default now()
+  -- El vinculo con compromisos (columna compromiso_id + el CHECK que cubre
+  -- los tres) se agrega mas abajo con ALTER TABLE, despues de que exista
+  -- public.compromisos — dependencia circular real entre las dos tablas
+  -- (compromisos.id_tema_origen ya apunta para aca).
 );
 
 create table public.mesas (
@@ -577,6 +578,23 @@ create table public.compromisos (
     num_nonnulls(proyecto_id, puntual_id) <= 1
   )
 );
+
+-- temas_monitoreo.compromiso_id — distinto de compromisos.id_tema_origen.
+-- id_tema_origen guarda de que tema NACIO un compromiso (origen, uno solo,
+-- para siempre). Esta columna es la inversa: dice que ESTE tema de ESTA
+-- semana es una novedad sobre un compromiso que YA EXISTE, sin crear uno
+-- nuevo. Hace falta porque los compromisos no nacen semana a semana (nacen
+-- en Seguimiento, cada 6 semanas) pero el Monitoreo semanal si necesita
+-- poder registrar avances sobre los que ya estan en curso. Como
+-- temas_monitoreo nunca se pisa, los temas vinculados al mismo compromiso,
+-- ordenados por fecha, ya son su historial — no hace falta otra tabla.
+alter table public.temas_monitoreo
+  add column compromiso_id uuid references public.compromisos(id) on delete set null;
+
+alter table public.temas_monitoreo
+  add constraint temas_monitoreo_vinculo_unico check (
+    num_nonnulls(proyecto_id, puntual_id, compromiso_id) <= 1
+  );
 
 -- ---------------------------------------------------------------------------
 -- Planificacion anual (nuevo de v2)
