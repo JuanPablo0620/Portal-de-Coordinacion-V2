@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart3, GitCompare, Target } from 'lucide-react';
+import { BarChart3, FolderPlus, GitCompare, Target } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { BarraAvance, Chip, Metrica, Pestanias, Semaforo, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { CampoSelect } from '../../componentes/Campo.jsx';
 import { GraficoBarras, GraficoLineas, GraficoTorta } from '../../componentes/Graficos.jsx';
+import { CargarProyectos } from './CargarProyectos.jsx';
 import { CargarPlanificacion } from './CargarPlanificacion.jsx';
 import {
   avancePorDimension,
@@ -40,6 +41,7 @@ export default function Planificacion() {
   const pestanias = [
     { valor: 'estadisticas', titulo: 'Estadísticas', icono: BarChart3 },
     { valor: 'comparativo', titulo: 'Planificado vs. real', icono: GitCompare },
+    { valor: 'proyectos', titulo: 'Proyectos del POA', icono: FolderPlus },
     { valor: 'carga', titulo: 'Cargar planificación', icono: Target },
   ];
 
@@ -53,6 +55,7 @@ export default function Planificacion() {
         <Pestanias opciones={pestanias} valor={filtros.tab} alCambiar={(v) => setFiltros({ tab: v })} />
         {filtros.tab === 'estadisticas' && <Estadisticas bd={bd} filtros={filtros} setFiltros={setFiltros} />}
         {filtros.tab === 'comparativo' && <Comparativo bd={bd} filtros={filtros} setFiltros={setFiltros} />}
+        {filtros.tab === 'proyectos' && <CargarProyectos />}
         {filtros.tab === 'carga' && <CargarPlanificacion filtros={filtros} setFiltros={setFiltros} />}
       </Pagina>
     </>
