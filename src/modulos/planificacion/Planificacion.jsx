@@ -41,7 +41,7 @@ export default function Planificacion() {
   const pestanias = [
     { valor: 'estadisticas', titulo: 'Estadísticas', icono: BarChart3 },
     { valor: 'comparativo', titulo: 'Planificado vs. real', icono: GitCompare },
-    { valor: 'proyectos', titulo: 'Proyectos del POA', icono: FolderPlus },
+    { valor: 'proyectos', titulo: 'Cargar Proyectos POA', icono: FolderPlus },
     { valor: 'carga', titulo: 'Cargar planificación', icono: Target },
   ];
 
