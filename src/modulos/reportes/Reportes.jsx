@@ -113,10 +113,17 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
     return [...set].sort((a, b) => a.localeCompare(b, 'es'));
   }, [bd, filtros.area]);
 
-  const proyectos = useMemo(
-    () => activos(bd?.proyectos ?? []).map((p) => ({ valor: p.id_proyecto, titulo: `${p.id_proyecto} · ${p.proyecto}` })),
-    [bd],
-  );
+  /**
+   * Proyecto EN CASCADA, mismo criterio que Programa: solo los del área
+   * elegida — sin esto la lista muestra los ~90 proyectos de las 7
+   * secretarías juntos, que es demasiado para buscar a mano.
+   */
+  const proyectos = useMemo(() => {
+    const fuente = filtros.area
+      ? activos(bd?.proyectos ?? []).filter((p) => p.area === filtros.area)
+      : activos(bd?.proyectos ?? []);
+    return fuente.map((p) => ({ valor: p.id_proyecto, titulo: `${p.id_proyecto} · ${p.proyecto}` }));
+  }, [bd, filtros.area]);
 
   return (
     <TarjetaFiltros
@@ -130,7 +137,7 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
           etiqueta="Área"
           opciones={opcionesArea}
           value={filtros.area}
-          onChange={(e) => setFiltros({ area: e.target.value, programa: '' })}
+          onChange={(e) => setFiltros({ area: e.target.value, programa: '', id_proyecto: '' })}
           placeholder="Todas"
         />
         <CampoSelect
@@ -145,7 +152,13 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
         <CampoSelect etiqueta="Estado" opciones={ESTADOS_PROYECTO} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
         <CampoSelect etiqueta="Prioridad" opciones={PRIORIDADES} value={filtros.prioridad} onChange={(e) => setFiltros({ prioridad: e.target.value })} placeholder="Todas" />
         <CampoSelect etiqueta="Responsable" opciones={responsables} value={filtros.responsable} onChange={(e) => setFiltros({ responsable: e.target.value })} placeholder="Todos" />
-        <CampoSelect etiqueta="Proyecto" opciones={proyectos} value={filtros.id_proyecto} onChange={(e) => setFiltros({ id_proyecto: e.target.value })} placeholder="Todos" />
+        <CampoSelect
+          etiqueta="Proyecto"
+          opciones={proyectos}
+          value={filtros.id_proyecto}
+          onChange={(e) => setFiltros({ id_proyecto: e.target.value })}
+          placeholder={filtros.area ? `Todos (de ${filtros.area})` : 'Todos'}
+        />
         <CampoSelect etiqueta="Módulo de origen" opciones={MODULOS_ORIGEN} value={filtros.modulo} onChange={(e) => setFiltros({ modulo: e.target.value })} placeholder="Todos" />
         <CampoSelect etiqueta="Rango temporal" opciones={RANGOS.filter((r) => r.valor)} value={filtros.rango} onChange={(e) => setFiltros({ rango: e.target.value })} placeholder="Sin límite" />
         {filtros.rango === 'personalizado' && (

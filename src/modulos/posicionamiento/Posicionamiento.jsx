@@ -49,7 +49,6 @@ const DEFAULTS = {
   tab: 'tablero',
   tipo: '',
   organismo: '',
-  pais: '',
   estado: '',
   area: '',
   ods: '',
@@ -58,7 +57,7 @@ const DEFAULTS = {
 };
 
 /** Lo que limpia el botón: filtros, nunca la pestaña ni la acción abierta. */
-const CLAVES_FILTRO = ['tipo', 'organismo', 'pais', 'estado', 'area', 'ods', 'solo_abiertas'];
+const CLAVES_FILTRO = ['tipo', 'organismo', 'estado', 'area', 'ods', 'solo_abiertas'];
 
 /** Tono del chip de estado. Es el mismo embudo que ordena el tablero. */
 const TONO_ESTADO = {
@@ -81,7 +80,6 @@ export default function Posicionamiento() {
     () => ({
       tipo: filtros.tipo,
       organismo: filtros.organismo,
-      pais: filtros.pais,
       estado: filtros.estado,
       area: filtros.area,
       ods: filtros.ods,
@@ -105,8 +103,11 @@ export default function Posicionamiento() {
         titulo="Posicionamiento"
         descripcion="Hermanamientos, redes, postulaciones y convenios que ponen a Tres de Febrero en el mapa. Cada acción declara a qué ODS contribuye y qué proyectos respalda."
         acciones={
-          <Boton variante="primario" icono={Plus} onClick={() => setFormulario({})}>
-            Nuevo Proyecto Posicionamiento
+          // ml-auto: cuando el encabezado envuelve a dos líneas (pantalla angosta
+          // o descripción larga), sin esto el botón queda pegado a la izquierda
+          // en su propia línea en vez de ir a la derecha.
+          <Boton className="ml-auto" variante="primario" icono={Plus} onClick={() => setFormulario({})}>
+            Nuevo proyecto de posicionamiento
           </Boton>
         }
       />
@@ -159,7 +160,7 @@ function Tablero({ resumen, lista, setFiltros }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metrica valor={resumen.total} etiqueta="Acciones registradas" icono={Globe2} />
+        <Metrica valor={resumen.total} etiqueta="Proyectos registrados" icono={Globe2} />
         <Metrica valor={resumen.abiertas} etiqueta="En juego" detalle="identificadas, en preparación, presentadas o vigentes" />
         <Metrica
           valor={resumen.tasa_exito === null ? '—' : `${resumen.tasa_exito}%`}
@@ -268,7 +269,7 @@ function ProyectosEnCurso() {
 
   return (
     <Tarjeta
-      titulo="Proyectos de Posicionamiento en curso"
+      titulo="Proyectos de posicionamiento en curso"
       descripcion="Se lee de la base maestra de proyectos, filtrado por programa — no es una lista fija."
     >
       {proyectos.length === 0 ? (
@@ -323,8 +324,9 @@ function agrupar(lista, campo) {
 function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
   const opcionesTipo = useOpciones('tipos_accion_internacional');
   const opcionesOrganismo = useOpciones('organismos_internacionales');
-  const opcionesPais = useOpciones('paises_contraparte');
-  const opcionesArea = useOpciones('areas');
+  // Coordinación no impulsa proyectos de posicionamiento como filtro de área
+  // — mismo criterio que en el formulario de alta.
+  const opcionesArea = useOpciones('areas').filter((o) => o.id !== 'ar_coord');
 
   const elegida = filtros.accion ? lista.find((a) => a.id === filtros.accion) : null;
 
@@ -339,7 +341,6 @@ function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
         <GrillaFiltros columnas={4}>
           <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={filtros.tipo} onChange={(e) => setFiltros({ tipo: e.target.value })} placeholder="Todos" />
           <CampoSelect etiqueta="Organismo" opciones={opcionesOrganismo} value={filtros.organismo} onChange={(e) => setFiltros({ organismo: e.target.value })} placeholder="Todos" />
-          <CampoSelect etiqueta="País" opciones={opcionesPais} value={filtros.pais} onChange={(e) => setFiltros({ pais: e.target.value })} placeholder="Todos" />
           <CampoSelect etiqueta="Estado" opciones={ESTADOS_INTERNACIONAL} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
           <CampoSelect etiqueta="Área que la impulsa" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
           <CampoSelect

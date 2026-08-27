@@ -102,7 +102,7 @@ export function FormularioAccion({ abierto, alCerrar, accion }) {
       abierto={abierto}
       alCerrar={alCerrar}
       ancho="lg"
-      titulo={esEdicion ? 'Editar proyecto posicionamiento' : 'Nuevo proyecto posicionamiento'}
+      titulo={esEdicion ? 'Editar proyecto de posicionamiento' : 'Nuevo proyecto de posicionamiento'}
       descripcion={
         esEdicion
           ? 'Los cambios quedan registrados en el historial.'

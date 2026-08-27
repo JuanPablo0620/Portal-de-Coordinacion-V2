@@ -68,7 +68,7 @@ export default function Seguimiento() {
 
   const pestanias = [
     { valor: 'calendario', titulo: 'Próximos seguimientos', icono: CalendarRange },
-    { valor: 'cargar', titulo: 'Cargar realizado', icono: NotebookPen },
+    { valor: 'cargar', titulo: 'Cargar nuevo seguimiento', icono: NotebookPen },
     { valor: 'compromisos', titulo: 'Compromisos', icono: ClipboardList },
     { valor: 'historial', titulo: 'Historial por área', icono: History },
   ];
