@@ -1,5 +1,5 @@
 /**
- * Alta y edición de una acción de posicionamiento internacional.
+ * Alta y edición de un proyecto de posicionamiento.
  *
  * El formulario está ordenado como se decide una acción de estas: primero qué
  * es y con quién, después en qué punto del embudo está, y al final con qué se
@@ -13,14 +13,13 @@ import {
   CampoArea,
   CampoFecha,
   CampoNumero,
-  CampoRadios,
   CampoSelect,
   CampoTexto,
   GrillaCampos,
 } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { SelectorODS } from './SelectorODS.jsx';
-import { ALCANCES_INTERNACIONAL, ESTADOS_INTERNACIONAL } from '../../datos/catalogos.js';
+import { ESTADOS_INTERNACIONAL } from '../../datos/catalogos.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones } from '../../estado/tienda.js';
@@ -29,8 +28,6 @@ const VACIA = {
   nombre: '',
   tipo: '',
   organismo: '',
-  pais: '',
-  alcance: 'bilateral',
   estado: 'identificada',
   area: '',
   referente: '',
@@ -59,8 +56,9 @@ export function FormularioAccion({ abierto, alCerrar, accion }) {
 
   const opcionesTipo = useOpciones('tipos_accion_internacional');
   const opcionesOrganismo = useOpciones('organismos_internacionales');
-  const opcionesPais = useOpciones('paises_contraparte');
-  const opcionesArea = useOpciones('areas');
+  // Coordinación no impulsa acciones de posicionamiento en este formulario —
+  // es quien lo carga, no un área "que la impulsa" para elegir de una lista.
+  const opcionesArea = useOpciones('areas').filter((o) => o.id !== 'ar_coord');
 
   const cambiar = (campo) => (e) => {
     setDatos((d) => ({ ...d, [campo]: e?.target?.value ?? e }));
@@ -104,7 +102,7 @@ export function FormularioAccion({ abierto, alCerrar, accion }) {
       abierto={abierto}
       alCerrar={alCerrar}
       ancho="lg"
-      titulo={esEdicion ? 'Editar acción internacional' : 'Nueva acción internacional'}
+      titulo={esEdicion ? 'Editar proyecto posicionamiento' : 'Nuevo proyecto posicionamiento'}
       descripcion={
         esEdicion
           ? 'Los cambios quedan registrados en el historial.'
@@ -114,7 +112,7 @@ export function FormularioAccion({ abierto, alCerrar, accion }) {
         <>
           <Boton onClick={alCerrar}>Cancelar</Boton>
           <Boton variante="primario" onClick={guardar} disabled={guardando}>
-            {esEdicion ? 'Guardar cambios' : 'Crear acción'}
+            {esEdicion ? 'Guardar cambios' : 'Crear proyecto'}
           </Boton>
         </>
       }
@@ -129,19 +127,12 @@ export function FormularioAccion({ abierto, alCerrar, accion }) {
           placeholder="Ej.: Postulación al fondo de resiliencia urbana"
         />
 
-        <GrillaCampos columnas={3}>
+        <GrillaCampos columnas={2}>
           <CampoSelect etiqueta="Tipo" requerido opciones={opcionesTipo} value={datos.tipo} onChange={cambiar('tipo')} error={errores.tipo} />
           <CampoSelect etiqueta="Organismo o red" opciones={opcionesOrganismo} value={datos.organismo} onChange={cambiar('organismo')} />
-          <CampoSelect etiqueta="País contraparte" opciones={opcionesPais} value={datos.pais} onChange={cambiar('pais')} />
         </GrillaCampos>
 
-        <GrillaCampos columnas={2}>
-          <CampoRadios
-            etiqueta="Alcance"
-            opciones={ALCANCES_INTERNACIONAL}
-            valor={datos.alcance}
-            alCambiar={(v) => setDatos((d) => ({ ...d, alcance: v }))}
-          />
+        <GrillaCampos columnas={3}>
           <CampoSelect
             etiqueta="Estado"
             requerido
@@ -151,9 +142,6 @@ export function FormularioAccion({ abierto, alCerrar, accion }) {
             placeholder=""
             error={errores.estado}
           />
-        </GrillaCampos>
-
-        <GrillaCampos columnas={2}>
           <CampoSelect etiqueta="Área que la impulsa" opciones={opcionesArea} value={datos.area} onChange={cambiar('area')} />
           <CampoTexto etiqueta="Referente" value={datos.referente} onChange={cambiar('referente')} placeholder="Quién la lleva adelante" />
         </GrillaCampos>

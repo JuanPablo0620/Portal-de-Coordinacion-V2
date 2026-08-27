@@ -195,7 +195,7 @@ export default function Dashboard() {
           <Metrica
             icono={Globe2}
             valor={posicionamiento.abiertas}
-            etiqueta="Acciones internacionales en juego"
+            etiqueta="Proyectos de posicionamiento en juego"
             detalle={
               posicionamiento.proximos_cierres.length
                 ? `${posicionamiento.proximos_cierres.length} con fecha de cierre por delante`

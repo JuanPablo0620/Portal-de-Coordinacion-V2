@@ -1,5 +1,5 @@
 /**
- * MÓDULO DE POSICIONAMIENTO INTERNACIONAL.
+ * MÓDULO DE POSICIONAMIENTO.
  *
  * Registra lo que el municipio hace para existir fuera de sus límites:
  * hermanamientos, redes de ciudades, postulaciones a fondos, premios, misiones
@@ -102,11 +102,11 @@ export default function Posicionamiento() {
   return (
     <>
       <EncabezadoPagina
-        titulo="Posicionamiento internacional"
+        titulo="Posicionamiento"
         descripcion="Hermanamientos, redes, postulaciones y convenios que ponen a Tres de Febrero en el mapa. Cada acción declara a qué ODS contribuye y qué proyectos respalda."
         acciones={
           <Boton variante="primario" icono={Plus} onClick={() => setFormulario({})}>
-            Nueva acción
+            Nuevo proyecto posicionamiento
           </Boton>
         }
       />
@@ -455,7 +455,7 @@ function FichaAccion({ bd, accion, alEditar, alBorrar, alCerrar }) {
   return (
     <Tarjeta
       titulo={accion.nombre}
-      descripcion={`${accion.tipo} · ${accion.alcance}`}
+      descripcion={accion.tipo}
       acciones={
         <>
           <Boton tamanio="sm" icono={Pencil} onClick={() => alEditar(accion)}>
