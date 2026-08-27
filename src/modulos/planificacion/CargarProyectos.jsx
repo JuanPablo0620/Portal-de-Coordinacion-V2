@@ -18,7 +18,7 @@ export function CargarProyectos() {
   return (
     <div className="flex flex-col gap-4">
       <Tarjeta
-        titulo="Proyectos del POA"
+        titulo="Cargar Proyectos POA"
         descripcion="Alta inicial de la base maestra — la carga que se hace una vez, a principio de año. Para ver, filtrar o consultar lo que ya está cargado, andá al módulo de Proyectos."
         acciones={
           <>
