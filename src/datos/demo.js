@@ -12,7 +12,7 @@
 import { bdVacia } from './esquema.js';
 import { nuevoId } from './ids.js';
 import {
-  ACCIONES_INTERNACIONALES,
+  PLANTILLAS_POSICIONAMIENTO,
   BARRIOS,
   CIUDADES_EXTRANJERAS,
   COMPROMISOS_PUBLICOS,
@@ -240,7 +240,7 @@ export function generarDemo(hoy) {
   /* ── CASO DE BORDE · proyectos sin actualizar hace más de 30 días ── */
   // Acá sólo se ELIGEN. Correrles los asientos hacia atrás es lo último que hace
   // el generador: cualquier sección posterior que los toque —un seguimiento, un
-  // compromiso, una acción internacional vinculada— les levantaría la última
+  // compromiso, un proyecto de posicionamiento vinculado— les levantaría la última
   // actualización y el caso se perdería sin que nada fallara.
   const sinActualizar = proyectos.filter((p) => p.estado === 'en ejecución').slice(0, 3);
 
@@ -718,10 +718,9 @@ export function generarDemo(hoy) {
     );
   });
 
-  /* ── Posicionamiento internacional ──────────────────────────────── */
+  /* ── Posicionamiento ───────────────────────────────────────────── */
 
-  const organismos = bd.catalogos.organismos_internacionales.map((o) => o.nombre);
-  const paises = bd.catalogos.paises_contraparte.map((p) => p.nombre);
+  const organismos = bd.catalogos.organismos.map((o) => o.nombre);
   const estrategicos = proyectos.filter((p) => p.estrategico);
 
   /**
@@ -743,7 +742,7 @@ export function generarDemo(hoy) {
 
   GUION.forEach(([tipo, estado, diasInicio, diasLimite], i) => {
     const inicio = desplazar(hoy, diasInicio);
-    const plantillas = ACCIONES_INTERNACIONALES[tipo];
+    const plantillas = PLANTILLAS_POSICIONAMIENTO[tipo];
     const nombre = plantillas[i % plantillas.length].replace(
       '{ciudad}',
       CIUDADES_EXTRANJERAS[i % CIUDADES_EXTRANJERAS.length],
@@ -754,8 +753,6 @@ export function generarDemo(hoy) {
       nombre,
       tipo,
       organismo: organismos[i % organismos.length],
-      pais: paises[i % paises.length],
-      alcance: i % 3 === 0 ? 'bilateral' : i % 3 === 1 ? 'regional' : 'multilateral',
       estado,
       area: areas[i % areas.length],
       referente: elegir(personas),
@@ -778,8 +775,8 @@ export function generarDemo(hoy) {
       creado_por: usuario,
       creado_en: marcaTiempo(inicio, 10),
     };
-    bd.acciones_internacionales.push(accion);
-    asentar('acciones_internacionales', accion.id, 'alta', [], accion.creado_en, accion.ids_proyecto[0] ?? null);
+    bd.proyectos_posicionamiento.push(accion);
+    asentar('proyectos_posicionamiento', accion.id, 'alta', [], accion.creado_en, accion.ids_proyecto[0] ?? null);
   });
 
   /* ── CASO DE BORDE · silencios, al final de todo ─────────────────── */

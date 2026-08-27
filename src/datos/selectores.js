@@ -8,8 +8,8 @@
 import {
   DIAS_PERIODICIDAD,
   ESTADOS_ACTIVOS,
-  ESTADOS_INTERNACIONAL_ABIERTOS,
-  ESTADOS_INTERNACIONAL_CON_PLAZO,
+  ESTADOS_POSICIONAMIENTO_ABIERTOS,
+  ESTADOS_POSICIONAMIENTO_CON_PLAZO,
   UMBRALES,
 } from './catalogos.js';
 import { masRecientePrimero, redactarAsiento } from './bitacora.js';
@@ -1249,17 +1249,17 @@ export function candidatosEstrategicos(bd, filtros = {}, hoy = hoyISO()) {
   );
 }
 
-/* ── Posicionamiento internacional ──────────────────────────────────── */
+/* ── Posicionamiento ───────────────────────────────────────────────── */
 
 /**
- * Semáforo de una acción internacional.
+ * Semáforo de un proyecto de posicionamiento.
  *
  * Sólo lo que todavía no se presentó tiene reloj: ahí el plazo es todo, porque
  * una convocatoria que cierra no se reabre. Una vez presentada, la fecha ya no
  * dice nada del riesgo y el semáforo pasa a leer el estado.
  */
-export function nivelAccionInternacional(a) {
-  if (ESTADOS_INTERNACIONAL_CON_PLAZO.includes(a.estado) && a.fecha_limite) {
+export function nivelProyectoPosicionamiento(a) {
+  if (ESTADOS_POSICIONAMIENTO_CON_PLAZO.includes(a.estado) && a.fecha_limite) {
     return nivelPorDias(a.dias_al_cierre);
   }
   if (a.estado === 'vigente') return 'enregla';
@@ -1267,18 +1267,18 @@ export function nivelAccionInternacional(a) {
   return 'sindato';
 }
 
-export function accionesInternacionales(bd, filtros = {}, hoy = hoyISO()) {
+export function proyectosPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
   const { texto, ods, ...resto } = filtros;
-  return activos(bd.acciones_internacionales)
+  return activos(bd.proyectos_posicionamiento)
     .map((a) => {
       const derivada = {
         ...a,
         ods: a.ods ?? [],
         ids_proyecto: a.ids_proyecto ?? [],
-        abierta: ESTADOS_INTERNACIONAL_ABIERTOS.includes(a.estado),
+        abierta: ESTADOS_POSICIONAMIENTO_ABIERTOS.includes(a.estado),
         dias_al_cierre: diasHasta(a.fecha_limite, hoy),
       };
-      return { ...derivada, nivel: nivelAccionInternacional(derivada) };
+      return { ...derivada, nivel: nivelProyectoPosicionamiento(derivada) };
     })
     .filter((a) =>
       coincide(resto.tipo, a.tipo) &&
@@ -1306,7 +1306,7 @@ export function accionesInternacionales(bd, filtros = {}, hoy = hoyISO()) {
 /** Cantidad de acciones por dimensión. `ods` es multivaluado y se cuenta una vez por objetivo. */
 export function accionesPorDimension(bd, campo, filtros = {}, hoy = hoyISO()) {
   const cuenta = new Map();
-  for (const a of accionesInternacionales(bd, filtros, hoy)) {
+  for (const a of proyectosPosicionamiento(bd, filtros, hoy)) {
     const valores = campo === 'ods' ? a.ods.map((n) => `ODS ${n}`) : [a[campo] || 'Sin definir'];
     for (const v of valores.length ? valores : ['Sin definir']) {
       cuenta.set(v, (cuenta.get(v) ?? 0) + 1);
@@ -1326,7 +1326,7 @@ export function accionesPorDimension(bd, campo, filtros = {}, hoy = hoyISO()) {
  * revés de lo que hay que incentivar.
  */
 export function resumenPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
-  const lista = accionesInternacionales(bd, filtros, hoy);
+  const lista = proyectosPosicionamiento(bd, filtros, hoy);
   const porEstado = {};
   let financiamientoObtenido = 0;
   let financiamientoEnGestion = 0;
@@ -1356,7 +1356,7 @@ export function resumenPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
     proyectos_vinculados: new Set(lista.flatMap((a) => a.ids_proyecto)).size,
     por_estado: porEstado,
     proximos_cierres: lista
-      .filter((a) => a.dias_al_cierre !== null && ESTADOS_INTERNACIONAL_CON_PLAZO.includes(a.estado))
+      .filter((a) => a.dias_al_cierre !== null && ESTADOS_POSICIONAMIENTO_CON_PLAZO.includes(a.estado))
       .sort((a, b) => a.dias_al_cierre - b.dias_al_cierre),
   };
 }

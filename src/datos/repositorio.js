@@ -458,34 +458,34 @@ export async function promoverAEstrategico({ origen_tipo, id_origen, id_proyecto
   });
 }
 
-/* ── Posicionamiento internacional ──────────────────────────────────── */
+/* ── Posicionamiento ────────────────────────────────────────────────── */
 
 /**
- * Alta de una acción de posicionamiento internacional.
+ * Alta de un proyecto de posicionamiento.
  *
  * Colección propia y no un proyecto de la base maestra: un hermanamiento o una
  * postulación a un fondo no tienen objetivo, unidad ni avance físico, y
  * forzarlos a ese molde llenaba la base maestra de proyectos con campos vacíos.
  * El vínculo a un proyecto es opcional y va en un solo sentido.
  */
-export async function crearAccionInternacional(datos) {
+export async function crearProyectoPosicionamiento(datos) {
   return crear(
-    'acciones_internacionales',
+    'proyectos_posicionamiento',
     { estado: 'identificada', ods: [], ids_proyecto: [], ...datos },
     { id_proyecto: datos.ids_proyecto?.[0] ?? null },
   );
 }
 
-export async function actualizarAccionInternacional(id, cambios) {
+export async function actualizarProyectoPosicionamiento(id, cambios) {
   const bd = await obtenerBD();
-  const previa = bd.acciones_internacionales.find((a) => a.id === id);
-  return actualizar('acciones_internacionales', id, cambios, {
+  const previa = bd.proyectos_posicionamiento.find((a) => a.id === id);
+  return actualizar('proyectos_posicionamiento', id, cambios, {
     id_proyecto: (cambios.ids_proyecto ?? previa?.ids_proyecto)?.[0] ?? null,
   });
 }
 
-export async function bajaAccionInternacional(id) {
-  return bajaLogica('acciones_internacionales', id);
+export async function bajaProyectoPosicionamiento(id) {
+  return bajaLogica('proyectos_posicionamiento', id);
 }
 
 /* ── Seguimientos ───────────────────────────────────────────────────── */

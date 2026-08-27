@@ -45,13 +45,13 @@ export const ESTADOS_MESA = Object.freeze(['activa', 'latente', 'cerrada']);
 export const ESTADOS_EVENTO = Object.freeze(['previsto', 'confirmado', 'realizado', 'suspendido']);
 
 /**
- * Ciclo de vida de una acción de posicionamiento internacional.
+ * Ciclo de vida de un proyecto de posicionamiento.
  *
  * Es un embudo, no una lista de etiquetas: se identifica una oportunidad, se
  * prepara la presentación, se presenta, y de ahí sale vigente o no prosperó.
  * El orden importa —lo consumen el tablero y el semáforo—, así que va congelado.
  */
-export const ESTADOS_INTERNACIONAL = Object.freeze([
+export const ESTADOS_POSICIONAMIENTO = Object.freeze([
   'identificada',
   'en preparación',
   'presentada',
@@ -60,8 +60,8 @@ export const ESTADOS_INTERNACIONAL = Object.freeze([
   'no prosperó',
 ]);
 
-/** Estados en los que la acción todavía está en juego y hay algo que hacer. */
-export const ESTADOS_INTERNACIONAL_ABIERTOS = Object.freeze([
+/** Estados en los que el proyecto todavía está en juego y hay algo que hacer. */
+export const ESTADOS_POSICIONAMIENTO_ABIERTOS = Object.freeze([
   'identificada',
   'en preparación',
   'presentada',
@@ -69,16 +69,14 @@ export const ESTADOS_INTERNACIONAL_ABIERTOS = Object.freeze([
 ]);
 
 /** Estados con fecha límite que hay que vigilar: presentar tarde es perderla. */
-export const ESTADOS_INTERNACIONAL_CON_PLAZO = Object.freeze(['identificada', 'en preparación']);
-
-export const ALCANCES_INTERNACIONAL = Object.freeze(['bilateral', 'regional', 'multilateral']);
+export const ESTADOS_POSICIONAMIENTO_CON_PLAZO = Object.freeze(['identificada', 'en preparación']);
 
 /**
  * Objetivos de Desarrollo Sostenible.
  *
  * Congelados: los define la Agenda 2030 de Naciones Unidas, no el municipio.
- * Son el idioma común con el que se presenta cualquier postulación
- * internacional, y por eso cada acción declara a cuáles contribuye.
+ * Son el idioma común con el que se presenta cualquier postulación de
+ * posicionamiento, y por eso cada proyecto declara a cuáles contribuye.
  */
 export const ODS = Object.freeze([
   { numero: 1, nombre: 'Fin de la pobreza' },
@@ -125,11 +123,11 @@ export const UMBRALES = Object.freeze({
    */
   DIAS_ESTRATEGICO_SIN_NOVEDAD: 15,
   /**
-   * Aviso previo al cierre de una convocatoria internacional. Es más largo que
-   * el de un compromiso porque una postulación no se arma en una semana:
-   * requiere avales, traducciones y firma de autoridad.
+   * Aviso previo al cierre de una convocatoria de posicionamiento. Es más
+   * largo que el de un compromiso porque una postulación no se arma en una
+   * semana: requiere avales, traducciones y firma de autoridad.
    */
-  DIAS_CIERRE_INTERNACIONAL: 30,
+  DIAS_CIERRE_POSICIONAMIENTO: 30,
 });
 
 /** Días que representa cada periodicidad de mesa, para el indicador de vencimiento. */
@@ -264,7 +262,7 @@ export const CATALOGOS_SEMILLA = Object.freeze({
     { id: 'te_deportivo', nombre: 'Actividad deportiva', activo: true },
     { id: 'te_institucional', nombre: 'Acto institucional', activo: true },
   ],
-  tipos_accion_internacional: [
+  tipos_proyecto_posicionamiento: [
     { id: 'ai_hermanamiento', nombre: 'Hermanamiento', activo: true },
     { id: 'ai_red', nombre: 'Red de ciudades', activo: true },
     { id: 'ai_fondo', nombre: 'Postulación a fondo', activo: true },
@@ -274,7 +272,7 @@ export const CATALOGOS_SEMILLA = Object.freeze({
     { id: 'ai_evento', nombre: 'Evento internacional', activo: true },
     { id: 'ai_membresia', nombre: 'Membresía en organismo', activo: true },
   ],
-  organismos_internacionales: [
+  organismos: [
     { id: 'or_merco', nombre: 'Mercociudades', activo: true },
     { id: 'or_cglu', nombre: 'CGLU — Ciudades y Gobiernos Locales Unidos', activo: true },
     { id: 'or_ucci', nombre: 'UCCI — Unión de Ciudades Capitales Iberoamericanas', activo: true },
@@ -289,28 +287,6 @@ export const CATALOGOS_SEMILLA = Object.freeze({
     { id: 'or_c40', nombre: 'C40 Cities', activo: true },
     { id: 'or_embajada', nombre: 'Embajada o consulado', activo: true },
     { id: 'or_universidad', nombre: 'Universidad extranjera', activo: true },
-  ],
-  paises_contraparte: [
-    { id: 'pa_brasil', nombre: 'Brasil', activo: true },
-    { id: 'pa_uruguay', nombre: 'Uruguay', activo: true },
-    { id: 'pa_chile', nombre: 'Chile', activo: true },
-    { id: 'pa_paraguay', nombre: 'Paraguay', activo: true },
-    { id: 'pa_bolivia', nombre: 'Bolivia', activo: true },
-    { id: 'pa_peru', nombre: 'Perú', activo: true },
-    { id: 'pa_colombia', nombre: 'Colombia', activo: true },
-    { id: 'pa_mexico', nombre: 'México', activo: true },
-    { id: 'pa_espania', nombre: 'España', activo: true },
-    { id: 'pa_italia', nombre: 'Italia', activo: true },
-    { id: 'pa_francia', nombre: 'Francia', activo: true },
-    { id: 'pa_alemania', nombre: 'Alemania', activo: true },
-    { id: 'pa_portugal', nombre: 'Portugal', activo: true },
-    { id: 'pa_eeuu', nombre: 'Estados Unidos', activo: true },
-    { id: 'pa_canada', nombre: 'Canadá', activo: true },
-    { id: 'pa_japon', nombre: 'Japón', activo: true },
-    { id: 'pa_corea', nombre: 'Corea del Sur', activo: true },
-    { id: 'pa_china', nombre: 'China', activo: true },
-    { id: 'pa_israel', nombre: 'Israel', activo: true },
-    { id: 'pa_multi', nombre: 'Multilateral / varios países', activo: true },
   ],
   motivos_estrategicos: [
     { id: 'me_gestion', nombre: 'Compromiso público de gestión', activo: true },
@@ -341,9 +317,8 @@ export const CATALOGOS_ADMINISTRABLES = Object.freeze([
   { clave: 'categorias_tema', titulo: 'Categorías de tema', descripcion: 'Clasificación de los temas de monitoreo' },
   { clave: 'items_requerimiento', titulo: 'Requerimientos de evento', descripcion: 'Ítems solicitables para un evento' },
   { clave: 'tipos_evento', titulo: 'Tipos de evento', descripcion: 'Clasificación de eventos' },
-  { clave: 'tipos_accion_internacional', titulo: 'Tipos de acción internacional', descripcion: 'Hermanamientos, redes, postulaciones, premios, misiones' },
-  { clave: 'organismos_internacionales', titulo: 'Organismos y redes', descripcion: 'Contrapartes del posicionamiento internacional' },
-  { clave: 'paises_contraparte', titulo: 'Países contraparte', descripcion: 'Origen de la contraparte de cada acción' },
+  { clave: 'tipos_proyecto_posicionamiento', titulo: 'Tipos de proyecto de posicionamiento', descripcion: 'Hermanamientos, redes, postulaciones, premios, misiones' },
+  { clave: 'organismos', titulo: 'Organismos y redes', descripcion: 'Contrapartes del posicionamiento' },
   { clave: 'motivos_estrategicos', titulo: 'Motivos estratégicos', descripcion: 'Por qué un proyecto se declara estratégico' },
   { clave: 'periodicidades', titulo: 'Periodicidades de mesa', descripcion: 'Frecuencia de reunión declarada' },
 ]);

@@ -124,7 +124,7 @@ export function puntoEnBarrio(barrio, azar) {
   };
 }
 
-/* ── Posicionamiento internacional ──────────────────────────────────── */
+/* ── Posicionamiento ───────────────────────────────────────────────── */
 
 /**
  * Ciudades contraparte inventadas.
@@ -141,17 +141,17 @@ export const CIUDADES_EXTRANJERAS = [
 ];
 
 /**
- * Plantillas de acción internacional, agrupadas por tipo.
+ * Plantillas de proyecto de posicionamiento, agrupadas por tipo.
  *
- * Las claves son nombres del catálogo `tipos_accion_internacional` y tienen que
- * seguir existiendo ahí: es la única cuerda que ata este vocabulario a los
- * catálogos, y hay un test que la vigila en los dos sets. Los organismos y los
- * países, en cambio, los elige cada generador de SU propio catálogo, así que
- * renombrarlos no rompe nada.
+ * Las claves son nombres del catálogo `tipos_proyecto_posicionamiento` y tienen
+ * que seguir existiendo ahí: es la única cuerda que ata este vocabulario a los
+ * catálogos, y hay un test que la vigila en los dos sets. Los organismos, en
+ * cambio, los elige cada generador de SU propio catálogo, así que renombrarlos
+ * no rompe nada.
  *
  * `{ciudad}` se reemplaza por una de `CIUDADES_EXTRANJERAS`.
  */
-export const ACCIONES_INTERNACIONALES = {
+export const PLANTILLAS_POSICIONAMIENTO = {
   Hermanamiento: [
     'Hermanamiento con {ciudad}',
     'Acta de hermanamiento con {ciudad}',

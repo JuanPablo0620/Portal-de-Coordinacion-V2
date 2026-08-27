@@ -133,7 +133,12 @@ export function EncabezadoPagina({ titulo, descripcion, acciones, children }) {
           <h1 className="text-lg font-semibold leading-tight text-tinta">{titulo}</h1>
           {descripcion && <p className="mt-0.5 text-sm text-gris">{descripcion}</p>}
         </div>
-        {acciones && <div className="no-imprimir flex flex-wrap items-center gap-2">{acciones}</div>}
+        {/* ml-auto (no solo justify-between del padre): cuando el título+descripción
+            ocupan toda la línea y las acciones envuelven solas a la línea de abajo,
+            justify-between no tiene con qué "repartir" espacio con un solo bloque en
+            esa línea y las deja pegadas a la izquierda. ml-auto sí empuja el bloque
+            entero al margen derecho aunque quede solo en su línea. */}
+        {acciones && <div className="no-imprimir flex flex-wrap items-center gap-2 ml-auto">{acciones}</div>}
       </div>
       {children}
     </div>

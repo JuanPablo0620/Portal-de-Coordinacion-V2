@@ -138,7 +138,7 @@ const CON_SISTEMA_VACIO = [
   ['/monitoreo?tab=alertas', 'Sin alertas activas'],
   ['/estrategicos?tab=cartera', 'Sin proyectos estratégicos'],
   ['/estrategicos?tab=promover', 'Sin candidatos'],
-  ['/posicionamiento?tab=acciones', 'Sin acciones internacionales'],
+  ['/posicionamiento?tab=acciones', 'Sin proyectos de posicionamiento'],
   ['/posicionamiento?tab=alianzas', 'ODS cubiertos'],
   ['/planificacion', 'Sin proyectos para analizar'],
   ['/planificacion?tab=comparativo', 'Sin proyectos planificados'],

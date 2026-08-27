@@ -297,19 +297,19 @@ export const TIPOS_EVENTO = [
 export const PERIODICIDADES = ['semanal', 'quincenal', 'mensual', 'bimestral', 'trimestral'];
 
 /**
- * Catálogos del posicionamiento internacional y de la cartera estratégica.
+ * Catálogos del posicionamiento y de la cartera estratégica.
  *
- * Los tipos coinciden con las claves de `ACCIONES_INTERNACIONALES` en
- * `sintetico.js`: es lo que hace que el generador pueda armar nombres de acción
- * coherentes con su tipo. Los organismos son reales porque son con quienes un
- * municipio se relaciona de verdad; las acciones concretas, no.
+ * Los tipos coinciden con las claves de `PLANTILLAS_POSICIONAMIENTO` en
+ * `sintetico.js`: es lo que hace que el generador pueda armar nombres de
+ * proyecto coherentes con su tipo. Los organismos son reales porque son con
+ * quienes un municipio se relaciona de verdad; los proyectos concretos, no.
  */
-export const TIPOS_ACCION_INTERNACIONAL = [
+export const TIPOS_PROYECTO_POSICIONAMIENTO = [
   'Hermanamiento', 'Red de ciudades', 'Postulación a fondo', 'Premio o distinción',
   'Misión o visita', 'Convenio de cooperación', 'Evento internacional', 'Membresía en organismo',
 ];
 
-export const ORGANISMOS_INTERNACIONALES = [
+export const ORGANISMOS = [
   'Mercociudades',
   'CGLU — Ciudades y Gobiernos Locales Unidos',
   'UCCI — Unión de Ciudades Capitales Iberoamericanas',
@@ -324,12 +324,6 @@ export const ORGANISMOS_INTERNACIONALES = [
   'C40 Cities',
   'Embajada o consulado',
   'Universidad extranjera',
-];
-
-export const PAISES_CONTRAPARTE = [
-  'Brasil', 'Uruguay', 'Chile', 'Paraguay', 'Bolivia', 'Perú', 'Colombia', 'México',
-  'España', 'Italia', 'Francia', 'Alemania', 'Portugal', 'Estados Unidos', 'Canadá',
-  'Japón', 'Corea del Sur', 'China', 'Israel', 'Multilateral / varios países',
 ];
 
 export const MOTIVOS_ESTRATEGICOS = [
@@ -363,9 +357,8 @@ export function armarCatalogos() {
     items_requerimiento: ITEMS_REQUERIMIENTO.map((i) => item('rq', i)),
     tipos_evento: TIPOS_EVENTO.map((t) => item('te', t)),
     periodicidades: PERIODICIDADES.map((p) => item('pe', p)),
-    tipos_accion_internacional: TIPOS_ACCION_INTERNACIONAL.map((t) => item('ai', t)),
-    organismos_internacionales: ORGANISMOS_INTERNACIONALES.map((o) => item('or', o)),
-    paises_contraparte: PAISES_CONTRAPARTE.map((p) => item('pa', p)),
+    tipos_proyecto_posicionamiento: TIPOS_PROYECTO_POSICIONAMIENTO.map((t) => item('ai', t)),
+    organismos: ORGANISMOS.map((o) => item('or', o)),
     motivos_estrategicos: MOTIVOS_ESTRATEGICOS.map((m) => item('me', m)),
   };
 }

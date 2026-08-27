@@ -35,7 +35,7 @@
 import { bdVacia } from './esquema.js';
 import { nuevoId } from './ids.js';
 import {
-  ACCIONES_INTERNACIONALES,
+  PLANTILLAS_POSICIONAMIENTO,
   BARRIOS,
   CIUDADES_EXTRANJERAS,
   COMPROMISOS_PUBLICOS,
@@ -891,13 +891,12 @@ export function generarBaseCompleta(hoy) {
     );
   }
 
-  /* ── Posicionamiento internacional ──────────────────────────────── */
+  /* ── Posicionamiento ────────────────────────────────────────────── */
 
-  const TIPOS_ACCION = Object.keys(ACCIONES_INTERNACIONALES);
+  const TIPOS_ACCION = Object.keys(PLANTILLAS_POSICIONAMIENTO);
   const nombresActivos = (catalogo) =>
     bd.catalogos[catalogo].filter((i) => i.activo !== false).map((i) => i.nombre);
-  const organismos = nombresActivos('organismos_internacionales');
-  const paises = nombresActivos('paises_contraparte');
+  const organismos = nombresActivos('organismos');
 
   /** ODS a los que contribuye la acción. El 11 aparece seguido: es el de ciudades. */
   const objetivosDe = () => {
@@ -907,7 +906,7 @@ export function generarBaseCompleta(hoy) {
   };
 
   const crearAccion = ({ tipo, estado, fechaInicio, fechaLimite, idsProyecto }) => {
-    const plantilla = elegir(ACCIONES_INTERNACIONALES[tipo]);
+    const plantilla = elegir(PLANTILLAS_POSICIONAMIENTO[tipo]);
     const nombre = plantilla.replace('{ciudad}', elegir(CIUDADES_EXTRANJERAS));
     const firma = elegir(EQUIPO);
     const conPlata = tipo === 'Postulación a fondo' || (tipo === 'Convenio de cooperación' && chance(0.4));
@@ -918,8 +917,6 @@ export function generarBaseCompleta(hoy) {
       nombre,
       tipo,
       organismo: elegir(organismos),
-      pais: elegir(paises),
-      alcance: chance(0.4) ? 'bilateral' : chance(0.6) ? 'regional' : 'multilateral',
       estado,
       area: elegir(AREAS).nombre,
       referente: elegir(PERSONAS),
@@ -940,9 +937,9 @@ export function generarBaseCompleta(hoy) {
       creado_por: firma,
       creado_en: marcaTiempo(fechaInicio, 10, entre(0, 59)),
     };
-    bd.acciones_internacionales.push(accion);
+    bd.proyectos_posicionamiento.push(accion);
     asentar(
-      'acciones_internacionales',
+      'proyectos_posicionamiento',
       accion.id,
       'alta',
       [],

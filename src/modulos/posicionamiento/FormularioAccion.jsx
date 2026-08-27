@@ -19,7 +19,7 @@ import {
 } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { SelectorODS } from './SelectorODS.jsx';
-import { ESTADOS_INTERNACIONAL } from '../../datos/catalogos.js';
+import { ESTADOS_POSICIONAMIENTO } from '../../datos/catalogos.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones } from '../../estado/tienda.js';
@@ -54,8 +54,8 @@ export function FormularioAccion({ abierto, alCerrar, accion }) {
   const [errores, setErrores] = useState({});
   const [guardando, setGuardando] = useState(false);
 
-  const opcionesTipo = useOpciones('tipos_accion_internacional');
-  const opcionesOrganismo = useOpciones('organismos_internacionales');
+  const opcionesTipo = useOpciones('tipos_proyecto_posicionamiento');
+  const opcionesOrganismo = useOpciones('organismos');
   // Coordinación no impulsa acciones de posicionamiento en este formulario —
   // es quien lo carga, no un área "que la impulsa" para elegir de una lista.
   const opcionesArea = useOpciones('areas').filter((o) => o.id !== 'ar_coord');
@@ -89,8 +89,8 @@ export function FormularioAccion({ abierto, alCerrar, accion }) {
         fecha_resolucion: datos.fecha_resolucion || null,
         ods: [...datos.ods].sort((a, b) => a - b),
       };
-      if (esEdicion) await acciones.actualizarAccionInternacional(accion.id, payload);
-      else await acciones.crearAccionInternacional(payload);
+      if (esEdicion) await acciones.actualizarProyectoPosicionamiento(accion.id, payload);
+      else await acciones.crearProyectoPosicionamiento(payload);
       alCerrar();
     } finally {
       setGuardando(false);
@@ -136,7 +136,7 @@ export function FormularioAccion({ abierto, alCerrar, accion }) {
           <CampoSelect
             etiqueta="Estado"
             requerido
-            opciones={ESTADOS_INTERNACIONAL}
+            opciones={ESTADOS_POSICIONAMIENTO}
             value={datos.estado}
             onChange={cambiar('estado')}
             placeholder=""

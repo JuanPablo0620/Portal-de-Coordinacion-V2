@@ -11,7 +11,7 @@
  * ─────────────────────────────────────────────────────────────────────
  */
 import {
-  accionesInternacionales,
+  proyectosPosicionamiento,
   activos,
   diasHasta,
   estadoCompromiso,
@@ -36,7 +36,7 @@ export const TIPOS_ALERTA = Object.freeze({
   EVENTO_INCOMPLETO: 'evento_incompleto',
   MESA_SIN_REUNION: 'mesa_sin_reunion',
   ESTRATEGICO_SIN_NOVEDAD: 'estrategico_sin_novedad',
-  CIERRE_INTERNACIONAL: 'cierre_internacional',
+  CIERRE_POSICIONAMIENTO: 'cierre_posicionamiento',
 });
 
 /** Rótulos y orden de presentación de cada grupo del panel de alertas. */
@@ -49,12 +49,12 @@ export const ETIQUETAS_ALERTA = Object.freeze({
   [TIPOS_ALERTA.EVENTO_INCOMPLETO]: 'Eventos con requerimientos sin confirmar',
   [TIPOS_ALERTA.MESA_SIN_REUNION]: 'Mesas sin reunión en su período',
   [TIPOS_ALERTA.ESTRATEGICO_SIN_NOVEDAD]: 'Proyectos estratégicos sin novedades hace más de 15 días',
-  [TIPOS_ALERTA.CIERRE_INTERNACIONAL]: 'Convocatorias internacionales por cerrar',
+  [TIPOS_ALERTA.CIERRE_POSICIONAMIENTO]: 'Convocatorias de posicionamiento por cerrar',
 });
 
 export const ORDEN_TIPOS = Object.freeze([
   TIPOS_ALERTA.COMPROMISO_VENCIDO,
-  TIPOS_ALERTA.CIERRE_INTERNACIONAL,
+  TIPOS_ALERTA.CIERRE_POSICIONAMIENTO,
   TIPOS_ALERTA.COMPROMISO_POR_VENCER,
   TIPOS_ALERTA.PROYECTO_VENCIDO,
   TIPOS_ALERTA.ESTRATEGICO_SIN_NOVEDAD,
@@ -281,21 +281,21 @@ function estrategicosSinNovedad(bd, hoy) {
 }
 
 /**
- * Convocatorias internacionales por cerrar. Una postulación que se pasa de
+ * Convocatorias de posicionamiento por cerrar. Una postulación que se pasa de
  * fecha no se recupera: la convocatoria no se reabre y hay que esperar al año
  * siguiente. Por eso el aviso empieza treinta días antes y no siete.
  */
-function cierresInternacionales(bd, hoy) {
-  return accionesInternacionales(bd, { solo_abiertas: true }, hoy)
+function cierresPosicionamiento(bd, hoy) {
+  return proyectosPosicionamiento(bd, { solo_abiertas: true }, hoy)
     .filter(
       (a) =>
         a.dias_al_cierre !== null &&
-        a.dias_al_cierre <= UMBRALES.DIAS_CIERRE_INTERNACIONAL &&
+        a.dias_al_cierre <= UMBRALES.DIAS_CIERRE_POSICIONAMIENTO &&
         ['identificada', 'en preparación'].includes(a.estado),
     )
     .map((a) => ({
       id: `al_ci_${a.id}`,
-      tipo: TIPOS_ALERTA.CIERRE_INTERNACIONAL,
+      tipo: TIPOS_ALERTA.CIERRE_POSICIONAMIENTO,
       severidad: a.dias_al_cierre < 0 ? 'critica' : 'alta',
       titulo: a.nombre,
       detalle:
@@ -323,7 +323,7 @@ export function calcularAlertas(bd, hoy = hoyISO()) {
     ...proyectosVencidos(bd, hoy),
     ...proyectosSinActualizar(bd, hoy),
     ...estrategicosSinNovedad(bd, hoy),
-    ...cierresInternacionales(bd, hoy),
+    ...cierresPosicionamiento(bd, hoy),
     ...temasCriticos(bd, hoy),
     ...eventosIncompletos(bd, hoy),
     ...mesasAtrasadas(bd, hoy),
@@ -397,11 +397,11 @@ export function vencimientosProximos(bd, hoy = hoyISO(), dias = UMBRALES.DIAS_VE
   // Los cierres de convocatoria son vencimientos como cualquier otro: si no
   // entraran acá, el único lugar donde se vería que una postulación cierra el
   // martes sería el módulo de posicionamiento, y nadie mira todos los módulos.
-  for (const a of activos(bd.acciones_internacionales)) {
+  for (const a of activos(bd.proyectos_posicionamiento)) {
     if (!enVentana(a.fecha_limite)) continue;
     if (!['identificada', 'en preparación'].includes(a.estado)) continue;
     items.push({
-      clase: 'cierre internacional',
+      clase: 'cierre posicionamiento',
       titulo: a.nombre,
       detalle: [a.organismo, a.pais].filter(Boolean).join(' · '),
       fecha: a.fecha_limite,

@@ -20,7 +20,7 @@ export const COLECCIONES = Object.freeze([
   'eventos',
   'requerimientos_evento',
   'planificacion_anual',
-  'acciones_internacionales',
+  'proyectos_posicionamiento',
   'historial',
   'reportes_guardados',
   // Qué áreas monitorea cada persona — no es dato institucional de gestión,

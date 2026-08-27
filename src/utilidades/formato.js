@@ -50,7 +50,7 @@ export function moneda(valor) {
 }
 
 /**
- * Montos del posicionamiento internacional.
+ * Montos del posicionamiento.
  *
  * Van en dólares y no en pesos a propósito: es la moneda en la que están
  * escritas las convocatorias, y convertirla a pesos obligaría a fijar un tipo

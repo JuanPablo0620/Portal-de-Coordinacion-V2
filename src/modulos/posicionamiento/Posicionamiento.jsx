@@ -33,9 +33,9 @@ import { Alternadores, GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../.
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { FormularioAccion } from './FormularioAccion.jsx';
 import { nombreODS } from './SelectorODS.jsx';
-import { ESTADOS_INTERNACIONAL, ODS } from '../../datos/catalogos.js';
+import { ESTADOS_POSICIONAMIENTO, ODS } from '../../datos/catalogos.js';
 import {
-  accionesInternacionales,
+  proyectosPosicionamiento,
   accionesPorDimension,
   hoyISO,
   resumenPosicionamiento,
@@ -88,7 +88,7 @@ export default function Posicionamiento() {
     [filtros],
   );
 
-  const lista = useMemo(() => (bd ? accionesInternacionales(bd, criterios, hoy) : []), [bd, criterios, hoy]);
+  const lista = useMemo(() => (bd ? proyectosPosicionamiento(bd, criterios, hoy) : []), [bd, criterios, hoy]);
   const resumen = useMemo(() => (bd ? resumenPosicionamiento(bd, criterios, hoy) : null), [bd, criterios, hoy]);
 
   const pestanias = [
@@ -103,10 +103,7 @@ export default function Posicionamiento() {
         titulo="Posicionamiento"
         descripcion="Hermanamientos, redes, postulaciones y convenios que ponen a Tres de Febrero en el mapa. Cada acción declara a qué ODS contribuye y qué proyectos respalda."
         acciones={
-          // ml-auto: cuando el encabezado envuelve a dos líneas (pantalla angosta
-          // o descripción larga), sin esto el botón queda pegado a la izquierda
-          // en su propia línea en vez de ir a la derecha.
-          <Boton className="ml-auto" variante="primario" icono={Plus} onClick={() => setFormulario({})}>
+          <Boton variante="primario" icono={Plus} onClick={() => setFormulario({})}>
             Nuevo proyecto de posicionamiento
           </Boton>
         }
@@ -140,7 +137,7 @@ export default function Posicionamiento() {
       <ModalConfirmacion
         abierto={Boolean(aBorrar)}
         alCerrar={() => setABorrar(null)}
-        alConfirmar={() => repo.bajaAccionInternacional(aBorrar.id)}
+        alConfirmar={() => repo.bajaProyectoPosicionamiento(aBorrar.id)}
         titulo="Dar de baja la acción"
         mensaje={`«${aBorrar?.nombre ?? ''}» deja de contar en el tablero. No se borra: queda en el historial con su asiento de baja.`}
         textoConfirmar="Dar de baja"
@@ -322,8 +319,8 @@ function agrupar(lista, campo) {
 /* ── Acciones ───────────────────────────────────────────────────────── */
 
 function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
-  const opcionesTipo = useOpciones('tipos_accion_internacional');
-  const opcionesOrganismo = useOpciones('organismos_internacionales');
+  const opcionesTipo = useOpciones('tipos_proyecto_posicionamiento');
+  const opcionesOrganismo = useOpciones('organismos');
   // Coordinación no impulsa proyectos de posicionamiento como filtro de área
   // — mismo criterio que en el formulario de alta.
   const opcionesArea = useOpciones('areas').filter((o) => o.id !== 'ar_coord');
@@ -341,7 +338,7 @@ function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
         <GrillaFiltros columnas={4}>
           <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={filtros.tipo} onChange={(e) => setFiltros({ tipo: e.target.value })} placeholder="Todos" />
           <CampoSelect etiqueta="Organismo" opciones={opcionesOrganismo} value={filtros.organismo} onChange={(e) => setFiltros({ organismo: e.target.value })} placeholder="Todos" />
-          <CampoSelect etiqueta="Estado" opciones={ESTADOS_INTERNACIONAL} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
+          <CampoSelect etiqueta="Estado" opciones={ESTADOS_POSICIONAMIENTO} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
           <CampoSelect etiqueta="Área que la impulsa" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
           <CampoSelect
             etiqueta="ODS"
@@ -364,7 +361,7 @@ function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
 
       <Tarjeta sinPadding>
         <Tabla
-          nombreExport="acciones-internacionales"
+          nombreExport="proyectos-posicionamiento"
           filas={lista}
           columnas={[
             {
@@ -433,7 +430,7 @@ function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
           vacio={
             <Vacio
               icono={Globe2}
-              titulo="Sin acciones internacionales"
+              titulo="Sin proyectos de posicionamiento"
               descripcion="Cargá la primera para empezar a registrar el posicionamiento del municipio."
             />
           }
