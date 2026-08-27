@@ -95,7 +95,7 @@ export default function Posicionamiento() {
 
   const pestanias = [
     { valor: 'tablero', titulo: 'Tablero', icono: BarChart3 },
-    { valor: 'acciones', titulo: 'Acciones', icono: ListChecks, cantidad: lista.length },
+    { valor: 'acciones', titulo: 'Proyectos', icono: ListChecks, cantidad: lista.length },
     { valor: 'alianzas', titulo: 'Alianzas y ODS', icono: Handshake },
   ];
 
@@ -106,7 +106,7 @@ export default function Posicionamiento() {
         descripcion="Hermanamientos, redes, postulaciones y convenios que ponen a Tres de Febrero en el mapa. Cada acción declara a qué ODS contribuye y qué proyectos respalda."
         acciones={
           <Boton variante="primario" icono={Plus} onClick={() => setFormulario({})}>
-            Nuevo proyecto posicionamiento
+            Nuevo Proyecto Posicionamiento
           </Boton>
         }
       />
