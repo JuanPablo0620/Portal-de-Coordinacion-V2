@@ -3,7 +3,6 @@ import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton, Chip } from '../../componentes/Basicos.jsx';
 import {
   CampoArea,
-  CampoCheck,
   CampoFecha,
   CampoNumero,
   CampoRadios,
@@ -195,24 +194,12 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
           <CampoTexto etiqueta="Responsable" value={datos.responsable} onChange={cambiar('responsable')} placeholder="Referente del área" />
         </GrillaCampos>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <CampoRadios
-            etiqueta="Prioridad"
-            opciones={PRIORIDADES}
-            valor={datos.prioridad}
-            alCambiar={(v) => setDatos((d) => ({ ...d, prioridad: v }))}
-          />
-          {!modoObra && (
-            <div className="flex items-end pb-1">
-              <CampoCheck
-                etiqueta="Es una obra"
-                descripcion="Cuenta aparte en el contador de obras activas del inicio."
-                checked={datos.es_obra}
-                onChange={cambiar('es_obra')}
-              />
-            </div>
-          )}
-        </div>
+        <CampoRadios
+          etiqueta="Prioridad"
+          opciones={PRIORIDADES}
+          valor={datos.prioridad}
+          alCambiar={(v) => setDatos((d) => ({ ...d, prioridad: v }))}
+        />
 
         <fieldset className="rounded-chip border border-borde p-3">
           <legend className="px-1 text-xs font-semibold text-gris">Magnitudes</legend>
