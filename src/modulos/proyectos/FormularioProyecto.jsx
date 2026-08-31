@@ -41,10 +41,14 @@ const VACIO = {
   observaciones: '',
 };
 
-export function FormularioProyecto({ abierto, alCerrar, proyecto }) {
+export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = false }) {
   const bd = useBD();
   const esEdicion = Boolean(proyecto);
-  const [datos, setDatos] = useState(() => (proyecto ? { ...VACIO, ...proyecto } : { ...VACIO, fecha_inicio: hoyISO() }));
+  const [datos, setDatos] = useState(() =>
+    proyecto
+      ? { ...VACIO, ...proyecto }
+      : { ...VACIO, fecha_inicio: hoyISO(), ...(modoObra ? { tipo: 'Obra', es_obra: true } : {}) },
+  );
   const [errores, setErrores] = useState({});
   const [confirmarExceso, setConfirmarExceso] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -147,7 +151,7 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto }) {
       abierto={abierto}
       alCerrar={alCerrar}
       ancho="lg"
-      titulo={esEdicion ? 'Editar proyecto' : 'Nuevo proyecto'}
+      titulo={esEdicion ? 'Editar proyecto' : modoObra ? 'Nueva obra' : 'Nuevo proyecto'}
       descripcion={
         esEdicion
           ? 'Los cambios quedan registrados en el historial del proyecto.'
@@ -157,7 +161,7 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto }) {
         <>
           <Boton onClick={alCerrar}>Cancelar</Boton>
           <Boton variante="primario" onClick={() => guardar()} disabled={guardando}>
-            {esEdicion ? 'Guardar cambios' : 'Crear proyecto'}
+            {esEdicion ? 'Guardar cambios' : modoObra ? 'Crear obra' : 'Crear proyecto'}
           </Boton>
         </>
       }
@@ -184,7 +188,9 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto }) {
           <CampoSelect etiqueta="Área" requerido opciones={opcionesArea} value={datos.area} onChange={cambiar('area')} error={errores.area} />
           <CampoSelect etiqueta="Programa" opciones={opcionesPrograma} value={datos.programa} onChange={cambiar('programa')} />
           <CampoSelect etiqueta="Eje estratégico" opciones={opcionesEje} value={datos.eje} onChange={cambiar('eje')} />
-          <CampoSelect etiqueta="Tipo" requerido opciones={opcionesTipo} value={datos.tipo} onChange={cambiar('tipo')} error={errores.tipo} />
+          {!modoObra && (
+            <CampoSelect etiqueta="Tipo" requerido opciones={opcionesTipo} value={datos.tipo} onChange={cambiar('tipo')} error={errores.tipo} />
+          )}
           <CampoSelect etiqueta="Estado" requerido opciones={ESTADOS_PROYECTO} value={datos.estado} onChange={cambiar('estado')} placeholder="" />
           <CampoTexto etiqueta="Responsable" value={datos.responsable} onChange={cambiar('responsable')} placeholder="Referente del área" />
         </GrillaCampos>
@@ -196,14 +202,16 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto }) {
             valor={datos.prioridad}
             alCambiar={(v) => setDatos((d) => ({ ...d, prioridad: v }))}
           />
-          <div className="flex items-end pb-1">
-            <CampoCheck
-              etiqueta="Es una obra"
-              descripcion="Cuenta aparte en el contador de obras activas del inicio."
-              checked={datos.es_obra}
-              onChange={cambiar('es_obra')}
-            />
-          </div>
+          {!modoObra && (
+            <div className="flex items-end pb-1">
+              <CampoCheck
+                etiqueta="Es una obra"
+                descripcion="Cuenta aparte en el contador de obras activas del inicio."
+                checked={datos.es_obra}
+                onChange={cambiar('es_obra')}
+              />
+            </div>
+          )}
         </div>
 
         <fieldset className="rounded-chip border border-borde p-3">

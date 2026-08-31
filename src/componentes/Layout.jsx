@@ -22,7 +22,7 @@ import {
 const MODULOS = [
   { ruta: '/', titulo: 'Inicio', icono: LayoutDashboard, exacta: true },
   { ruta: '/mis-areas', titulo: 'Mis áreas', icono: UserCheck },
-  { ruta: '/proyectos', titulo: 'Proyectos', icono: FolderKanban },
+  { ruta: '/proyectos', titulo: 'Proyectos y Puntuales', icono: FolderKanban },
   { ruta: '/obras', titulo: 'Obras', icono: HardHat },
   { ruta: '/seguimiento', titulo: 'Seguimiento', icono: CalendarCheck },
   { ruta: '/monitoreo', titulo: 'Monitoreo', icono: Radar },

@@ -215,7 +215,7 @@ function Tablero({ resumen, lista, setFiltros }) {
         )}
       </Tarjeta>
 
-      <Tarjeta titulo="Por tipo de acción" descripcion="Con qué instrumento se sale al mundo.">
+      <Tarjeta titulo="Por tipo de proyecto" descripcion="Con qué instrumento se sale al mundo.">
         <GraficoBarras
           datos={agrupar(lista, 'tipo')}
           horizontal

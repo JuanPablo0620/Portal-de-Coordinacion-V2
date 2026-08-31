@@ -119,7 +119,7 @@ export default function Proyectos() {
   return (
     <>
       <EncabezadoPagina
-        titulo="Base maestra de proyectos"
+        titulo="Base maestra de proyectos y puntuales"
         descripcion="Consultá y filtrá lo que ya está cargado. La carga se hace desde Planificación → Proyectos del POA."
       />
 

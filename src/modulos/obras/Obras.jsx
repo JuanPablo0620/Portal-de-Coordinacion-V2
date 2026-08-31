@@ -284,7 +284,7 @@ export default function Obras() {
         )}
       </Pagina>
 
-      {formulario && <FormularioProyecto abierto alCerrar={() => setFormulario(false)} proyecto={null} />}
+      {formulario && <FormularioProyecto abierto alCerrar={() => setFormulario(false)} proyecto={null} modoObra />}
     </>
   );
 }
