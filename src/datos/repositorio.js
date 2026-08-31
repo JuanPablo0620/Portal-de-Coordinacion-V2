@@ -338,14 +338,10 @@ function mapearEstado(estadoCrudo) {
  * El eje se fija en "Puntual" para todos: la pestaña maestra no trae esa
  * columna (ver nota en `proyectos-reales-secretarias.js`).
  */
-export async function cargarProyectosRealesSecretarias() {
-  const { SECRETARIAS_REALES } = await import('./proyectos-reales-secretarias.js');
-
-  const eje = await asegurarCatalogo('ejes', { id: 'ej_puntual', nombre: 'Puntual', activo: true });
-
+async function cargarListaDeSecretarias(secretarias, ejePorDefecto) {
   const resumen = {};
   await enLote(async () => {
-    for (const secretaria of SECRETARIAS_REALES) {
+    for (const secretaria of secretarias) {
       const bd = await obtenerBD();
       const area = await asegurarCatalogo('areas', { ...secretaria.area, activo: true });
 
@@ -359,10 +355,20 @@ export async function cargarProyectosRealesSecretarias() {
       for (const real of secretaria.datos) {
         const clave = `${real.programa}||${real.proyecto}`;
         if (yaCargados.has(clave)) continue;
+        // Sin esto, dos filas iguales dentro de la MISMA lista entrarían las
+        // dos: `yaCargados` se arma una sola vez, antes del bucle.
+        yaCargados.add(clave);
 
         const programa = await asegurarCatalogo('programas', {
           id: idDesdeNombre('pr', real.programa),
           nombre: real.programa,
+          activo: true,
+        });
+        // El eje del dato manda cuando existe; el por defecto es para las
+        // fuentes que no traen la columna.
+        const eje = await asegurarCatalogo('ejes', {
+          id: idDesdeNombre('ej', real.eje ?? ejePorDefecto),
+          nombre: real.eje ?? ejePorDefecto,
           activo: true,
         });
         const { estado, nota } = mapearEstado(real.estado);
@@ -380,21 +386,48 @@ export async function cargarProyectosRealesSecretarias() {
         });
         creados += 1;
       }
-      resumen[area.nombre] = creados;
+      resumen[area.nombre] = (resumen[area.nombre] ?? 0) + creados;
     }
   });
 
   return resumen;
 }
 
+export async function cargarProyectosRealesSecretarias() {
+  const { SECRETARIAS_REALES } = await import('./proyectos-reales-secretarias.js');
+  return cargarListaDeSecretarias(SECRETARIAS_REALES, 'Puntual');
+}
+
+/**
+ * Da de alta los proyectos VALIDADOS de la pestaña "1. Cualitativo" (ver
+ * `datos/proyectos-validados-cualitativo.js`).
+ *
+ * Es la otra mitad de los datos reales, y la de mejor calidad: a diferencia de
+ * los del maestro, cada uno fue revisado uno por uno contra la lista oficial de
+ * programas, y trae su `eje` real en vez del "Puntual" de aproximación.
+ *
+ * Mismo contrato que el otro loader: aditivo e idempotente. Si un proyecto ya
+ * entró por el maestro con el mismo programa y nombre, no se duplica — y el que
+ * quedó es el del maestro, con su eje aproximado. Por eso conviene correr este
+ * PRIMERO, que es lo que hace `cargarTodosLosProyectosReales()`.
+ */
+export async function cargarProyectosValidadosCualitativo() {
+  const { SECRETARIAS_VALIDADAS } = await import('./proyectos-validados-cualitativo.js');
+  return cargarListaDeSecretarias(SECRETARIAS_VALIDADAS, 'POA');
+}
+
 /** Carga de un saque los datos reales de Posicionamiento y de las siete secretarías. */
 export async function cargarTodosLosProyectosReales() {
   const creadosPosicionamiento = await cargarProyectosPosicionamientoReales();
+  // Los validados van primero a propósito: traen el eje real, así que si un
+  // proyecto está en las dos fuentes conviene que gane esta.
+  const resumenValidados = await cargarProyectosValidadosCualitativo();
   const resumenSecretarias = await cargarProyectosRealesSecretarias();
-  return {
-    Posicionamiento: creadosPosicionamiento,
-    ...resumenSecretarias,
-  };
+  const resumen = { Posicionamiento: creadosPosicionamiento };
+  for (const [area, n] of [...Object.entries(resumenValidados), ...Object.entries(resumenSecretarias)]) {
+    resumen[area] = (resumen[area] ?? 0) + n;
+  }
+  return resumen;
 }
 
 /* ── Proyectos estratégicos ─────────────────────────────────────────── */
