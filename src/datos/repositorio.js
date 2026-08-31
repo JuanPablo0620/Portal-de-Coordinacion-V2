@@ -345,6 +345,10 @@ async function cargarListaDeSecretarias(secretarias, ejePorDefecto) {
       const bd = await obtenerBD();
       const area = await asegurarCatalogo('areas', { ...secretaria.area, activo: true });
 
+      // El tipo es uno solo por secretaría, así que se resuelve una vez.
+      const tipo = (bd.catalogos?.tipos ?? []).find((t) => t.nombre === secretaria.tipoDefault);
+      const esObra = Boolean(tipo?.es_obra);
+
       const yaCargados = new Set(
         (bd.proyectos ?? [])
           .filter((p) => p.activo !== false && p.area === area.nombre)
@@ -380,6 +384,12 @@ async function cargarListaDeSecretarias(secretarias, ejePorDefecto) {
           programa: programa.nombre,
           eje: eje.nombre,
           tipo: secretaria.tipoDefault,
+          // `es_obra` NO se deduce solo del tipo en ningún lado: el importador
+          // por CSV lo calcula al validar, pero este loader no pasaba por ahí y
+          // dejaba el campo en false. Resultado: los proyectos de Obras existían
+          // pero no aparecían ni en el módulo de Obras ni en el mapa, porque los
+          // dos filtran por `es_obra`.
+          es_obra: esObra,
           estado,
           observaciones: [real.comentarios, nota].filter(Boolean).join(' '),
           fecha_carga: real.fechaActualizacion,

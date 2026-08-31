@@ -128,3 +128,23 @@ test('cargar todo junto suma las dos fuentes sin pisar una con la otra', async (
   const claves = bd.proyectos.map((p) => `${p.area}||${p.programa}||${p.proyecto}`);
   assert.equal(new Set(claves).size, claves.length, 'hay proyectos duplicados');
 });
+
+test('los proyectos de tipo Obra entran con es_obra en true', async () => {
+  await limpio();
+  await repo.cargarTodosLosProyectosReales();
+  const bd = await repo.obtenerBD();
+
+  // El módulo de Obras y el mapa filtran por `es_obra`. Si el loader no lo
+  // setea, los proyectos existen pero no se ven en ninguno de los dos — que es
+  // exactamente lo que pasaba hasta el 28/08/2026.
+  const obras = bd.proyectos.filter((p) => p.tipo === 'Obra');
+  assert.ok(obras.length > 0, 'tiene que haber proyectos de tipo Obra');
+  for (const p of obras) {
+    assert.equal(p.es_obra, true, `«${p.proyecto}» es tipo Obra pero es_obra quedó en ${p.es_obra}`);
+  }
+
+  // Y al revés: lo que no es Obra no se marca de más.
+  for (const p of bd.proyectos.filter((x) => x.tipo && x.tipo !== 'Obra')) {
+    assert.notEqual(p.es_obra, true, `«${p.proyecto}» es ${p.tipo} y quedó marcado como obra`);
+  }
+});
