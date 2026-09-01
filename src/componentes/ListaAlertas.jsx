@@ -22,16 +22,16 @@ export function ListaAlertas({ alertas, limite = 10 }) {
         return (
           <li key={a.id}>
             <Link to={a.ruta_origen} className="flex items-start gap-2.5 px-4 py-2.5 transition hover:bg-paper">
-              {vencida ? (
-                <Semaforo nivel="vencido" texto={`vencido · ${a.dias_atraso} d`} />
-              ) : (
-                <Semaforo nivel={nivel} soloPunto texto={a.severidad} />
-              )}
+              <Semaforo nivel={nivel} soloPunto texto={a.severidad} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm leading-tight text-tinta">{a.titulo}</p>
                 <p className="truncate text-[11px] text-tenue">{a.detalle}</p>
               </div>
-              {!vencida && a.dias_atraso > 0 && <Chip tono="vencido">{a.dias_atraso} d</Chip>}
+              {vencida ? (
+                <Semaforo nivel="vencido" texto={`vencido · ${a.dias_atraso} d`} />
+              ) : (
+                a.dias_atraso > 0 && <Chip tono="vencido">{a.dias_atraso} d</Chip>
+              )}
             </Link>
           </li>
         );
