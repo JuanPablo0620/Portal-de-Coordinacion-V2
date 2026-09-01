@@ -24,7 +24,7 @@ import { Tabla } from '../../componentes/Tabla.jsx';
 import { ListaAlertas } from '../../componentes/ListaAlertas.jsx';
 import { TarjetaSecretaria } from '../monitoreo/TableroSecretarias.jsx';
 import { COLUMNAS_COMPROMISO } from '../seguimiento/columnasCompromiso.jsx';
-import { calcularAlertas } from '../../datos/alertas.js';
+import { calcularAlertas, TIPOS_ALERTA } from '../../datos/alertas.js';
 import {
   areasAsignadas,
   compromisos as selCompromisos,
@@ -48,15 +48,26 @@ export default function MisAreas() {
     () => alertas.filter((a) => asignadas.includes(a.area)),
     [alertas, asignadas],
   );
-  // Solo las vencidas (severidad 'critica' → semáforo rojo) se muestran acá arriba;
-  // el resto de la situación de cada compromiso ya se ve en la tabla de abajo.
-  const alertasVencidas = useMemo(
-    () => alertasPropias.filter((a) => a.severidad === 'critica'),
+  // Compromisos vencidos: misma fuente y misma tabla que "pendientes" de más
+  // abajo, filtrados al revés — así se ven exactamente igual en las dos
+  // secciones, solo cambia qué filas entran en cada una.
+  const compromisosVencidos = useMemo(
+    () =>
+      bd ? selCompromisos(bd, { area: asignadas }, hoy).filter((c) => c.estado_efectivo === 'vencido') : [],
+    [bd, asignadas, hoy],
+  );
+
+  // Alertas críticas que no son un compromiso (ej. un cierre de posicionamiento
+  // ya vencido) — no tienen la forma de un compromiso, así que siguen con el
+  // formato compacto de alertas en vez de la tabla.
+  const otrasAlertasVencidas = useMemo(
+    () =>
+      alertasPropias.filter((a) => a.severidad === 'critica' && a.tipo !== TIPOS_ALERTA.COMPROMISO_VENCIDO),
     [alertasPropias],
   );
 
-  // Los vencidos ya se muestran arriba, en la tarjeta de alertas — acá abajo
-  // sólo lo que sigue en curso (pendiente/en_curso) o se cumplió.
+  // Los vencidos ya se muestran arriba — acá abajo sólo lo que sigue en curso
+  // (pendiente/en_curso) o se cumplió.
   const compromisosPropios = useMemo(
     () =>
       bd
@@ -94,19 +105,35 @@ export default function MisAreas() {
           </Tarjeta>
         ) : (
           <>
-            {alertasVencidas.length > 0 && (
+            {compromisosVencidos.length > 0 && (
               <Tarjeta
-                titulo="Alertas vencidas de tus áreas"
-                descripcion="Solo lo que ya está vencido. Salen del mismo motor que el inicio y Monitoreo: mismas alertas, mismos días de atraso."
+                titulo="Compromisos vencidos de tus áreas"
+                descripcion="Misma tabla que la de abajo — acá solo lo que ya venció. Un clic en la fila abre el compromiso en Seguimiento."
                 sinPadding
               >
-                <ListaAlertas alertas={alertasVencidas} limite={alertasVencidas.length} />
+                <Tabla
+                  nombreExport="mis-areas-compromisos-vencidos"
+                  filas={compromisosVencidos}
+                  conBusqueda={false}
+                  columnas={COLUMNAS_COMPROMISO}
+                  alHacerClicFila={(c) => navegar(`/seguimiento?tab=compromisos&compromiso=${c.id}`)}
+                />
+              </Tarjeta>
+            )}
+
+            {otrasAlertasVencidas.length > 0 && (
+              <Tarjeta
+                titulo="Otras alertas vencidas"
+                descripcion="Lo que ya venció y no es un compromiso — sale del mismo motor que el inicio y Monitoreo."
+                sinPadding
+              >
+                <ListaAlertas alertas={otrasAlertasVencidas} limite={otrasAlertasVencidas.length} />
               </Tarjeta>
             )}
 
             <Tarjeta
               titulo="Compromisos pendientes de tus áreas"
-              descripcion="Vigentes, no recortados por período: son estado, no historia. Los vencidos no se repiten acá — están arriba, en alertas. Un clic en la fila abre el compromiso en Seguimiento."
+              descripcion="Vigentes, no recortados por período: son estado, no historia. Los vencidos no se repiten acá — están arriba, en su propia tabla. Un clic en la fila abre el compromiso en Seguimiento."
               sinPadding
             >
               <Tabla
