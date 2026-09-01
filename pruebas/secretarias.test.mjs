@@ -367,7 +367,7 @@ test('un compromiso vencido llega al historial con su semáforo y los días de a
   );
   assert.equal(item.capa, 'compromiso');
   assert.equal(item.nivel, 'vencido');
-  assert.equal(item.estado, 'vencido · 38 d');
+  assert.equal(item.estado, 'alerta · 38 d');
 });
 
 test('la capa de cambios muestra sólo la ficha del proyecto, no las entidades vinculadas', () => {

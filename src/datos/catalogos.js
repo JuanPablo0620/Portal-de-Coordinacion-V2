@@ -30,11 +30,15 @@ export const PRIORIDADES = Object.freeze(['alta', 'media', 'baja']);
 export const CRITICIDADES = Object.freeze(['alta', 'media', 'baja']);
 
 /**
- * Sin `vencido`: es un estado DERIVADO, no persistido. No hay proceso que lo
- * marque al cambiar el día, así que guardarlo garantizaría datos desactualizados.
- * Ver `estadoCompromiso()` en selectores.js.
+ * Los tres estados que un compromiso GUARDA. Nace `pendiente` en un
+ * seguimiento y de ahí pasa a `en_curso` o directo a `cumplido`.
+ *
+ * Sin `alerta`: es un estado DERIVADO, no persistido. Un compromiso no "pasa a
+ * alerta" — está en alerta porque venció su fecha límite y sigue abierto. No
+ * hay proceso que lo marque al cambiar el día, así que guardarlo garantizaría
+ * datos desactualizados. Lo calcula `estadoCompromiso()` en selectores.js.
  */
-export const ESTADOS_COMPROMISO = Object.freeze(['pendiente', 'en curso', 'cumplido']);
+export const ESTADOS_COMPROMISO = Object.freeze(['pendiente', 'en_curso', 'cumplido']);
 
 export const ESTADOS_REQUERIMIENTO = Object.freeze(['solicitado', 'confirmado', 'entregado']);
 
@@ -114,6 +118,13 @@ export const UMBRALES = Object.freeze({
   DIAS_SIN_ACTUALIZAR: 30,
   DIAS_EVENTO: 5,
   DIAS_VENCIMIENTOS_DASHBOARD: 15,
+  /**
+   * Cada cuánto se hace un seguimiento: seis semanas (ver «Seguimiento» en el
+   * glosario). Es la fecha límite POR DEFECTO de un compromiso nuevo — el que
+   * carga puede cambiarla, pero si no la toca, el compromiso vence en el
+   * próximo seguimiento, que es donde se lo va a volver a mirar.
+   */
+  DIAS_ENTRE_SEGUIMIENTOS: 42,
   /** Días sin monitorear a partir de los cuales una secretaría queda en amarillo. */
   DIAS_SIN_MONITOREO: 30,
   /**

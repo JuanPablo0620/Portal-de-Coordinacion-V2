@@ -202,7 +202,7 @@ test('la planificación tiene desvíos en ambos sentidos', () => {
 /* ── Casos de borde declarados ────────────────────────────────────── */
 
 test('hay compromisos vencidos, en cantidad de tablero y no de anécdota', () => {
-  const vencidos = bd.compromisos.filter((c) => estadoCompromiso(c, HOY) === 'vencido');
+  const vencidos = bd.compromisos.filter((c) => estadoCompromiso(c, HOY) === 'alerta');
   assert.ok(vencidos.length >= 15, `se esperaban al menos 15 vencidos, hay ${vencidos.length}`);
 });
 

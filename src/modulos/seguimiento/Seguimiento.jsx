@@ -293,8 +293,8 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
             },
             hoy,
           )
-            .filter((c) => (filtros.solo_vencidos ? c.estado_efectivo === 'vencido' : true))
-            .map((c) => ({ ...c, _resaltar: c.estado_efectivo === 'vencido' }))
+            .filter((c) => (filtros.solo_vencidos ? c.estado_efectivo === 'alerta' : true))
+            .map((c) => ({ ...c, _resaltar: c.estado_efectivo === 'alerta' }))
         : [],
     [bd, filtros, soloVigentes, hoy],
   );
@@ -309,7 +309,7 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
     return [...set].sort((a, b) => a.localeCompare(b, 'es'));
   }, [bd]);
 
-  const vencidos = filas.filter((f) => f.estado_efectivo === 'vencido').length;
+  const vencidos = filas.filter((f) => f.estado_efectivo === 'alerta').length;
 
   const RUTA_ORIGEN = {
     seguimiento: (f) => `/seguimiento?tab=calendario&seguimiento=${f.id_origen}`,

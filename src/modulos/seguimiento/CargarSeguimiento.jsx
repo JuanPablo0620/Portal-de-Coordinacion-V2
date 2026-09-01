@@ -25,16 +25,28 @@ import { CampoFecha, CampoHora, CampoSelect, CampoTexto, GrillaCampos } from '..
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarMinuta } from '../../datos/minutas/separarMinuta.js';
 import { hoyISO, proyectos as selProyectos } from '../../datos/selectores.js';
+import { sumarDias } from '../../datos/tiempo.js';
+import { UMBRALES } from '../../datos/catalogos.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 
 const nuevaClave = () => Math.random().toString(36).slice(2);
 
-const filaCompromisoVacia = () => ({
+/**
+ * Un compromiso nuevo nace con fecha límite en el PRÓXIMO seguimiento.
+ *
+ * No es un default de conveniencia: es la regla de gestión (ver «Seguimiento»
+ * en el glosario). Los seguimientos son cada seis semanas, y salvo que alguien
+ * elija otra fecha, un compromiso se revisa en el siguiente. El que carga puede
+ * cambiarla, pero no puede dejarla vacía — sin fecha límite el compromiso nunca
+ * pasa a `alerta` y queda pendiente para siempre, que es exactamente lo que
+ * pasó con los compromisos históricos de los `_db`.
+ */
+const filaCompromisoVacia = (fechaSeguimiento) => ({
   clave: nuevaClave(),
   descripcion: '',
   responsable: '',
-  fecha_limite: '',
+  fecha_limite: sumarDias(fechaSeguimiento, UMBRALES.DIAS_ENTRE_SEGUIMIENTOS),
   id_proyecto: '',
 });
 
@@ -65,7 +77,16 @@ export function CargarSeguimiento({ alTerminar }) {
 
   function transferir() {
     const r = separarMinuta(texto, hoy);
-    setCompromisos(r.compromisos.map((c) => ({ ...c, id_proyecto: '', clave: nuevaClave() })));
+    setCompromisos(
+      r.compromisos.map((c) => ({
+        ...c,
+        // La minuta casi nunca trae fecha límite explícita. Si no la trae, va
+        // la del próximo seguimiento, igual que en el alta a mano.
+        fecha_limite: c.fecha_limite || sumarDias(fecha, UMBRALES.DIAS_ENTRE_SEGUIMIENTOS),
+        id_proyecto: '',
+        clave: nuevaClave(),
+      })),
+    );
     setAvances(r.avances.map((descripcion) => ({ clave: nuevaClave(), descripcion, id_proyecto: '' })));
     setProblemas(r.problemas.map((descripcion) => ({ clave: nuevaClave(), descripcion, id_proyecto: '' })));
     setTransferido(true);
@@ -76,7 +97,14 @@ export function CargarSeguimiento({ alTerminar }) {
     if (!fecha) return 'Indicá la fecha del seguimiento.';
     // Validación §8.6: las fechas límite no pueden ser anteriores a la carga.
     for (const c of compromisos) {
-      if (c.descripcion.trim() && c.fecha_limite && c.fecha_limite < hoy) {
+      if (!c.descripcion.trim()) continue;
+      // Obligatoria: sin fecha límite el compromiso no puede pasar nunca a
+      // `alerta` y queda pendiente para siempre. Es el agujero por el que se
+      // colaron los compromisos arrastrados de los `_db`.
+      if (!c.fecha_limite) {
+        return `Falta la fecha límite de «${c.descripcion.slice(0, 40)}…».`;
+      }
+      if (c.fecha_limite < hoy) {
         return `La fecha límite de «${c.descripcion.slice(0, 40)}…» es anterior a hoy.`;
       }
     }
@@ -200,7 +228,7 @@ export function CargarSeguimiento({ alTerminar }) {
         )}
 
         <div className="flex flex-col gap-4">
-          <BloqueCompromisos filas={compromisos} setFilas={setCompromisos} hoy={hoy} area={area} />
+          <BloqueCompromisos filas={compromisos} setFilas={setCompromisos} hoy={hoy} area={area} fechaSeguimiento={fecha} />
           <BloqueTexto
             titulo="Avances informados"
             tono="enregla"
@@ -270,7 +298,7 @@ function SelectorProyectoCompacto({ area, valor, alCambiar }) {
   );
 }
 
-function BloqueCompromisos({ filas, setFilas, hoy, area }) {
+function BloqueCompromisos({ filas, setFilas, hoy, area, fechaSeguimiento }) {
   const actualizar = (clave, campo, valor) =>
     setFilas((f) => f.map((x) => (x.clave === clave ? { ...x, [campo]: valor } : x)));
 
@@ -287,6 +315,7 @@ function BloqueCompromisos({ filas, setFilas, hoy, area }) {
           </p>
         )}
         {filas.map((fila) => {
+          const fechaFalta = fila.descripcion.trim() && !fila.fecha_limite;
           const fechaInvalida = fila.fecha_limite && fila.fecha_limite < hoy;
           return (
             <div key={fila.clave} className="grid grid-cols-1 gap-2 sm:grid-cols-[170px_1fr_150px_140px_auto]">
@@ -313,9 +342,10 @@ function BloqueCompromisos({ filas, setFilas, hoy, area }) {
                   className="campo-base py-1.5 text-sm"
                   value={fila.fecha_limite}
                   onChange={(e) => actualizar(fila.clave, 'fecha_limite', e.target.value)}
-                  style={fechaInvalida ? { borderColor: 'var(--color-vencido)' } : undefined}
+                  style={fechaInvalida || fechaFalta ? { borderColor: 'var(--color-vencido)' } : undefined}
                 />
                 {fechaInvalida && <p className="mt-0.5 text-[10px] text-vencido-texto">Anterior a hoy</p>}
+                {fechaFalta && <p className="mt-0.5 text-[10px] text-vencido-texto">Obligatoria</p>}
               </div>
               <button
                 type="button"
@@ -328,7 +358,7 @@ function BloqueCompromisos({ filas, setFilas, hoy, area }) {
             </div>
           );
         })}
-        <Boton tamanio="sm" variante="fantasma" icono={Plus} onClick={() => setFilas((f) => [...f, filaCompromisoVacia()])} className="self-start">
+        <Boton tamanio="sm" variante="fantasma" icono={Plus} onClick={() => setFilas((f) => [...f, filaCompromisoVacia(fechaSeguimiento)])} className="self-start">
           Agregar compromiso
         </Boton>
       </div>

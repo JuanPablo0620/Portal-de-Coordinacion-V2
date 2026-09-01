@@ -781,7 +781,7 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
         >
           <Tabla
             nombreExport={`compromisos-${sufijo}`}
-            filas={compromisos.map((c) => ({ ...c, _resaltar: c.estado_efectivo === 'vencido' }))}
+            filas={compromisos.map((c) => ({ ...c, _resaltar: c.estado_efectivo === 'alerta' }))}
             conBusqueda={false}
             columnas={[
               ...COLUMNAS_COMPROMISO.filter((c) => c.clave !== 'area'),

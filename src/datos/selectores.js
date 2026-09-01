@@ -306,10 +306,29 @@ export function zonasDeObras(bd) {
  * `vencido` es DERIVADO, no persistido: sin backend no hay proceso que lo marque
  * al cambiar el día, así que guardarlo garantizaría datos desactualizados.
  */
+/**
+ * Estado EFECTIVO de un compromiso, que no es el que está guardado.
+ *
+ * El ciclo de vida real (confirmado por JP el 01/09/2026, ver
+ * `contexto/glosario.md` del repo de trabajo): un compromiso nace `pendiente`
+ * en un seguimiento, con una fecha límite que es la del próximo seguimiento o
+ * una elegida a mano. De ahí pasa a `en_curso` o directamente a `cumplido`. Si
+ * llega la fecha límite y sigue abierto, queda en **`alerta`**.
+ *
+ * `alerta` no se guarda: se deduce comparando contra la fecha de hoy. Nadie lo
+ * carga, y ningún proceso lo marca al cambiar el día — persistirlo garantizaría
+ * datos desactualizados.
+ *
+ * **Sin `fecha_limite` no hay alerta posible.** Un compromiso sin esa fecha se
+ * queda en `pendiente` para siempre, por más meses que lleve abierto. Por eso la
+ * fecha es obligatoria al crear (ver `crearCompromiso()` en repositorio.js); los
+ * 124 compromisos históricos que se cargan del `_db` no la tienen, y por
+ * decisión de JP quedan sin alerta en vez de inventarles una.
+ */
 export function estadoCompromiso(c, hoy) {
   if (c.estado === 'cumplido') return 'cumplido';
   const dias = diasHasta(c.fecha_limite, hoy);
-  if (dias !== null && dias < 0) return 'vencido';
+  if (dias !== null && dias < 0) return 'alerta';
   return c.estado;
 }
 
@@ -322,7 +341,7 @@ export function compromisos(bd, filtros = {}, hoy = hoyISO()) {
         ...c,
         estado_efectivo,
         dias_restantes: dias,
-        dias_atraso: estado_efectivo === 'vencido' ? Math.abs(dias) : 0,
+        dias_atraso: estado_efectivo === 'alerta' ? Math.abs(dias) : 0,
       };
     })
     .filter((c) =>
@@ -570,7 +589,7 @@ export function resumenSecretaria(bd, area, filtros = {}, hoy = hoyISO()) {
     },
     compromisos: {
       total: listaCompromisos.length,
-      vencidos: listaCompromisos.filter((c) => c.estado_efectivo === 'vencido').length,
+      vencidos: listaCompromisos.filter((c) => c.estado_efectivo === 'alerta').length,
       cumplidos: listaCompromisos.filter((c) => c.estado_efectivo === 'cumplido').length,
       por_vencer: listaCompromisos.filter(
         (c) =>
@@ -821,7 +840,7 @@ export function historialUnificado(bd, idProyecto, capas = {}, hoy = hoyISO()) {
         titulo: c.descripcion,
         detalle: `origen: ${c.origen_tipo}`,
         extra: [c.area, c.responsable].filter(Boolean).join(' · '),
-        estado: c.estado_efectivo === 'vencido' ? `vencido · ${c.dias_atraso} d` : c.estado_efectivo,
+        estado: c.estado_efectivo === 'alerta' ? `alerta · ${c.dias_atraso} d` : c.estado_efectivo,
         nivel: c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes),
         ruta: `/seguimiento?tab=compromisos&compromiso=${c.id}`,
       });
@@ -1085,7 +1104,7 @@ export function proyectosEstrategicos(bd, filtros = {}, hoy = hoyISO()) {
           : null,
         dias_al_fin: diasHasta(p.fecha_fin_prevista, hoy),
         compromisos_abiertos: compromisos.filter((c) => estadoCompromiso(c, hoy) !== 'cumplido').length,
-        compromisos_vencidos: compromisos.filter((c) => estadoCompromiso(c, hoy) === 'vencido').length,
+        compromisos_vencidos: compromisos.filter((c) => estadoCompromiso(c, hoy) === 'alerta').length,
         temas_criticos: (temasPorProyecto.get(p.id_proyecto) ?? []).filter(
           (t) => t.criticidad === 'alta' && !t.resuelto,
         ).length,

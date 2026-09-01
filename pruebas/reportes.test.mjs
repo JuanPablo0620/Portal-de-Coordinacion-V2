@@ -125,7 +125,7 @@ test('armarReporte sin base no rompe', () => {
 
 test('el período no esconde la deuda vencida que viene de antes', () => {
   const semanal = armarReporte(bd, { rango: 'semana' }, HOY);
-  const vencidosDelSistema = compromisos(bd, {}, HOY).filter((c) => c.estado_efectivo === 'vencido').length;
+  const vencidosDelSistema = compromisos(bd, {}, HOY).filter((c) => c.estado_efectivo === 'alerta').length;
 
   // Filtrando sólo por fecha de vencimiento, un informe semanal contaba cero
   // vencidos mientras el bloque de alertas del mismo documento los listaba.

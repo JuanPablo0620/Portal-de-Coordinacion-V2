@@ -63,7 +63,7 @@ test('los compromisos nacidos de un seguimiento están en la lista general y ali
     assert.ok(lista.some((x) => x.id === c.id), `el compromiso ${c.id} debe estar en la lista general`);
   }
 
-  const vencidos = lista.filter((c) => c.estado_efectivo === 'vencido');
+  const vencidos = lista.filter((c) => c.estado_efectivo === 'alerta');
   const alertas = calcularAlertas(bd, HOY).filter((a) => a.tipo === TIPOS_ALERTA.COMPROMISO_VENCIDO);
   assert.equal(vencidos.length, alertas.length, 'todo vencido de la lista debe tener su alerta');
 });
@@ -115,7 +115,7 @@ test('un compromiso vencido aparece en dashboard, panel de alertas e historial d
   const historial = historialArea(bd, vencido.area, HOY);
   const enHistorial = historial.compromisos.find((c) => c.id === vencido.id_origen);
   assert.ok(enHistorial, 'debe figurar en el historial del área');
-  assert.equal(enHistorial.estado_efectivo, 'vencido');
+  assert.equal(enHistorial.estado_efectivo, 'alerta');
   assert.equal(enHistorial.dias_atraso, vencido.dias_atraso, 'los días de atraso deben coincidir');
 
   // (d) Y también en las alertas filtradas por área

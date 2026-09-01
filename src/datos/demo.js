@@ -362,7 +362,7 @@ export function generarDemo(hoy) {
         area: s.area,
         id_proyecto: s.ids_proyecto[0] ?? null,
         fecha_limite: desplazar(s.fecha, entre(10, 45)),
-        estado: cumplido ? 'cumplido' : azar() < 0.4 ? 'en curso' : 'pendiente',
+        estado: cumplido ? 'cumplido' : azar() < 0.4 ? 'en_curso' : 'pendiente',
       });
     }
   }

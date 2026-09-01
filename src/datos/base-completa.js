@@ -336,8 +336,8 @@ export function generarBaseCompleta(hoy) {
     const dias = Math.round((Date.parse(fechaLimite) - Date.parse(hoy)) / MS_DIA);
     if (dias < -120) return chance(Math.min(base + 0.04, 1)) ? 'cumplido' : 'pendiente';
     if (dias < -30) return chance(base) ? 'cumplido' : 'pendiente';
-    if (dias < 0) return chance(base - 0.12) ? 'cumplido' : chance(0.5) ? 'pendiente' : 'en curso';
-    return chance(0.3) ? 'cumplido' : chance(0.45) ? 'en curso' : 'pendiente';
+    if (dias < 0) return chance(base - 0.12) ? 'cumplido' : chance(0.5) ? 'pendiente' : 'en_curso';
+    return chance(0.3) ? 'cumplido' : chance(0.45) ? 'en_curso' : 'pendiente';
   };
 
   /* ── Seguimientos ───────────────────────────────────────────────── */
@@ -823,7 +823,7 @@ export function generarBaseCompleta(hoy) {
       area: p.area,
       id_proyecto: p.id_proyecto,
       fecha_limite: desplazar(hoy, -entre(2, 45)),
-      estado: chance(0.5) ? 'pendiente' : 'en curso',
+      estado: chance(0.5) ? 'pendiente' : 'en_curso',
     });
   }
   for (let i = 0; i < 10; i += 1) {
@@ -834,7 +834,7 @@ export function generarBaseCompleta(hoy) {
       area: p.area,
       id_proyecto: p.id_proyecto,
       fecha_limite: desplazar(hoy, entre(0, 6)),
-      estado: chance(0.5) ? 'pendiente' : 'en curso',
+      estado: chance(0.5) ? 'pendiente' : 'en_curso',
     });
   }
 
