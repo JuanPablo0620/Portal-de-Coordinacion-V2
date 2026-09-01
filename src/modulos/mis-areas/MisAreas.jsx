@@ -55,8 +55,15 @@ export default function MisAreas() {
     [alertasPropias],
   );
 
+  // Los vencidos ya se muestran arriba, en la tarjeta de alertas — acá abajo
+  // sólo lo que sigue en curso (pendiente/en_curso) o se cumplió.
   const compromisosPropios = useMemo(
-    () => (bd ? selCompromisos(bd, { area: asignadas, solo_vigentes: true }, hoy) : []),
+    () =>
+      bd
+        ? selCompromisos(bd, { area: asignadas, solo_vigentes: true }, hoy).filter(
+            (c) => c.estado_efectivo !== 'vencido',
+          )
+        : [],
     [bd, asignadas, hoy],
   );
 
@@ -99,7 +106,7 @@ export default function MisAreas() {
 
             <Tarjeta
               titulo="Compromisos pendientes de tus áreas"
-              descripcion="Vigentes, no recortados por período: son estado, no historia."
+              descripcion="Vigentes, no recortados por período: son estado, no historia. Los vencidos no se repiten acá — están arriba, en alertas. Un clic en la fila abre el compromiso en Seguimiento."
               sinPadding
             >
               <Tabla
@@ -107,6 +114,7 @@ export default function MisAreas() {
                 filas={compromisosPropios}
                 conBusqueda={false}
                 columnas={COLUMNAS_COMPROMISO}
+                alHacerClicFila={(c) => navegar(`/seguimiento?tab=compromisos&compromiso=${c.id}`)}
                 vacio={
                   <Vacio
                     compacto
