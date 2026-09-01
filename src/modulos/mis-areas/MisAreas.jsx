@@ -48,6 +48,12 @@ export default function MisAreas() {
     () => alertas.filter((a) => asignadas.includes(a.area)),
     [alertas, asignadas],
   );
+  // Solo las vencidas (severidad 'critica' → semáforo rojo) se muestran acá arriba;
+  // el resto de la situación de cada compromiso ya se ve en la tabla de abajo.
+  const alertasVencidas = useMemo(
+    () => alertasPropias.filter((a) => a.severidad === 'critica'),
+    [alertasPropias],
+  );
 
   const compromisosPropios = useMemo(
     () => (bd ? selCompromisos(bd, { area: asignadas, solo_vigentes: true }, hoy) : []),
@@ -81,13 +87,13 @@ export default function MisAreas() {
           </Tarjeta>
         ) : (
           <>
-            {alertasPropias.length > 0 && (
+            {alertasVencidas.length > 0 && (
               <Tarjeta
-                titulo="Alertas de tus áreas"
-                descripcion="Salen del mismo motor que el inicio y Monitoreo: son las mismas alertas, con los mismos días de atraso."
+                titulo="Alertas vencidas de tus áreas"
+                descripcion="Solo lo que ya está vencido. Salen del mismo motor que el inicio y Monitoreo: mismas alertas, mismos días de atraso."
                 sinPadding
               >
-                <ListaAlertas alertas={alertasPropias} limite={alertasPropias.length} />
+                <ListaAlertas alertas={alertasVencidas} limite={alertasVencidas.length} />
               </Tarjeta>
             )}
 
