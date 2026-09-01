@@ -300,80 +300,6 @@ create table public.serie_historica (
 );
 
 -- ---------------------------------------------------------------------------
--- Puntuales (nuevo, 25/08/2026) — lo que no estaba previsto en el POA.
---
--- El POA define Programas, y de los Programas salen Proyectos (ej. programa
--- "Obras en plazas" -> proyectos "Obra plaza Murialdo", "Obra plaza
--- Churruca"). Un Puntual es otra cosa: surge en el momento ("Zoonosis se
--- lleno de ratas, hay que coordinar la desratizacion") y no cuelga de ningun
--- programa — por eso no es una fila de `proyectos` con eje='puntual', es su
--- propia tabla, con `area_id` directo (no via programa, que no tiene).
---
--- Sigue absorbiendo el bloque estrategico completo: v1 ya unificaba
--- "Puntuales estrategicos" junto con Ejes_Estrategicos e Interes de Roco en
--- un solo flag (ver el comentario de `proyectos.es_estrategico` mas arriba)
--- — separar Puntuales de `proyectos` no cambia que un puntual pueda seguir
--- siendo estrategico.
---
--- Seguimiento simple a proposito (mismo criterio que
--- `actualizaciones_posicionamiento`, sin `act_cuantitativas`/
--- `act_comparativas`): no hay evidencia todavia de un puntual con metrica
--- numerica real. Si aparece, se agrega ahi, no antes.
--- ---------------------------------------------------------------------------
-create table public.puntuales (
-  id                      uuid primary key default gen_random_uuid(),
-  id_legible              text unique,
-  area_id                 uuid not null references public.areas(id),
-  nombre                  text not null,
-  estado_general          public.estado_general not null default 'vigente',
-  responsable             text,
-  prioridad               text,
-  fecha_inicio            date,
-  fecha_fin_proyectada    date,
-  fecha_fin_real          date,
-  causa_atraso            text,
-  observaciones           text,
-  es_estrategico          boolean not null default false,
-  estrategico_marcado_por uuid references public.perfiles(id),
-  estrategico_marcado_en  timestamptz,
-  estrategico_nota        text,
-  prioridad_estrategica   text,
-  motivo_estrategico_id   uuid references public.motivos_estrategicos(id),
-  responsable_politico    text,
-  compromiso_publico      text,
-  fecha_compromiso        date,
-  origen_estrategico      public.origen_carga,
-  creado_por              uuid references public.perfiles(id),
-  created_at              timestamptz not null default now(),
-  updated_at              timestamptz not null default now(),
-  unique (area_id, nombre)
-);
-
-create index puntuales_estrategico_idx
-  on public.puntuales (es_estrategico) where es_estrategico;
-
--- Historico simple, una fila por observacion fechada — nunca se pisa, mismo
--- patron que `actualizaciones_posicionamiento`. Reusa el catalogo `estados`
--- (no un texto libre) para que un puntual entre al mismo semaforo y a los
--- mismos informes Direccion/Secretaria que un proyecto del POA.
-create table public.actualizaciones_puntuales (
-  id                   uuid primary key default gen_random_uuid(),
-  puntual_id           uuid not null references public.puntuales(id) on delete cascade,
-  fecha_actualizacion  date not null,
-  estado_id            uuid not null references public.estados(id),
-  derivacion           public.derivacion not null default 'ninguna',
-  comentarios          text,
-  origen               public.origen_carga not null default 'monitoreo',
-  cargado_por          uuid references public.perfiles(id),
-  created_at           timestamptz not null default now()
-);
-
-create index actualizaciones_puntuales_fecha_idx
-  on public.actualizaciones_puntuales (fecha_actualizacion);
-create index actualizaciones_puntuales_puntual_idx
-  on public.actualizaciones_puntuales (puntual_id);
-
--- ---------------------------------------------------------------------------
 -- Resto del circuito heredado de v1
 -- ---------------------------------------------------------------------------
 create table public.actividades (
@@ -494,10 +420,6 @@ create table public.temas_monitoreo (
   id               uuid primary key default gen_random_uuid(),
   monitoreo_id     uuid not null references public.monitoreos(id) on delete cascade,
   proyecto_id      uuid references public.proyectos(id),
-  -- Un tema de monitoreo tambien puede salir de un Puntual, no solo de un
-  -- proyecto del POA — mismo criterio de vinculo opcional y excluyente que
-  -- compromisos, mas abajo.
-  puntual_id       uuid references public.puntuales(id),
   categoria_id     uuid not null references public.categorias_tema(id),
   descripcion      text not null,
   criticidad       public.criticidad_tema not null default 'media',
@@ -553,11 +475,6 @@ create table public.compromisos (
   id_tema_origen         uuid references public.temas_monitoreo(id) on delete set null,
   id_reunion_origen      uuid references public.reuniones_mesa(id) on delete set null,
   proyecto_id            uuid references public.proyectos(id),
-  -- Un compromiso puede colgar de un Puntual en vez de un proyecto del POA
-  -- ("hablar con Sistemas porque un CAPS no tiene internet" no es de ningun
-  -- proyecto puntual; puede ser del puntual "Zoonosis" o de ninguno de los
-  -- dos). Lo unico obligatorio siempre es el area — ver mas abajo.
-  puntual_id             uuid references public.puntuales(id),
   area_id                uuid not null references public.areas(id),
   descripcion            text not null,
   responsable            text,
@@ -572,10 +489,6 @@ create table public.compromisos (
   -- a mano, sin origen registrado).
   constraint compromisos_origen_unico check (
     num_nonnulls(id_seguimiento_origen, id_tema_origen, id_reunion_origen) <= 1
-  ),
-  -- Proyecto y puntual son excluyentes: es de uno, del otro, o de ninguno.
-  constraint compromisos_vinculo_unico check (
-    num_nonnulls(proyecto_id, puntual_id) <= 1
   )
 );
 
@@ -593,7 +506,7 @@ alter table public.temas_monitoreo
 
 alter table public.temas_monitoreo
   add constraint temas_monitoreo_vinculo_unico check (
-    num_nonnulls(proyecto_id, puntual_id, compromiso_id) <= 1
+    num_nonnulls(proyecto_id, compromiso_id) <= 1
   );
 
 -- ---------------------------------------------------------------------------
@@ -720,7 +633,6 @@ create table public.alertas (
   tipo         text not null,
   severidad    text not null default 'media',
   proyecto_id  uuid references public.proyectos(id) on delete cascade,
-  puntual_id   uuid references public.puntuales(id) on delete cascade,
   area_id      uuid references public.areas(id),
   mensaje      text not null,
   creada_en    timestamptz not null default now(),
@@ -765,9 +677,6 @@ insert into public.areas (slug, nombre, prefijo, orden) values
   ('trabajo_y_produccion',  'Trabajo y Produccion',   'TYP', 6),
   ('coordinacion',          'Coordinacion',           'COR', 7);
 
--- 'puntual' queda en el catalogo por compatibilidad con carga historica,
--- pero desde el alta de la tabla `puntuales` (25/08/2026) ningun proyecto
--- nuevo deberia usar este eje: un Puntual ya no es una fila de `proyectos`.
 insert into public.ejes (slug, nombre, orden) values
   ('poa',                      'POA',                            1),
   ('compromisos',              'Compromisos',                    2),
