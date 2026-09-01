@@ -30,9 +30,14 @@ que hoy no tiene ningún repo activo usándolo) y le suma los módulos de v2,
 para que cuando el portal deje de vivir en `localStorage` tenga un esquema
 real de Postgres detrás, sin perder ninguna de las dos partes.
 
-Vive en `supabase/migrations/0001_esquema.sql` (41 tablas, 14 tipos enum),
-escrito el 19/08/2026 y con el módulo de Posicionamiento rediseñado el
-21/08/2026 (ver sección 2, punto 9).
+Vive en `supabase/migrations/0001_esquema.sql` (**41 tablas, 14 tipos
+enum**), escrito el 19/08/2026. Posicionamiento internacional se rediseñó
+el 21/08/2026 y `temas_monitoreo` sumó `compromiso_id` el 25/08/2026 (ver
+sección 2, puntos 9 y 10).
+
+El 25/08/2026 se había agregado `puntuales` como tabla propia (PR #1); se
+revirtió el 01/09/2026 al confirmarse que el prototipo nunca la adoptó —
+ver punto 11.
 
 ---
 
@@ -122,6 +127,35 @@ pierda si no se las explican:
    posicionamiento, esto queda resuelto; si no, hay que revisar si siguen
    teniendo sentido en el esquema.
 
+10. **`temas_monitoreo.compromiso_id`, agregado el 25/08/2026.** Distinto de
+    `compromisos.id_tema_origen`: `id_tema_origen` guarda de qué tema NACIÓ
+    un compromiso (origen, uno solo, para siempre). `compromiso_id` es la
+    inversa — dice que este tema de esta semana es una novedad sobre un
+    compromiso que YA EXISTE, sin crear uno nuevo. Hace falta porque los
+    compromisos no nacen semana a semana (nacen en Seguimiento, cada 6
+    semanas) pero el Monitoreo semanal sí necesita poder registrar avances
+    sobre los que ya están en curso. Como `temas_monitoreo` nunca se pisa
+    (punto 4), los temas vinculados al mismo compromiso, ordenados por
+    fecha, ya son su historial — no hace falta otra tabla. `proyecto_id` y
+    `compromiso_id` son excluyentes entre sí
+    (`CHECK num_nonnulls(proyecto_id, compromiso_id) <= 1`).
+
+11. **`puntuales`, agregado el 25/08/2026 y revertido el 01/09/2026 — no es
+    tabla propia.** Se había agregado `puntuales` + `actualizaciones_puntuales`
+    como par de tablas separadas de `proyectos` (con `puntual_id` colgando
+    de `temas_monitoreo`, `compromisos` y `alertas`, PR #1), con el
+    argumento de que un puntual "surge en el momento" y no cuelga de ningún
+    programa. Pero el prototipo (`src/`) nunca adoptó ese modelo — sigue
+    usando `eje='Puntual'` sobre `proyectos`, tal como lo documenta el
+    comentario en `catalogos.js` ("separar esa colección en el prototipo es
+    un cambio más grande que JP pidió dejar para después"). Sin ninguna
+    pantalla ni flujo que tratara un puntual distinto de un proyecto POA, se
+    revirtió: un puntual vuelve a ser una fila de `proyectos`, con
+    `eje_id = 'Puntual'` — el mismo mecanismo que ya documenta el punto 3.
+    Se sacaron las dos tablas, las tres columnas `puntual_id`, el CHECK
+    `compromisos_vinculo_unico` completo, y `puntual_id` salió del
+    `num_nonnulls(...)` de `temas_monitoreo_vinculo_unico` (punto 10).
+
 ---
 
 ## 3. Catálogo de entidades, agrupado por dominio
@@ -144,7 +178,8 @@ arranque, no es una pregunta abierta como era en el boceto de v2).
 
 ### Maestro
 `programas` · `proyectos` — el corazón del modelo. `proyectos` tiene el
-bloque estratégico completo (punto 3 de la sección anterior).
+bloque estratégico completo (punto 3 de la sección anterior). Incluye a los
+puntuales: no hay tabla separada (punto 11).
 
 ### Monitoreo y actualizaciones (núcleo de v1)
 `actualizaciones` · `act_cuantitativas` · `act_comparativas` · `objetivos`
@@ -160,7 +195,9 @@ puede tocar varios proyectos)
 
 ### Monitoreo operativo y compromisos (nuevo de v2)
 `monitoreos` · `temas_monitoreo` · `mesas` · `reuniones_mesa` ·
-`mesas_proyectos` · `compromisos` (origen polimórfico, punto 5)
+`mesas_proyectos` · `compromisos` (origen polimórfico, punto 5). Un tema de
+monitoreo puede además enlazar a un compromiso ya existente vía
+`compromiso_id`, sin crear una fila nueva (punto 10).
 
 ### Planificación anual (nuevo de v2)
 `planificacion_anual` · `planificacion_trimestres` · `hitos_planificacion`
@@ -352,6 +389,7 @@ erDiagram
         uuid id PK
         uuid monitoreo_id FK
         uuid proyecto_id FK
+        uuid compromiso_id FK
         uuid categoria_id FK
         text criticidad
         boolean requiere_accion
@@ -494,6 +532,7 @@ erDiagram
     monitoreos ||--o{ temas_monitoreo : contiene
     categorias_tema ||--o{ temas_monitoreo : clasifica
     proyectos |o--o{ temas_monitoreo : opcional
+    compromisos |o--o{ temas_monitoreo : "seguimiento posible"
 
     mesas ||--o{ reuniones_mesa : agenda
     mesas ||--o{ mesas_proyectos : ""
@@ -538,6 +577,10 @@ que se pueda leer. Están en el SQL completo.
   carga de cada módulo usando los datos reales de los Sheets como insumo, y
   recién después se migra — para no tener que migrar dos veces si un
   formulario revela que falta o sobra una columna.
+- **`puntuales` revertido el 01/09/2026** (punto 11) — se había mergeado
+  como tabla propia el 25/08/2026 (PR #1) pero el prototipo nunca la
+  adoptó, así que se sacó del SQL antes de que hubiera datos reales
+  cargados que migrar.
 - **Solo existe `0001_esquema.sql`.** El propio archivo referencia (en
   comentarios) dos migraciones que todavía no están escritas:
   - `0002_logica.sql` — lógica de validación adicional (ej. el CHECK de
@@ -561,4 +604,5 @@ que se pueda leer. Están en el SQL completo.
 | Decisiones de la reunión que fija el orden de trabajo | `docs/decisiones/2026-08-18-despliegue-del-modelo.md` |
 | Bitácora de cambios de interfaz (para no perder trazabilidad) | `docs/registro-de-cambios.md` |
 | Vocabulario institucional (áreas, ejes, siglas) | `contexto/glosario.md` y `contexto/programas-municipales.md` (repo `Trabajo`, fuera de este repo) |
-| Versiones anteriores/borrador de este DER, para Lucidchart | `archivos_varios/coordinacion-3f-fusion.mermaid` y `coordinacion-3f-fusion-para-lucidchart.sql` (repo `Trabajo`) — este documento es la versión actualizada y autoritativa, generada directamente desde el SQL final |
+| Versiones anteriores/borrador de este DER, para Lucidchart | `archivos_varios/coordinacion-3f-fusion.mermaid` y `coordinacion-3f-fusion-para-lucidchart.sql` (repo `Trabajo`) |
+| Copia paralela de este documento, para dar contexto sin depender de este repo | `contexto/der-esquema-datos.md` en el repo `Trabajo` — mismo contenido en origen, pero es una copia separada que se desincroniza si se edita de un solo lado. **Este archivo (el que vive junto al SQL) es la fuente de verdad**; si divergen, gana este. |
