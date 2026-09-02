@@ -12,9 +12,9 @@ export { nivelPorDias };
 
 /* ── Tarjeta ────────────────────────────────────────────────────────── */
 
-export function Tarjeta({ titulo, descripcion, acciones, children, className = '', sinPadding = false }) {
+export function Tarjeta({ titulo, descripcion, acciones, children, className = '', sinPadding = false, style }) {
   return (
-    <section className={`tarjeta bloque-reporte flex flex-col ${className}`}>
+    <section className={`tarjeta bloque-reporte flex flex-col ${className}`} style={style}>
       {(titulo || acciones) && (
         <header className="flex items-start justify-between gap-3 border-b border-borde px-4 py-3">
           <div className="min-w-0">
@@ -227,7 +227,12 @@ const NIVELES = {
   sindato: { color: 'var(--color-sindato)', fondo: 'var(--color-sindato-suave)', texto: 'Sin dato' },
 };
 
-export function Semaforo({ nivel = 'sindato', texto, soloPunto = false }) {
+/**
+ * `sinPunto` saca el puntito de color de adentro del pill, para cuando ya va
+ * en otro lado de la fila (ver Mis Áreas: el punto se muda al nombre del
+ * compromiso y el pill de Estado queda solo con el fondo tintado y el texto).
+ */
+export function Semaforo({ nivel = 'sindato', texto, soloPunto = false, sinPunto = false }) {
   const cfg = NIVELES[nivel] ?? NIVELES.sindato;
   if (soloPunto) {
     return (
@@ -243,7 +248,7 @@ export function Semaforo({ nivel = 'sindato', texto, soloPunto = false }) {
       className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-chip px-1.5 py-0.5 text-[11px] font-medium leading-tight"
       style={{ background: cfg.fondo, color: 'var(--color-tinta)' }}
     >
-      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: cfg.color }} />
+      {!sinPunto && <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: cfg.color }} />}
       {texto ?? cfg.texto}
     </span>
   );

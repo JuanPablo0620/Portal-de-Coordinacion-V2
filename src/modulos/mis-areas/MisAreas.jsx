@@ -18,12 +18,11 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Save, UserCheck } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
-import { Aviso, Boton, Chip, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
+import { Aviso, Boton, Chip, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { CampoCheck } from '../../componentes/Campo.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { ListaAlertas } from '../../componentes/ListaAlertas.jsx';
 import { TarjetaSecretaria } from '../monitoreo/TableroSecretarias.jsx';
-import { COLUMNAS_COMPROMISO } from '../seguimiento/columnasCompromiso.jsx';
 import { calcularAlertas, TIPOS_ALERTA } from '../../datos/alertas.js';
 import {
   areasAsignadas,
@@ -31,8 +30,88 @@ import {
   hoyISO,
   resumenSecretarias,
 } from '../../datos/selectores.js';
+import { fecha as fFecha } from '../../utilidades/formato.js';
 import { useItems } from '../../utilidades/catalogos.js';
 import { acciones, useBD, useUsuario } from '../../estado/tienda.js';
+
+/**
+ * Columnas de "Compromisos vencidos". A propósito NO son las de
+ * `COLUMNAS_COMPROMISO` (columnasCompromiso.jsx) — esa versión también la
+ * usan Seguimiento, la ficha de proyecto y la hoja de secretaría, y ahí no
+ * se pidió este mismo recorte. Acá se saca Responsable, y el estado dice
+ * sólo "N días" (sin la palabra "vencido" — ya está la tarjeta entera
+ * tintada de rojo para eso).
+ */
+const COLUMNAS_VENCIDOS = [
+  {
+    clave: 'descripcion',
+    titulo: 'Compromiso',
+    render: (f) => (
+      <div className="min-w-40">
+        <p className="leading-tight text-tinta">{f.descripcion}</p>
+        <p className="text-[11px] text-tenue">Origen: {f.origen_tipo}</p>
+      </div>
+    ),
+  },
+  { clave: 'area', titulo: 'Área', ancho: 190 },
+  {
+    clave: 'fecha_limite',
+    titulo: 'Vence',
+    ancho: 100,
+    render: (f) => <span className="tabular text-xs">{fFecha(f.fecha_limite)}</span>,
+    formatoCSV: fFecha,
+  },
+  {
+    clave: 'estado_efectivo',
+    titulo: 'Estado',
+    ancho: 130,
+    render: (f) => <Semaforo nivel="vencido" texto={`${f.dias_atraso} días`} />,
+  },
+];
+
+/**
+ * Columnas de "Compromisos pendientes". Mismo criterio de recorte: sin
+ * Responsable, y el punto de color se muda al lado del nombre del
+ * compromiso en vez de ir adentro del pill de Estado — que queda solo con
+ * el fondo tintado y el texto (`Semaforo sinPunto`).
+ */
+const COLUMNAS_PENDIENTES = [
+  {
+    clave: 'descripcion',
+    titulo: 'Compromiso',
+    render: (f) => {
+      const nivel = f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes);
+      return (
+        <div className="flex min-w-40 items-start gap-2">
+          <span className="mt-1.5">
+            <Semaforo nivel={nivel} soloPunto texto={f.estado_efectivo} />
+          </span>
+          <div>
+            <p className="leading-tight text-tinta">{f.descripcion}</p>
+            <p className="text-[11px] text-tenue">Origen: {f.origen_tipo}</p>
+          </div>
+        </div>
+      );
+    },
+  },
+  { clave: 'area', titulo: 'Área', ancho: 190 },
+  {
+    clave: 'fecha_limite',
+    titulo: 'Vence',
+    ancho: 100,
+    render: (f) => <span className="tabular text-xs">{fFecha(f.fecha_limite)}</span>,
+    formatoCSV: fFecha,
+  },
+  {
+    clave: 'estado_efectivo',
+    titulo: 'Estado',
+    ancho: 130,
+    render: (f) => {
+      const nivel = f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes);
+      return <Semaforo nivel={nivel} sinPunto texto={f.estado_efectivo} />;
+    },
+  },
+];
 
 export default function MisAreas() {
   const bd = useBD();
@@ -105,17 +184,22 @@ export default function MisAreas() {
           </Tarjeta>
         ) : (
           <>
+            {/* Fondo apenas tintado de rojo para que la tarjeta se distinga del resto
+                de un vistazo, sin ser disruptiva — mismo tono que ya usa la app para
+                sus chips de "vencido" (--color-vencido-suave). El borde va un poco
+                más saturado, para que se note el recuadro. */}
             {compromisosVencidos.length > 0 && (
               <Tarjeta
-                titulo="Compromisos vencidos de tus áreas"
-                descripcion="Misma tabla que la de abajo — acá solo lo que ya venció. Un clic en la fila abre el compromiso en Seguimiento."
+                titulo="Alerta: Compromisos vencidos de tus áreas"
+                descripcion="Un clic en la fila abre el compromiso en Seguimiento."
                 sinPadding
+                style={{ background: 'var(--color-vencido-suave)', borderColor: '#f0c7cb' }}
               >
                 <Tabla
                   nombreExport="mis-areas-compromisos-vencidos"
                   filas={compromisosVencidos}
                   conBusqueda={false}
-                  columnas={COLUMNAS_COMPROMISO}
+                  columnas={COLUMNAS_VENCIDOS}
                   alHacerClicFila={(c) => navegar(`/seguimiento?tab=compromisos&compromiso=${c.id}`)}
                 />
               </Tarjeta>
@@ -140,7 +224,7 @@ export default function MisAreas() {
                 nombreExport="mis-areas-compromisos"
                 filas={compromisosPropios}
                 conBusqueda={false}
-                columnas={COLUMNAS_COMPROMISO}
+                columnas={COLUMNAS_PENDIENTES}
                 alHacerClicFila={(c) => navegar(`/seguimiento?tab=compromisos&compromiso=${c.id}`)}
                 vacio={
                   <Vacio
