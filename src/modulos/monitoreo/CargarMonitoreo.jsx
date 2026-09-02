@@ -13,22 +13,27 @@
  * nota la corrección de lo que propuso la transferencia, y el repositorio
  * mantiene el compromiso asociado en sincronía.
  */
-import { useState } from 'react';
-import { Check, CheckCircle2, ClipboardCheck, Link2, Pencil, Plus, Radar, Trash2, X } from 'lucide-react';
-import { Aviso, Boton, Chip, Criticidad, Tarjeta } from '../../componentes/Basicos.jsx';
+import { useMemo, useState } from 'react';
+import { Check, CheckCircle2, ClipboardCheck, Pencil, Plus, Radar, Trash2, X } from 'lucide-react';
+import { Aviso, Boton, Chip, Criticidad, Semaforo, Tarjeta, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoCheck, CampoFecha, CampoRadios, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarTemas } from '../../datos/minutas/separarTemas.js';
 import { CRITICIDADES } from '../../datos/catalogos.js';
-import { hoyISO } from '../../datos/selectores.js';
+import { compromisos as selCompromisos, hoyISO } from '../../datos/selectores.js';
 import { fecha as fFecha } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
-import { acciones } from '../../estado/tienda.js';
+import { acciones, useBD } from '../../estado/tienda.js';
 
 const TEMA_VACIO = {
   categoria: '',
   id_proyecto: '',
+  // Compromiso ya existente del proyecto vinculado, del que este tema es una
+  // novedad — distinto de "requiere_accion", que genera uno nuevo. Los dos
+  // son excluyentes: ver `compromiso_existente` más abajo.
+  id_compromiso: '',
+  compromiso_existente: false,
   descripcion: '',
   criticidad: 'media',
   requiere_accion: false,
@@ -68,6 +73,8 @@ const aPersistir = (tema) => ({
   requiere_accion: tema.requiere_accion,
   responsable: tema.requiere_accion ? tema.responsable.trim() : '',
   id_proyecto: tema.id_proyecto || null,
+  id_compromiso: tema.id_compromiso || null,
+  compromiso_existente: Boolean(tema.id_compromiso),
   fecha_limite: (tema.requiere_accion && tema.fecha_limite) || null,
 });
 
@@ -192,7 +199,11 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
       setTemasCargados((ts) =>
         ts.map((t) =>
           t.id === editando.id
-            ? { ...t, ...actualizado, generoCompromiso: Boolean(actualizado.id_compromiso) }
+            ? {
+                ...t,
+                ...actualizado,
+                generoCompromiso: Boolean(actualizado.id_compromiso) && !actualizado.compromiso_existente,
+              }
             : t,
         ),
       );
@@ -411,7 +422,14 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
                 <button
                   type="button"
                   onClick={() => {
-                    setEditando({ ...TEMA_VACIO, ...t, id_proyecto: t.id_proyecto ?? '', fecha_limite: t.fecha_limite ?? '' });
+                    setEditando({
+                      ...TEMA_VACIO,
+                      ...t,
+                      id_proyecto: t.id_proyecto ?? '',
+                      id_compromiso: t.id_compromiso ?? '',
+                      compromiso_existente: t.compromiso_existente ?? false,
+                      fecha_limite: t.fecha_limite ?? '',
+                    });
                     marcar('edicion', '');
                   }}
                   className="ml-auto rounded-chip p-1.5 text-tenue transition hover:bg-acento-suave hover:text-acento-fuerte"
@@ -425,6 +443,7 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
                 <Chip tono="neutro">{t.categoria}</Chip>
                 {t.id_proyecto && <Chip tono="acento">{t.id_proyecto}</Chip>}
                 {t.generoCompromiso && <Chip tono="proximo">Genera compromiso</Chip>}
+                {t.compromiso_existente && <Chip tono="acento">Vinculado a compromiso</Chip>}
               </div>
               {t.requiere_accion && (
                 <p className="text-[11px] text-tenue">
@@ -478,7 +497,35 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
  * ninguna URL lo alcanza y sin esto no entraría en el render de control.
  */
 export function FormularioTema({ tema, alCambiar, opcionesCategoria, hoy }) {
-  const [vincular, setVincular] = useState(Boolean(tema.id_proyecto));
+  const bd = useBD();
+
+  // Compromisos vigentes del proyecto vinculado, para elegir uno del que
+  // este tema sea una novedad — en vez de duplicar con "Crear nuevo
+  // compromiso" algo que ya existe.
+  const compromisosDelProyecto = useMemo(
+    () =>
+      bd && tema.id_proyecto
+        ? selCompromisos(bd, { id_proyecto: tema.id_proyecto, solo_vigentes: true }, hoy)
+        : [],
+    [bd, tema.id_proyecto, hoy],
+  );
+
+  /** Cambiar (o sacar) el proyecto vuelve a dejar en blanco a qué compromiso
+   * de ESE proyecto estaba vinculado el tema — no tiene sentido conservarlo. */
+  function cambiarProyecto(id_proyecto) {
+    alCambiar({ id_proyecto, id_compromiso: '', compromiso_existente: false });
+  }
+
+  function elegirCompromiso(id_compromiso) {
+    const yaElegido = tema.id_compromiso === id_compromiso;
+    alCambiar({
+      id_compromiso: yaElegido ? '' : id_compromiso,
+      compromiso_existente: !yaElegido,
+      // Uno de los dos: si se vincula a uno que ya existe, "Crear nuevo
+      // compromiso" deja de tener sentido para este tema.
+      requiere_accion: yaElegido ? tema.requiere_accion : false,
+    });
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -499,25 +546,63 @@ export function FormularioTema({ tema, alCambiar, opcionesCategoria, hoy }) {
         />
       </GrillaCampos>
 
-      {/* El buscador de proyectos arranca plegado: es opcional, ocupa media
-          pantalla y con varios borradores abiertos a la vez la revisión se
-          volvía imposible de leer. */}
-      {vincular ? (
-        <SelectorProyecto
-          etiqueta="Proyecto vinculado"
-          ayuda="opcional"
-          valor={tema.id_proyecto}
-          alCambiar={(v) => alCambiar({ id_proyecto: v })}
-          maxAltura={160}
-        />
-      ) : (
-        <div>
-          <p className="mb-1 text-xs font-medium text-gris">
-            Proyecto vinculado <span className="ml-1.5 font-normal text-tenue">opcional</span>
+      <SelectorProyecto
+        etiqueta="Proyecto vinculado"
+        ayuda="opcional"
+        valor={tema.id_proyecto}
+        alCambiar={cambiarProyecto}
+        maxAltura={160}
+      />
+
+      {tema.id_proyecto && (
+        <div className="rounded-chip border border-borde p-3">
+          <p className="mb-0.5 text-xs font-semibold text-tinta">Compromisos de este proyecto</p>
+          <p className="mb-2.5 text-[11px] text-tenue">
+            Elegí uno si este tema es una novedad sobre un compromiso que ya existe — así no se
+            duplica. Si ninguno aplica, dejalo sin marcar.
           </p>
-          <Boton tamanio="sm" variante="fantasma" icono={Link2} onClick={() => setVincular(true)}>
-            Vincular un proyecto
-          </Boton>
+          {compromisosDelProyecto.length === 0 ? (
+            <p className="text-[11px] text-tenue">Este proyecto todavía no tiene compromisos cargados.</p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {compromisosDelProyecto.map((c) => {
+                const elegido = tema.id_compromiso === c.id;
+                const nivel = c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => elegirCompromiso(c.id)}
+                    className={`flex w-full items-start gap-2.5 rounded-chip border p-2.5 text-left transition ${
+                      elegido ? 'border-acento bg-acento-suave/60' : 'border-borde hover:bg-paper'
+                    }`}
+                  >
+                    <span
+                      className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 ${
+                        elegido ? 'border-acento' : 'border-borde-fuerte'
+                      }`}
+                    >
+                      {elegido && <span className="h-2 w-2 rounded-full bg-acento" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm text-tinta">{c.descripcion}</span>
+                      <span className="block text-[11px] text-tenue">
+                        {c.responsable} · vence {fFecha(c.fecha_limite)}
+                      </span>
+                      <span className="mt-1 inline-block">
+                        <Semaforo
+                          nivel={nivel}
+                          texto={
+                            c.estado_efectivo === 'vencido' ? `vencido · ${c.dias_atraso} d` : c.estado_efectivo
+                          }
+                        />
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -532,9 +617,9 @@ export function FormularioTema({ tema, alCambiar, opcionesCategoria, hoy }) {
 
       <div className="rounded-chip border border-borde p-3">
         <CampoCheck
-          etiqueta="Requiere acción"
-          descripcion="Si lo marcás, se genera automáticamente un compromiso en la lista general."
+          etiqueta="Crear nuevo compromiso"
           checked={tema.requiere_accion}
+          disabled={tema.compromiso_existente}
           onChange={(e) => alCambiar({ requiere_accion: e.target.checked })}
         />
         {tema.requiere_accion && (

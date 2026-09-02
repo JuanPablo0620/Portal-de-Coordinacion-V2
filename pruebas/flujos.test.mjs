@@ -327,6 +327,82 @@ test('editar un tema mantiene su compromiso en sincronía', async () => {
   assert.equal(selCompromisos(bd, {}).length, 0, 'deja de contar en la lista general');
 });
 
+/**
+ * `id_compromiso` tiene dos sentidos distintos, y `actualizarTema` tiene que
+ * distinguirlos: el compromiso que el tema generó (dueño, se gestiona en
+ * sincronía) versus uno que ya existía y el tema sólo referencia (no es
+ * dueño, nunca lo toca).
+ */
+test('un tema vinculado a un compromiso ya existente nunca gestiona su ciclo de vida', async () => {
+  await limpio();
+  const p = await repo.crearProyecto(PROYECTO_BASE);
+  const m = await repo.crearMonitoreo({ fecha: HOY, area: p.area });
+  const seg = await repo.crearSeguimiento({ ids_proyecto: [p.id_proyecto], area: p.area, fecha: PASADO, tipo: 'realizado' });
+
+  // El compromiso existe independientemente del tema: lo crea otro camino
+  // (acá, un seguimiento) antes de que el tema lo referencie.
+  const existente = await repo.crearCompromiso({
+    origen_tipo: 'seguimiento', id_origen: seg.id, id_proyecto: p.id_proyecto,
+    area: p.area, descripcion: 'Pagar al proveedor', responsable: 'V. Juárez', fecha_limite: FUTURO,
+  });
+
+  const { tema } = await repo.agregarTema(m.id, {
+    categoria: 'Operativo', descripcion: 'Sigue sin pagarse', criticidad: 'media',
+    requiere_accion: false, id_proyecto: p.id_proyecto,
+    id_compromiso: existente.id, compromiso_existente: true,
+  });
+  assert.equal(tema.id_compromiso, existente.id);
+
+  // Editar el tema (sin tocar el vínculo) no le pisa la descripción al
+  // compromiso: no es dueño de él.
+  await repo.actualizarTema(tema.id, {
+    descripcion: 'Sigue sin pagarse, avisado dos veces',
+    id_compromiso: existente.id,
+    compromiso_existente: true,
+  });
+  let bd = await repo.obtenerBD();
+  assert.equal(bd.compromisos.find((c) => c.id === existente.id).descripcion, 'Pagar al proveedor');
+  assert.equal(bd.compromisos.find((c) => c.id === existente.id).activo, true);
+
+  // Sacar el vínculo tampoco lo toca: el compromiso sigue vivo, sólo deja
+  // de estar referenciado por este tema.
+  const sinVinculo = await repo.actualizarTema(tema.id, { id_compromiso: null, compromiso_existente: false });
+  bd = await repo.obtenerBD();
+  assert.equal(sinVinculo.id_compromiso, null);
+  assert.equal(bd.compromisos.find((c) => c.id === existente.id).activo, true, 'el compromiso ajeno no se da de baja');
+  assert.equal(selCompromisos(bd, {}).length, 1, 'sigue contando en la lista general');
+});
+
+test('cambiar de un compromiso propio a uno ya existente da de baja el propio, no el ajeno', async () => {
+  await limpio();
+  const p = await repo.crearProyecto(PROYECTO_BASE);
+  const m = await repo.crearMonitoreo({ fecha: HOY, area: p.area });
+  const seg = await repo.crearSeguimiento({ ids_proyecto: [p.id_proyecto], area: p.area, fecha: PASADO, tipo: 'realizado' });
+  const ajeno = await repo.crearCompromiso({
+    origen_tipo: 'seguimiento', id_origen: seg.id, id_proyecto: p.id_proyecto,
+    area: p.area, descripcion: 'Inspección final', responsable: 'L. Gómez', fecha_limite: FUTURO,
+  });
+
+  // `tema` es una foto de ANTES de que agregarTema le asigne el compromiso
+  // propio — por eso se usa el `compromiso` que la misma función devuelve
+  // aparte, no `tema.id_compromiso`.
+  const { tema, compromiso: propio } = await repo.agregarTema(m.id, {
+    categoria: 'Operativo', descripcion: 'Falta un insumo', criticidad: 'media',
+    requiere_accion: true, responsable: 'M. López', fecha_limite: FUTURO, id_proyecto: p.id_proyecto,
+  });
+  assert.ok(propio, 'requiere_accion generó su propio compromiso');
+
+  // El mismo tema pasa a apuntar al compromiso ajeno en vez del propio.
+  await repo.actualizarTema(tema.id, {
+    requiere_accion: false,
+    id_compromiso: ajeno.id,
+    compromiso_existente: true,
+  });
+  const bd = await repo.obtenerBD();
+  assert.equal(bd.compromisos.find((c) => c.id === propio.id).activo, false, 'el propio, huérfano, se da de baja');
+  assert.equal(bd.compromisos.find((c) => c.id === ajeno.id).activo, true, 'el ajeno queda intacto');
+});
+
 /* ── Flujo del módulo 5: mesa con compromisos ───────────────────────── */
 
 test('los compromisos de una mesa entran a la lista general con origen mesa', async () => {

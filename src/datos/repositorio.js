@@ -560,7 +560,11 @@ export async function agregarTema(idMonitoreo, tema) {
     );
 
     let compromiso = null;
-    if (tema.requiere_accion) {
+    // Si el tema ya viene vinculado a un compromiso que existía de antes
+    // (elegido de la lista del proyecto), no corresponde generar uno nuevo
+    // aunque requiere_accion llegara en true por algún camino que no lo
+    // haya limpiado — son excluyentes.
+    if (tema.requiere_accion && !tema.compromiso_existente) {
       compromiso = await crearCompromiso({
         origen_tipo: 'monitoreo',
         id_origen: idMonitoreo,
@@ -585,6 +589,13 @@ export async function agregarTema(idMonitoreo, tema) {
  * responsable o la fecha del tema sin tocar el compromiso dejaba las dos
  * versiones peleadas, marcar la acción después no creaba nada, y desmarcarla
  * dejaba un compromiso vivo por un tema que ya no lo pedía.
+ *
+ * `compromiso_existente` distingue los dos sentidos que puede tener
+ * `id_compromiso`: `false` (o ausente, temas viejos) es el compromiso que
+ * ESTE tema generó y del que es dueño —se crea, actualiza o da de baja en
+ * sincronía, como siempre—; `true` es un compromiso que YA EXISTÍA, elegido
+ * a mano de la lista del proyecto vinculado —acá el tema sólo guarda la
+ * referencia, nunca gestiona su ciclo de vida.
  */
 export async function actualizarTema(id, cambios) {
   const bd = await obtenerBD();
@@ -597,6 +608,17 @@ export async function actualizarTema(id, cambios) {
       id_proyecto: cambios.id_proyecto ?? previo.id_proyecto ?? null,
     });
 
+    // El compromiso propio que este tema ya tenía deja de tener dueño si el
+    // tema pasa a referenciar otra cosa (o nada) — se da de baja antes de
+    // decidir el estado nuevo, para no dejarlo huérfano.
+    const teniaPropio = Boolean(previo.id_compromiso) && !previo.compromiso_existente;
+    const sigueApuntandoIgual = tema.id_compromiso === previo.id_compromiso;
+    if (teniaPropio && !sigueApuntandoIgual) {
+      await bajaLogica('compromisos', previo.id_compromiso);
+    }
+
+    if (tema.compromiso_existente) return tema;
+
     const datos = {
       descripcion: tema.descripcion,
       responsable: tema.responsable,
@@ -604,7 +626,7 @@ export async function actualizarTema(id, cambios) {
       id_proyecto: tema.id_proyecto ?? null,
     };
 
-    if (tema.requiere_accion && !previo.id_compromiso) {
+    if (tema.requiere_accion && !(teniaPropio && sigueApuntandoIgual)) {
       const compromiso = await crearCompromiso({
         origen_tipo: 'monitoreo',
         id_origen: previo.id_monitoreo,
@@ -617,7 +639,7 @@ export async function actualizarTema(id, cambios) {
       await actualizarCompromiso(previo.id_compromiso, datos);
       return tema;
     }
-    if (previo.id_compromiso) {
+    if (teniaPropio && sigueApuntandoIgual) {
       // Baja lógica, no borrado: el sistema no borra nada, y el asiento de
       // bitácora deja constancia de por qué ese compromiso dejó de contar.
       await bajaLogica('compromisos', previo.id_compromiso);

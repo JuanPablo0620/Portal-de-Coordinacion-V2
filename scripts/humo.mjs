@@ -170,7 +170,7 @@ const COMPONENTES = [
   ['HistorialProyecto', 'Hitos planificados'],
   // El formulario de tema con un borrador transferido adentro: el compromiso
   // detectado tiene que llegar con la acción marcada y sus campos abiertos.
-  ['FormularioTema', 'Requiere acción'],
+  ['FormularioTema', 'Crear nuevo compromiso'],
   ['FormularioTema', 'Responsable'],
   ['FormularioTema', 'Administrativo / expediente'],
 ];
