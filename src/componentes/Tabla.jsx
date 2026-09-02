@@ -47,6 +47,14 @@ export function Tabla({
   maxAltura,
   /** Sin tope: lo usan las tablas que se imprimen, donde recortar mutila el PDF. */
   sinTope = false,
+  /**
+   * Fondo del encabezado, para cuando la tabla vive dentro de una tarjeta
+   * tintada (ver Mis Áreas → compromisos vencidos) y el gris de `bg-paper`
+   * por defecto desentona. Tiene que ser opaco: el encabezado es sticky, así
+   * que además de estética cumple una función — tapa las filas que pasan
+   * por abajo al hacer scroll.
+   */
+  colorEncabezado,
 }) {
   const [texto, setTexto] = useState('');
   const [orden, setOrden] = useState(ordenInicial ?? null);
@@ -192,7 +200,10 @@ export function Tabla({
       ) : (
         <div className="scroll-fino min-h-0 overflow-auto" style={maxAltura ? { maxHeight: maxAltura } : undefined}>
           <table className="w-full border-collapse text-sm">
-            <thead className="sticky top-0 z-10 bg-paper">
+            <thead
+              className="sticky top-0 z-10 bg-paper"
+              style={colorEncabezado ? { background: colorEncabezado } : undefined}
+            >
               <tr>
                 {columnas.map((c) => {
                   const ordenable = !c.sinOrdenar;

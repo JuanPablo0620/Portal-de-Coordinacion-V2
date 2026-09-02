@@ -200,6 +200,7 @@ export default function MisAreas() {
                   filas={compromisosVencidos}
                   conBusqueda={false}
                   columnas={COLUMNAS_VENCIDOS}
+                  colorEncabezado="#f6d8dc"
                   alHacerClicFila={(c) => navegar(`/seguimiento?tab=compromisos&compromiso=${c.id}`)}
                 />
               </Tarjeta>
