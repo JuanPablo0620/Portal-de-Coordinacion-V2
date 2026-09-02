@@ -31,7 +31,7 @@ import { CampoFecha, CampoHora, CampoSelect, CampoTexto, GrillaCampos } from '..
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { CargarSeguimiento } from './CargarSeguimiento.jsx';
 import { HistorialArea } from './HistorialArea.jsx';
-import { COLUMNAS_COMPROMISO } from './columnasCompromiso.jsx';
+import { COLUMNAS_COMPROMISO, nivelDe } from './columnasCompromiso.jsx';
 import { ESTADOS_COMPROMISO } from '../../datos/catalogos.js';
 import {
   compromisos as selCompromisos,
@@ -374,18 +374,23 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
               clave: 'descripcion',
               titulo: 'Compromiso',
               render: (f) => (
-                <div className="min-w-40">
-                  <p className="leading-tight text-tinta">{f.descripcion}</p>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navegar(RUTA_ORIGEN[f.origen_tipo]?.(f) ?? '/seguimiento');
-                    }}
-                    className="text-[11px] text-acento underline-offset-2 hover:underline"
-                  >
-                    origen: {f.origen_tipo}
-                  </button>
+                <div className="flex min-w-40 items-start gap-2">
+                  <span className="mt-1.5">
+                    <Semaforo nivel={nivelDe(f)} soloPunto texto={f.estado_efectivo} />
+                  </span>
+                  <div>
+                    <p className="leading-tight text-tinta">{f.descripcion}</p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navegar(RUTA_ORIGEN[f.origen_tipo]?.(f) ?? '/seguimiento');
+                      }}
+                      className="text-[11px] text-acento underline-offset-2 hover:underline"
+                    >
+                      origen: {f.origen_tipo}
+                    </button>
+                  </div>
                 </div>
               ),
             },
