@@ -106,7 +106,15 @@ export function Layout() {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* min-h-0: sin esto, un flex item en columna no se achica por debajo
+          de la altura natural de su contenido (default `min-height: auto`
+          de flexbox). Con una pantalla con mucho contenido —como "Proyectos
+          y compromisos de esta ventana" en Monitoreo, que puede crecer
+          bastante al abrir un proyecto o un compromiso— este div terminaba
+          estirándose para darle lugar a #contenido en vez de dejarlo
+          scrollear solo, y aparecía un segundo scroll: el de la ventana del
+          navegador entera, encima del de #contenido. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <button
           type="button"
           onClick={() => setMenuAbierto((v) => !v)}

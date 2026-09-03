@@ -117,10 +117,16 @@
 }
 
 /* ── Base ─────────────────────────────────────────────────────────── */
+/* `overflow: hidden` es a propósito: todo el scroll de la app pasa por
+   #contenido (`overflow-y-auto`, ver Layout.jsx). Sin esto, si algún
+   contenedor de la cadena de flex se estirara de más, aparecería un
+   segundo scroll —el de la ventana del navegador entera— además del de
+   #contenido, en vez de que #contenido lo absorbiera solo. */
 html,
 body,
 #root {
   height: 100%;
+  overflow: hidden;
 }
 
 body {

@@ -19,6 +19,7 @@
   body,
   #root {
     height: auto;
+    overflow: visible !important;
     background: #fff !important;
   }
 

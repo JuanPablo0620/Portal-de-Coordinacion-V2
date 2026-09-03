@@ -79,6 +79,26 @@ const ORIGEN = {
 
 const nuevaClave = () => Math.random().toString(36).slice(2);
 
+/**
+ * Corrige el scroll de `#contenido` para que `el` quede a la vista —sólo si
+ * hace falta—, sin tocar nada fuera de ese contenedor. A propósito no usa
+ * `el.scrollIntoView()`: esa API recorre TODOS los ancestros con scroll,
+ * ventana del navegador incluida aunque tenga `overflow: hidden` (ver la
+ * nota en Layout.jsx) — acá el único contenedor que puede scrollear es
+ * `#contenido`, así que se corrige ese solo, a mano.
+ */
+function scrollDentroDelContenido(el) {
+  const contenedor = document.getElementById('contenido');
+  if (!el || !contenedor) return;
+  const rEl = el.getBoundingClientRect();
+  const rCont = contenedor.getBoundingClientRect();
+  if (rEl.top < rCont.top) {
+    contenedor.scrollTop -= rCont.top - rEl.top;
+  } else if (rEl.bottom > rCont.bottom) {
+    contenedor.scrollTop += rEl.bottom - rCont.bottom;
+  }
+}
+
 /** Validación §8.6, compartida por los tres caminos de carga de un tema. */
 function validarTema(tema, hoy) {
   if (!tema.categoria) return 'Elegí la categoría del tema.';
@@ -667,22 +687,25 @@ function TarjetaProyectoVentana({
   // Abrir un proyecto, un compromiso o el formulario de "crear nuevo" agrega
   // bastante alto DEBAJO de donde se hizo clic — sin esto, el scroll se queda
   // clavado donde estaba y lo que se abrió termina fuera de vista, como si la
-  // pantalla se hubiera corrido sola. `block: 'nearest'` no mueve nada si ya
-  // está a la vista: sólo corrige cuando el contenido nuevo lo tapa.
+  // pantalla se hubiera corrido sola. Mueve sólo #contenido (nunca la
+  // ventana): a diferencia de `element.scrollIntoView()`, que recorre TODOS
+  // los ancestros con scroll —incluida la ventana, aunque esté con
+  // `overflow: hidden`— esto no toca nada fuera de #contenido. No mueve
+  // nada si ya está a la vista: sólo corrige cuando el contenido nuevo lo tapa.
   const cardRef = useRef(null);
   const compromisoRefs = useRef(new Map());
   const formNuevoRef = useRef(null);
 
   useEffect(() => {
-    if (abierto) cardRef.current?.scrollIntoView({ block: 'nearest' });
+    if (abierto) scrollDentroDelContenido(cardRef.current);
   }, [abierto]);
 
   useEffect(() => {
-    if (abiertoCompromiso) compromisoRefs.current.get(abiertoCompromiso)?.scrollIntoView({ block: 'nearest' });
+    if (abiertoCompromiso) scrollDentroDelContenido(compromisoRefs.current.get(abiertoCompromiso));
   }, [abiertoCompromiso]);
 
   useEffect(() => {
-    if (creandoCompromiso) formNuevoRef.current?.scrollIntoView({ block: 'nearest' });
+    if (creandoCompromiso) scrollDentroDelContenido(formNuevoRef.current);
   }, [creandoCompromiso]);
 
   return (
