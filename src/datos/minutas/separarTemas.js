@@ -90,7 +90,7 @@ function criticidadPropuesta({ clase, descripcion }) {
  *        `categorias` es el catálogo vigente; sin él los temas salen sin categoría.
  * @returns {{descripcion: string, categoria: string, criticidad: string,
  *            requiere_accion: boolean, responsable: string, fecha_limite: string,
- *            id_proyecto: string, clase: string}[]}
+ *            descripcion_compromiso: string, id_proyecto: string, clase: string}[]}
  */
 export function separarTemas(texto, { hoy, categorias = [] } = {}) {
   return clasificarMinuta(texto, hoy).map((oracion) => ({
@@ -102,6 +102,10 @@ export function separarTemas(texto, { hoy, categorias = [] } = {}) {
     requiere_accion: oracion.clase === 'compromiso',
     responsable: oracion.clase === 'compromiso' ? oracion.responsable : '',
     fecha_limite: oracion.clase === 'compromiso' ? oracion.fecha_limite : '',
+    // La propia descripción del compromiso (distinta de la del tema) no se
+    // propone sola — el usuario la carga a mano si hace falta, ver
+    // `FormularioTema` en CargarMonitoreo.jsx.
+    descripcion_compromiso: '',
     id_proyecto: '',
     /** Por qué quedó así: la pantalla lo muestra para que la propuesta sea revisable. */
     clase: oracion.clase,

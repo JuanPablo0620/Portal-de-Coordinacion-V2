@@ -328,6 +328,28 @@ test('editar un tema mantiene su compromiso en sincronía', async () => {
 });
 
 /**
+ * "Crear nuevo compromiso" puede llevar una descripción propia, distinta de
+ * la del tema — si no se carga, se sigue usando la del tema como antes.
+ */
+test('el compromiso creado desde un tema usa su propia descripción si se cargó', async () => {
+  await limpio();
+  const m = await repo.crearMonitoreo({ fecha: HOY, area: 'Secretaría de Salud' });
+
+  const { compromiso: conPropia } = await repo.agregarTema(m.id, {
+    categoria: 'Presupuestario', descripcion: 'Falta la partida para pagar al proveedor',
+    criticidad: 'media', requiere_accion: true, responsable: 'M. López', fecha_limite: FUTURO,
+    descripcion_compromiso: 'Gestionar la partida presupuestaria',
+  });
+  assert.equal(conPropia.descripcion, 'Gestionar la partida presupuestaria');
+
+  const { compromiso: sinPropia } = await repo.agregarTema(m.id, {
+    categoria: 'Presupuestario', descripcion: 'Otro tema sin descripción propia',
+    criticidad: 'media', requiere_accion: true, responsable: 'M. López', fecha_limite: FUTURO,
+  });
+  assert.equal(sinPropia.descripcion, 'Otro tema sin descripción propia');
+});
+
+/**
  * `id_compromiso` tiene dos sentidos distintos, y `actualizarTema` tiene que
  * distinguirlos: el compromiso que el tema generó (dueño, se gestiona en
  * sincronía) versus uno que ya existía y el tema sólo referencia (no es
@@ -401,6 +423,47 @@ test('cambiar de un compromiso propio a uno ya existente da de baja el propio, n
   const bd = await repo.obtenerBD();
   assert.equal(bd.compromisos.find((c) => c.id === propio.id).activo, false, 'el propio, huérfano, se da de baja');
   assert.equal(bd.compromisos.find((c) => c.id === ajeno.id).activo, true, 'el ajeno queda intacto');
+});
+
+/**
+ * "Actualizar compromiso" (Monitoreo) y el detalle desplegable de
+ * Seguimiento comparten este camino: corregir estado y descripción de un
+ * compromiso sin pasar por su origen. `fecha_cumplimiento` se administra
+ * sola, no la manda quien llama.
+ */
+test('actualizarEstadoCompromiso estampa y limpia la fecha de cumplimiento sola', async () => {
+  await limpio();
+  const p = await repo.crearProyecto(PROYECTO_BASE);
+  const m = await repo.crearMonitoreo({ fecha: HOY, area: p.area });
+  const c = await repo.crearCompromiso({
+    origen_tipo: 'monitoreo', id_origen: m.id, id_proyecto: p.id_proyecto,
+    area: p.area, descripcion: 'Elevar el expediente', responsable: 'R. Ferreyra', fecha_limite: FUTURO,
+  });
+  assert.equal(c.estado, 'pendiente');
+
+  const cumplido = await repo.actualizarEstadoCompromiso(
+    c.id, { estado: 'cumplido', descripcion: 'Expediente firmado' }, HOY,
+  );
+  assert.equal(cumplido.estado, 'cumplido');
+  assert.equal(cumplido.descripcion, 'Expediente firmado');
+  assert.equal(cumplido.fecha_cumplimiento, HOY);
+
+  // Volver para atrás limpia la fecha: no puede quedar "cumplido el HOY"
+  // colgando de un compromiso que ya no lo está.
+  const reabierto = await repo.actualizarEstadoCompromiso(
+    c.id, { estado: 'en curso', descripcion: 'Expediente firmado' }, HOY,
+  );
+  assert.equal(reabierto.estado, 'en curso');
+  assert.equal(reabierto.fecha_cumplimiento, null);
+
+  // Corregir sólo la descripción, sin tocar el estado, no pisa una fecha de
+  // cumplimiento que ya estuviera cargada de antes.
+  const conFecha = await repo.actualizarCompromiso(c.id, { fecha_cumplimiento: PASADO });
+  assert.equal(conFecha.estado, 'en curso');
+  const soloDescripcion = await repo.actualizarEstadoCompromiso(
+    c.id, { estado: 'en curso', descripcion: 'Texto corregido' }, HOY,
+  );
+  assert.equal(soloDescripcion.fecha_cumplimiento, PASADO);
 });
 
 /* ── Flujo del módulo 5: mesa con compromisos ───────────────────────── */

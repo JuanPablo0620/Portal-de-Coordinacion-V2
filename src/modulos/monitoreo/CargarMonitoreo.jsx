@@ -20,7 +20,7 @@ import { CampoArea, CampoCheck, CampoFecha, CampoRadios, CampoSelect, CampoTexto
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarTemas } from '../../datos/minutas/separarTemas.js';
-import { CRITICIDADES } from '../../datos/catalogos.js';
+import { CRITICIDADES, ESTADOS_COMPROMISO } from '../../datos/catalogos.js';
 import { compromisos as selCompromisos, hoyISO } from '../../datos/selectores.js';
 import { fecha as fFecha } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
@@ -34,7 +34,17 @@ const TEMA_VACIO = {
   // son excluyentes: ver `compromiso_existente` más abajo.
   id_compromiso: '',
   compromiso_existente: false,
+  // Sólo tiene sentido junto a `compromiso_existente`: cuando está tildado,
+  // "Actualizar compromiso" edita estado y descripción del compromiso
+  // vinculado sin salir del tema. No se persiste en el tema — se consume al
+  // guardar (ver `persistir`/`guardarEdicion`).
+  actualizar_compromiso: false,
+  compromiso_nuevo_estado: '',
+  compromiso_nueva_descripcion: '',
   descripcion: '',
+  // Descripción propia del compromiso que "Crear nuevo compromiso" genera —
+  // distinta de la del tema, ver `descripcion_compromiso` en `aPersistir`.
+  descripcion_compromiso: '',
   criticidad: 'media',
   requiere_accion: false,
   responsable: '',
@@ -72,6 +82,7 @@ const aPersistir = (tema) => ({
   criticidad: tema.criticidad,
   requiere_accion: tema.requiere_accion,
   responsable: tema.requiere_accion ? tema.responsable.trim() : '',
+  descripcion_compromiso: tema.requiere_accion ? tema.descripcion_compromiso.trim() : '',
   id_proyecto: tema.id_proyecto || null,
   id_compromiso: tema.id_compromiso || null,
   compromiso_existente: Boolean(tema.id_compromiso),
@@ -134,8 +145,25 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
 
   /** Persiste un tema y lo mueve a la lista de confirmados. */
   async function persistir(datos) {
-    const { tema: creado, compromiso } = await acciones.agregarTema(monitoreo.id, aPersistir(datos));
+    const { tema: creado, compromiso } = await acciones.enLote(async () => {
+      const resultado = await acciones.agregarTema(monitoreo.id, aPersistir(datos));
+      await aplicarActualizarCompromiso(datos);
+      return resultado;
+    });
     setTemasCargados((t) => [...t, { ...creado, generoCompromiso: Boolean(compromiso) }]);
+  }
+
+  /**
+   * "Actualizar compromiso": si además de vincular el tema a un compromiso
+   * existente se pidió corregirle estado y descripción, se aplica en el mismo
+   * acto de guardar — sin esto habría que ir a Seguimiento aparte.
+   */
+  function aplicarActualizarCompromiso(datos) {
+    if (!datos.actualizar_compromiso || !datos.compromiso_existente || !datos.id_compromiso) return null;
+    return acciones.actualizarEstadoCompromiso(datos.id_compromiso, {
+      estado: datos.compromiso_nuevo_estado,
+      descripcion: datos.compromiso_nueva_descripcion,
+    });
   }
 
   async function confirmarBorrador(borrador) {
@@ -195,7 +223,11 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
     marcar('edicion', '');
     setTrabajando(true);
     try {
-      const actualizado = await acciones.actualizarTema(editando.id, aPersistir(editando));
+      const actualizado = await acciones.enLote(async () => {
+        const resultado = await acciones.actualizarTema(editando.id, aPersistir(editando));
+        await aplicarActualizarCompromiso(editando);
+        return resultado;
+      });
       setTemasCargados((ts) =>
         ts.map((t) =>
           t.id === editando.id
@@ -429,6 +461,7 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
                       id_compromiso: t.id_compromiso ?? '',
                       compromiso_existente: t.compromiso_existente ?? false,
                       fecha_limite: t.fecha_limite ?? '',
+                      descripcion_compromiso: t.descripcion_compromiso ?? '',
                     });
                     marcar('edicion', '');
                   }}
@@ -513,7 +546,14 @@ export function FormularioTema({ tema, alCambiar, opcionesCategoria, hoy }) {
   /** Cambiar (o sacar) el proyecto vuelve a dejar en blanco a qué compromiso
    * de ESE proyecto estaba vinculado el tema — no tiene sentido conservarlo. */
   function cambiarProyecto(id_proyecto) {
-    alCambiar({ id_proyecto, id_compromiso: '', compromiso_existente: false });
+    alCambiar({
+      id_proyecto,
+      id_compromiso: '',
+      compromiso_existente: false,
+      actualizar_compromiso: false,
+      compromiso_nuevo_estado: '',
+      compromiso_nueva_descripcion: '',
+    });
   }
 
   function elegirCompromiso(id_compromiso) {
@@ -524,6 +564,26 @@ export function FormularioTema({ tema, alCambiar, opcionesCategoria, hoy }) {
       // Uno de los dos: si se vincula a uno que ya existe, "Crear nuevo
       // compromiso" deja de tener sentido para este tema.
       requiere_accion: yaElegido ? tema.requiere_accion : false,
+      // Cambiar de compromiso vuelve a dejar en blanco cualquier corrección
+      // de estado/descripción que se hubiera empezado a cargar para el
+      // anterior — no tiene sentido aplicársela a otro.
+      actualizar_compromiso: false,
+      compromiso_nuevo_estado: '',
+      compromiso_nueva_descripcion: '',
+    });
+  }
+
+  /** Tilda "Actualizar compromiso" y precarga sus campos con lo que ya tiene el compromiso elegido. */
+  function alternarActualizarCompromiso(checked) {
+    if (!checked) {
+      alCambiar({ actualizar_compromiso: false });
+      return;
+    }
+    const actual = compromisosDelProyecto.find((c) => c.id === tema.id_compromiso);
+    alCambiar({
+      actualizar_compromiso: true,
+      compromiso_nuevo_estado: actual?.estado ?? 'pendiente',
+      compromiso_nueva_descripcion: actual?.descripcion ?? '',
     });
   }
 
@@ -569,36 +629,67 @@ export function FormularioTema({ tema, alCambiar, opcionesCategoria, hoy }) {
                 const elegido = tema.id_compromiso === c.id;
                 const nivel = c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes);
                 return (
-                  <button
+                  <div
                     key={c.id}
-                    type="button"
-                    onClick={() => elegirCompromiso(c.id)}
-                    className={`flex w-full items-start gap-2.5 rounded-chip border p-2.5 text-left transition ${
-                      elegido ? 'border-acento bg-acento-suave/60' : 'border-borde hover:bg-paper'
+                    className={`rounded-chip border p-2.5 transition ${
+                      elegido ? 'border-acento bg-acento-suave/60' : 'border-borde'
                     }`}
                   >
-                    <span
-                      className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 ${
-                        elegido ? 'border-acento' : 'border-borde-fuerte'
-                      }`}
+                    <button
+                      type="button"
+                      onClick={() => elegirCompromiso(c.id)}
+                      className={`flex w-full items-start gap-2.5 text-left ${elegido ? '' : 'hover:opacity-80'}`}
                     >
-                      {elegido && <span className="h-2 w-2 rounded-full bg-acento" />}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm text-tinta">{c.descripcion}</span>
-                      <span className="block text-[11px] text-tenue">
-                        {c.responsable} · vence {fFecha(c.fecha_limite)}
+                      <span
+                        className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 ${
+                          elegido ? 'border-acento' : 'border-borde-fuerte'
+                        }`}
+                      >
+                        {elegido && <span className="h-2 w-2 rounded-full bg-acento" />}
                       </span>
-                      <span className="mt-1 inline-block">
-                        <Semaforo
-                          nivel={nivel}
-                          texto={
-                            c.estado_efectivo === 'vencido' ? `vencido · ${c.dias_atraso} d` : c.estado_efectivo
-                          }
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm text-tinta">{c.descripcion}</span>
+                        <span className="block text-[11px] text-tenue">
+                          {c.responsable} · vence {fFecha(c.fecha_limite)}
+                        </span>
+                        <span className="mt-1 inline-block">
+                          <Semaforo
+                            nivel={nivel}
+                            texto={
+                              c.estado_efectivo === 'vencido' ? `vencido · ${c.dias_atraso} d` : c.estado_efectivo
+                            }
+                          />
+                        </span>
+                      </span>
+                    </button>
+
+                    {elegido && (
+                      <div className="mt-2.5 border-t border-borde-fuerte/30 pt-2.5">
+                        <CampoCheck
+                          etiqueta="Actualizar compromiso"
+                          descripcion="Corregir estado y descripción de este compromiso sin salir del tema."
+                          checked={tema.actualizar_compromiso}
+                          onChange={(e) => alternarActualizarCompromiso(e.target.checked)}
                         />
-                      </span>
-                    </span>
-                  </button>
+                        {tema.actualizar_compromiso && (
+                          <div className="mt-2.5 flex flex-col gap-2.5">
+                            <CampoRadios
+                              etiqueta="Nuevo estado"
+                              opciones={ESTADOS_COMPROMISO}
+                              valor={tema.compromiso_nuevo_estado}
+                              alCambiar={(v) => alCambiar({ compromiso_nuevo_estado: v })}
+                            />
+                            <CampoArea
+                              etiqueta="Descripción"
+                              filas={2}
+                              value={tema.compromiso_nueva_descripcion}
+                              onChange={(e) => alCambiar({ compromiso_nueva_descripcion: e.target.value })}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -623,20 +714,30 @@ export function FormularioTema({ tema, alCambiar, opcionesCategoria, hoy }) {
           onChange={(e) => alCambiar({ requiere_accion: e.target.checked })}
         />
         {tema.requiere_accion && (
-          <GrillaCampos columnas={2} className="mt-3">
-            <CampoTexto
-              etiqueta="Responsable"
-              requerido
-              value={tema.responsable}
-              onChange={(e) => alCambiar({ responsable: e.target.value })}
+          <>
+            <GrillaCampos columnas={2} className="mt-3">
+              <CampoTexto
+                etiqueta="Responsable"
+                requerido
+                value={tema.responsable}
+                onChange={(e) => alCambiar({ responsable: e.target.value })}
+              />
+              <CampoFecha
+                etiqueta="Fecha límite"
+                min={hoy}
+                value={tema.fecha_limite}
+                onChange={(e) => alCambiar({ fecha_limite: e.target.value })}
+              />
+            </GrillaCampos>
+            <CampoArea
+              etiqueta="Descripción del compromiso"
+              ayuda="opcional — si no se completa, se usa la del tema"
+              className="mt-3"
+              filas={2}
+              value={tema.descripcion_compromiso}
+              onChange={(e) => alCambiar({ descripcion_compromiso: e.target.value })}
             />
-            <CampoFecha
-              etiqueta="Fecha límite"
-              min={hoy}
-              value={tema.fecha_limite}
-              onChange={(e) => alCambiar({ fecha_limite: e.target.value })}
-            />
-          </GrillaCampos>
+          </>
         )}
       </div>
     </div>

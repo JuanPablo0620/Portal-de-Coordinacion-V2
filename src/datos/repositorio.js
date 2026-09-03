@@ -534,6 +534,30 @@ export async function marcarCumplido(id, fecha) {
   return actualizarCompromiso(id, { estado: 'cumplido', fecha_cumplimiento: fecha });
 }
 
+/**
+ * Actualiza estado y descripción de un compromiso YA EXISTENTE, sin pasar por
+ * el tema/seguimiento que lo originó — es el camino de "Actualizar
+ * compromiso" en Monitoreo y del detalle desplegable de Seguimiento, donde se
+ * corrige un compromiso sin abrir el módulo donde nació.
+ *
+ * Gestiona sola `fecha_cumplimiento`: la estampa con `hoy` al entrar a
+ * cumplido (si no traía una de antes) y la limpia al salir de cumplido — así
+ * nunca queda una fecha de cumplimiento colgada de un compromiso que dejó de
+ * estarlo.
+ */
+export async function actualizarEstadoCompromiso(id, { estado, descripcion }, hoy = hoyISO()) {
+  const bd = await obtenerBD();
+  const previo = bd.compromisos.find((c) => c.id === id);
+  if (!previo) throw new Error(`No existe el compromiso ${id}`);
+
+  const cambios = { descripcion };
+  if (estado !== previo.estado) {
+    cambios.estado = estado;
+    cambios.fecha_cumplimiento = estado === 'cumplido' ? previo.fecha_cumplimiento || hoy : null;
+  }
+  return actualizarCompromiso(id, cambios);
+}
+
 /* ── Monitoreos ─────────────────────────────────────────────────────── */
 
 export async function crearMonitoreo(datos) {
@@ -570,7 +594,10 @@ export async function agregarTema(idMonitoreo, tema) {
         id_origen: idMonitoreo,
         id_proyecto: tema.id_proyecto ?? null,
         area: monitoreo.area,
-        descripcion: tema.descripcion,
+        // La descripción del compromiso puede ser distinta a la del tema — el
+        // tema cuenta qué pasó, el compromiso qué hay que hacer. Si no se
+        // completó la propia, se usa la del tema como antes.
+        descripcion: tema.descripcion_compromiso || tema.descripcion,
         responsable: tema.responsable,
         fecha_limite: tema.fecha_limite,
       });
@@ -620,7 +647,9 @@ export async function actualizarTema(id, cambios) {
     if (tema.compromiso_existente) return tema;
 
     const datos = {
-      descripcion: tema.descripcion,
+      // Ídem `agregarTema()`: la descripción propia del compromiso, si se
+      // cargó, no la del tema.
+      descripcion: tema.descripcion_compromiso || tema.descripcion,
       responsable: tema.responsable,
       fecha_limite: tema.fecha_limite || null,
       id_proyecto: tema.id_proyecto ?? null,

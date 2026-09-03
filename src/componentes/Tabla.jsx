@@ -9,7 +9,7 @@
  * `columnas`: [{ clave, titulo, ancho?, alinear?, render?, formatoCSV?,
  *               sinExportar?, sinOrdenar?, valorOrden? }]
  */
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronsUpDown, Download, Search, Table2 } from 'lucide-react';
 import { descargarCSV } from '../datos/csv.js';
 import { Boton, Vacio } from './Basicos.jsx';
@@ -55,6 +55,15 @@ export function Tabla({
    * por abajo al hacer scroll.
    */
   colorEncabezado,
+  /**
+   * Fila que se despliega debajo de la suya, en vez de navegar a otro lado o
+   * abrir un modal — Seguimiento → Compromisos la usa para el detalle de uno
+   * sin salir de la tabla. `filaExpandida` es la clave (según `claveFila`) de
+   * la fila abierta; `renderExpandido(fila)` pinta su contenido en una fila
+   * aparte que ocupa todas las columnas. Sin `renderExpandido` no cambia nada.
+   */
+  filaExpandida,
+  renderExpandido,
 }) {
   const [texto, setTexto] = useState('');
   const [orden, setOrden] = useState(ordenInicial ?? null);
@@ -237,41 +246,53 @@ export function Tabla({
               </tr>
             </thead>
             <tbody>
-              {filasPintadas.map((fila, i) => (
-                <tr
-                  key={claveFila(fila, i)}
-                  onClick={alHacerClicFila ? () => alHacerClicFila(fila) : undefined}
-                  /* Una fila que se abre con el mouse tiene que abrirse con el
-                     teclado. Se hace focusable y se atiende Enter y Espacio, en
-                     lugar de ponerle `role="button"`: eso la sacaría de la
-                     semántica de tabla y el lector de pantalla dejaría de decir
-                     en qué fila y columna está. */
-                  tabIndex={alHacerClicFila ? 0 : undefined}
-                  onKeyDown={
-                    alHacerClicFila
-                      ? (e) => {
-                          if (e.key !== 'Enter' && e.key !== ' ') return;
-                          e.preventDefault();
-                          alHacerClicFila(fila);
-                        }
-                      : undefined
-                  }
-                  className={`border-b border-borde/60 last:border-0 ${
-                    alHacerClicFila
-                      ? 'cursor-pointer transition hover:bg-acento-suave/50 focus:bg-acento-suave/50 focus:outline-2 focus:outline-offset-[-2px] focus:outline-acento'
-                      : ''
-                  } ${fila._resaltar ? 'bg-vencido-suave/60' : ''}`}
-                >
-                  {columnas.map((c) => (
-                    <td
-                      key={c.clave}
-                      className={`${padding} align-middle text-tinta ${c.alinear === 'derecha' ? 'text-right tabular' : ''}`}
+              {filasPintadas.map((fila, i) => {
+                const clave = claveFila(fila, i);
+                const expandida = renderExpandido && filaExpandida != null && clave === filaExpandida;
+                return (
+                  <Fragment key={clave}>
+                    <tr
+                      onClick={alHacerClicFila ? () => alHacerClicFila(fila) : undefined}
+                      /* Una fila que se abre con el mouse tiene que abrirse con el
+                         teclado. Se hace focusable y se atiende Enter y Espacio, en
+                         lugar de ponerle `role="button"`: eso la sacaría de la
+                         semántica de tabla y el lector de pantalla dejaría de decir
+                         en qué fila y columna está. */
+                      tabIndex={alHacerClicFila ? 0 : undefined}
+                      onKeyDown={
+                        alHacerClicFila
+                          ? (e) => {
+                              if (e.key !== 'Enter' && e.key !== ' ') return;
+                              e.preventDefault();
+                              alHacerClicFila(fila);
+                            }
+                          : undefined
+                      }
+                      className={`border-b border-borde/60 last:border-0 ${
+                        alHacerClicFila
+                          ? 'cursor-pointer transition hover:bg-acento-suave/50 focus:bg-acento-suave/50 focus:outline-2 focus:outline-offset-[-2px] focus:outline-acento'
+                          : ''
+                      } ${expandida ? 'bg-acento-suave/40' : ''} ${fila._resaltar ? 'bg-vencido-suave/60' : ''}`}
                     >
-                      {c.render ? c.render(fila) : mostrar(fila[c.clave])}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+                      {columnas.map((c) => (
+                        <td
+                          key={c.clave}
+                          className={`${padding} align-middle text-tinta ${c.alinear === 'derecha' ? 'text-right tabular' : ''}`}
+                        >
+                          {c.render ? c.render(fila) : mostrar(fila[c.clave])}
+                        </td>
+                      ))}
+                    </tr>
+                    {expandida && (
+                      <tr className="border-b border-borde/60 bg-paper/70 last:border-0">
+                        <td colSpan={columnas.length} className="px-3.5 py-3.5">
+                          {renderExpandido(fila)}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
 
