@@ -25,6 +25,7 @@ import { CampoFecha, CampoHora, CampoSelect, CampoTexto, GrillaCampos } from '..
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarMinuta } from '../../datos/minutas/separarMinuta.js';
 import { hoyISO, proyectos as selProyectos } from '../../datos/selectores.js';
+import { numero } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 
@@ -39,6 +40,8 @@ const filaCompromisoVacia = () => ({
 });
 
 const filaTextoVacia = () => ({ clave: nuevaClave(), descripcion: '', id_proyecto: '' });
+
+const filaAvanceProyectoVacia = () => ({ clave: nuevaClave(), id_proyecto: '', avance: '' });
 
 const EJEMPLO =
   'Ej.: Se ejecutaron 200 metros de cordón cuneta en el sector norte. Falta la conformidad ' +
@@ -57,11 +60,15 @@ export function CargarSeguimiento({ alTerminar }) {
   const [compromisos, setCompromisos] = useState([]);
   const [avances, setAvances] = useState([]);
   const [problemas, setProblemas] = useState([]);
+  // Distinto de `avances` (notas de texto, "qué pasó"): esto actualiza el
+  // número real de avance del proyecto, el mismo que alimenta su barra de
+  // progreso en el resto del sistema.
+  const [avancesProyecto, setAvancesProyecto] = useState([]);
   const [transferido, setTransferido] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
-  const hayCampos = compromisos.length + avances.length + problemas.length > 0;
+  const hayCampos = compromisos.length + avances.length + problemas.length + avancesProyecto.length > 0;
 
   function transferir() {
     const r = separarMinuta(texto, hoy);
@@ -94,15 +101,18 @@ export function CargarSeguimiento({ alTerminar }) {
     try {
       const avancesAGuardar = avances.filter((a) => a.descripcion.trim());
       const problemasAGuardar = problemas.filter((p) => p.descripcion.trim());
+      const avancesProyectoAGuardar = avancesProyecto.filter(
+        (a) => a.id_proyecto && a.avance !== '' && !Number.isNaN(Number(a.avance)),
+      );
 
       // A qué proyectos "tocó" este seguimiento se deriva de a cuáles quedó
-      // vinculada alguna fila —compromiso, avance o problema—, no es una
-      // declaración aparte. Así el historial de un proyecto sigue mostrando
-      // el seguimiento sin que haga falta aclarar de entrada de qué
-      // proyectos se habla.
+      // vinculada alguna fila —compromiso, avance, problema o actualización
+      // de avance—, no es una declaración aparte. Así el historial de un
+      // proyecto sigue mostrando el seguimiento sin que haga falta aclarar
+      // de entrada de qué proyectos se habla.
       const idsProyectoDerivados = [
         ...new Set(
-          [...compromisos, ...avancesAGuardar, ...problemasAGuardar]
+          [...compromisos, ...avancesAGuardar, ...problemasAGuardar, ...avancesProyectoAGuardar]
             .map((f) => f.id_proyecto)
             .filter(Boolean),
         ),
@@ -139,6 +149,10 @@ export function CargarSeguimiento({ alTerminar }) {
             fecha_limite: c.fecha_limite || null,
           }));
         if (aCrear.length) await acciones.crearCompromisos(aCrear);
+
+        for (const a of avancesProyectoAGuardar) {
+          await acciones.actualizarProyecto(a.id_proyecto, { avance: Number(a.avance) });
+        }
       });
 
       alTerminar?.();
@@ -209,6 +223,7 @@ export function CargarSeguimiento({ alTerminar }) {
             placeholder="Ej.: Se ejecutaron 200 metros de cordón cuneta."
             area={area}
           />
+          <BloqueAvanceProyectos filas={avancesProyecto} setFilas={setAvancesProyecto} area={area} />
           <BloqueTexto
             titulo="Problemas / trabas"
             tono="vencido"
@@ -229,8 +244,9 @@ export function CargarSeguimiento({ alTerminar }) {
         )}
         <div className="flex flex-wrap items-center justify-end gap-2">
           <span className="mr-auto text-xs text-tenue">
-            Se va a registrar el seguimiento y crear{' '}
-            {compromisos.filter((c) => c.descripcion.trim()).length} compromiso(s).
+            Se va a registrar el seguimiento, crear{' '}
+            {compromisos.filter((c) => c.descripcion.trim()).length} compromiso(s) y actualizar el avance de{' '}
+            {avancesProyecto.filter((a) => a.id_proyecto && a.avance !== '').length} proyecto(s).
           </span>
           <Boton variante="primario" icono={Check} onClick={guardar} disabled={guardando}>
             Guardar seguimiento
@@ -330,6 +346,76 @@ function BloqueCompromisos({ filas, setFilas, hoy, area }) {
         })}
         <Boton tamanio="sm" variante="fantasma" icono={Plus} onClick={() => setFilas((f) => [...f, filaCompromisoVacia()])} className="self-start">
           Agregar compromiso
+        </Boton>
+      </div>
+    </fieldset>
+  );
+}
+
+/**
+ * Actualiza el número real de avance de un proyecto — el mismo que alimenta
+ * su barra de progreso en el resto del sistema —, distinto de "Avances
+ * informados": ese bloque es una nota de texto sobre qué pasó, este cambia
+ * el dato.
+ */
+function BloqueAvanceProyectos({ filas, setFilas, area }) {
+  const bd = useBD();
+  const actualizar = (clave, campo, valor) =>
+    setFilas((f) => f.map((x) => (x.clave === clave ? { ...x, [campo]: valor } : x)));
+
+  return (
+    <fieldset className="rounded-chip border border-borde">
+      <legend className="mx-3 flex items-center gap-2 px-1 text-xs font-semibold text-gris">
+        Actualizar avance de proyectos
+        <Chip tono="acento">{filas.filter((f) => f.id_proyecto && f.avance !== '').length}</Chip>
+      </legend>
+      <div className="flex flex-col gap-2 p-3">
+        {filas.length === 0 && (
+          <p className="py-2 text-center text-xs text-tenue">
+            Sin actualizaciones de avance. Agregá un proyecto si en este seguimiento se informó un número nuevo.
+          </p>
+        )}
+        {filas.map((fila) => {
+          const proyecto = bd?.proyectos?.find((p) => p.id_proyecto === fila.id_proyecto);
+          return (
+            <div key={fila.clave} className="grid grid-cols-1 gap-2 sm:grid-cols-[170px_110px_1fr_auto] sm:items-center">
+              <SelectorProyectoCompacto
+                area={area}
+                valor={fila.id_proyecto}
+                alCambiar={(id) => actualizar(fila.clave, 'id_proyecto', id)}
+              />
+              <input
+                type="number"
+                className="campo-base tabular py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                placeholder="Avance"
+                value={fila.avance}
+                onChange={(e) => actualizar(fila.clave, 'avance', e.target.value)}
+                disabled={!fila.id_proyecto}
+              />
+              <p className="text-xs text-tenue">
+                {proyecto
+                  ? `Actual: ${numero(proyecto.avance)} / ${numero(proyecto.objetivo)} ${proyecto.unidad ?? ''}`
+                  : 'Elegí un proyecto para ver su objetivo'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setFilas((f) => f.filter((x) => x.clave !== fila.clave))}
+                className="shrink-0 self-start rounded-chip p-2 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
+                aria-label="Quitar actualización de avance"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          );
+        })}
+        <Boton
+          tamanio="sm"
+          variante="fantasma"
+          icono={Plus}
+          onClick={() => setFilas((f) => [...f, filaAvanceProyectoVacia()])}
+          className="self-start"
+        >
+          Agregar proyecto
         </Boton>
       </div>
     </fieldset>

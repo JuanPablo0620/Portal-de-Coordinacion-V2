@@ -25,7 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import { BarraAvance, Boton, Aviso, Chip, Criticidad, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
-import { CampoArea, CampoCheck, CampoFecha, CampoRadios, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
+import { CampoArea, CampoCheck, CampoFecha, CampoNumero, CampoRadios, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarTemas } from '../../datos/minutas/separarTemas.js';
@@ -37,7 +37,7 @@ import {
   proyectos as selProyectos,
   ventanaSeguimiento,
 } from '../../datos/selectores.js';
-import { fecha as fFecha } from '../../utilidades/formato.js';
+import { fecha as fFecha, numero } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 
@@ -550,7 +550,7 @@ export function PanelVentana({ area, monitoreoId, hoy }) {
       setBorradorProyecto(null);
     } else {
       setAbiertoProyecto(p.id_proyecto);
-      setBorradorProyecto({ estado: p.estado, observaciones: p.observaciones ?? '' });
+      setBorradorProyecto({ estado: p.estado, observaciones: p.observaciones ?? '', avance: p.avance ?? 0 });
     }
     setAbiertoCompromiso(null);
     setBorradorCompromiso(null);
@@ -559,7 +559,10 @@ export function PanelVentana({ area, monitoreoId, hoy }) {
   }
 
   async function guardarProyecto(p) {
-    await acciones.actualizarProyecto(p.id_proyecto, borradorProyecto);
+    await acciones.actualizarProyecto(p.id_proyecto, {
+      ...borradorProyecto,
+      avance: Number(borradorProyecto.avance) || 0,
+    });
   }
 
   function alternarCompromiso(c) {
@@ -740,6 +743,13 @@ function TarjetaProyectoVentana({
             opciones={ESTADOS_PROYECTO}
             valor={borrador?.estado}
             alCambiar={(v) => alCambiarBorrador({ estado: v })}
+          />
+          <CampoNumero
+            etiqueta="Avance"
+            ayuda={`de ${numero(proyecto.objetivo)} ${proyecto.unidad ?? ''}`}
+            className="mt-2.5 max-w-40"
+            value={borrador?.avance ?? ''}
+            onChange={(e) => alCambiarBorrador({ avance: e.target.value })}
           />
           <CampoArea
             etiqueta="Descripción / observaciones"
