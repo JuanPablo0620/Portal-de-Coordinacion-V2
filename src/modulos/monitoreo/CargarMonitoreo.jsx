@@ -1,17 +1,15 @@
 /**
- * Carga de un monitoreo.
+ * Carga de un monitoreo, en dos partes:
  *
- * Dos caminos hacia la MISMA estructura de tema, y ése es el punto:
- *
- *  · TRANSFERENCIA — se pega lo que pasó en el área, se aprieta «Transferir» y
- *    el sistema propone un tema por oración. Quedan como BORRADORES editables:
- *    no se persiste ninguno hasta confirmarlo.
- *  · A MANO — el mismo formulario, vacío, para lo que la transferencia no
- *    agarró o para cargar sin texto previo.
- *
- * Un tema confirmado se puede seguir editando en la misma sesión: es donde se
- * nota la corrección de lo que propuso la transferencia, y el repositorio
- * mantiene el compromiso asociado en sincronía.
+ *  · TEMAS — se pega lo que pasó en el área, se aprieta «Transferir» y el
+ *    sistema propone un tema por oración. Quedan como BORRADORES editables:
+ *    no se persiste ninguno hasta confirmarlo. Un tema confirmado se puede
+ *    seguir editando en la misma sesión —es donde se nota la corrección de
+ *    lo que propuso la transferencia—, y el repositorio mantiene el
+ *    compromiso asociado en sincronía.
+ *  · VENTANA — proyectos y compromisos del área que corresponde repasar
+ *    entre el último seguimiento y el próximo (`PanelVentana`), sin pasar
+ *    por la carga de temas de arriba.
  */
 import { useMemo, useState } from 'react';
 import {
@@ -120,8 +118,6 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
   const [transferido, setTransferido] = useState(false);
   const [borradores, setBorradores] = useState([]);
 
-  const [tema, setTema] = useState({ ...TEMA_VACIO });
-  const [manualAbierto, setManualAbierto] = useState(false);
   const [editando, setEditando] = useState(null);
 
   // Un mensaje por formulario: con un único error compartido, confirmar el
@@ -130,11 +126,6 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
   const [trabajando, setTrabajando] = useState(false);
 
   const marcar = (clave, mensaje) => setErrores((e) => ({ ...e, [clave]: mensaje }));
-
-  // Al entrar no hay nada cargado: el formulario a mano se muestra solo. Después
-  // de transferir se repliega detrás de un botón, para que la pantalla no sea
-  // un formulario vacío gigante debajo de los borradores que hay que revisar.
-  const mostrarManual = manualAbierto || (!borradores.length && !temasCargados.length);
 
   async function iniciar() {
     if (!cabecera.area || !cabecera.fecha) {
@@ -215,20 +206,6 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
         for (const b of borradores) await persistir(b);
       });
       setBorradores([]);
-    } finally {
-      setTrabajando(false);
-    }
-  }
-
-  async function confirmarManual() {
-    const problema = validarTema(tema, hoy);
-    if (problema) return marcar('manual', problema);
-    marcar('manual', '');
-    setTrabajando(true);
-    try {
-      await persistir(tema);
-      // Se limpia y queda habilitado el formulario del tema siguiente.
-      setTema({ ...TEMA_VACIO });
     } finally {
       setTrabajando(false);
     }
@@ -505,38 +482,9 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
         </div>
       )}
 
-      {/* Carga a mano — la misma estructura de tema, sin texto de por medio */}
-      {mostrarManual ? (
-        <Tarjeta
-          titulo={`Tema ${temasCargados.length + 1} · a mano`}
-          descripcion="Estructura estandarizada: la misma para todos los temas, vengan de donde vengan."
-        >
-          <FormularioTema
-            tema={tema}
-            alCambiar={(parcial) => setTema((t) => ({ ...t, ...parcial }))}
-            opcionesCategoria={opcionesCategoria}
-            hoy={hoy}
-          />
-          {errores.manual && (
-            <div className="mt-3">
-              <Aviso tono="error">{errores.manual}</Aviso>
-            </div>
-          )}
-          <div className="mt-3 flex justify-end gap-2 border-t border-borde pt-3">
-            <Boton variante="primario" icono={Plus} onClick={confirmarManual} disabled={trabajando}>
-              Confirmar tema y cargar el siguiente
-            </Boton>
-          </div>
-        </Tarjeta>
-      ) : (
-        <Boton icono={Plus} onClick={() => setManualAbierto(true)} className="self-start">
-          Agregar un tema a mano
-        </Boton>
-      )}
-
       {/* Proyectos y compromisos de la ventana entre seguimientos — camino
-          aparte de la carga de temas de arriba: repasar y actualizar sin
-          pasar por "Transferir desde texto" ni por "Agregar un tema". */}
+          aparte de la transferencia de texto de arriba: repasar y
+          actualizar proyectos y compromisos sin escribir un tema. */}
       <PanelVentana area={monitoreo.area} monitoreoId={monitoreo.id} hoy={hoy} />
     </div>
   );
