@@ -39,9 +39,10 @@ const filaCompromisoVacia = () => ({
   id_proyecto: '',
 });
 
-const filaTextoVacia = () => ({ clave: nuevaClave(), descripcion: '', id_proyecto: '' });
-
-const filaAvanceProyectoVacia = () => ({ clave: nuevaClave(), id_proyecto: '', avance: '' });
+// `avance`: sólo lo usa el bloque "Avances informados" (`conAvance` en
+// BloqueTexto) — un número nuevo para el proyecto elegido en esa fila,
+// independiente de la nota de texto. En "Problemas / trabas" queda sin uso.
+const filaTextoVacia = () => ({ clave: nuevaClave(), descripcion: '', id_proyecto: '', avance: '' });
 
 const EJEMPLO =
   'Ej.: Se ejecutaron 200 metros de cordón cuneta en el sector norte. Falta la conformidad ' +
@@ -60,20 +61,16 @@ export function CargarSeguimiento({ alTerminar }) {
   const [compromisos, setCompromisos] = useState([]);
   const [avances, setAvances] = useState([]);
   const [problemas, setProblemas] = useState([]);
-  // Distinto de `avances` (notas de texto, "qué pasó"): esto actualiza el
-  // número real de avance del proyecto, el mismo que alimenta su barra de
-  // progreso en el resto del sistema.
-  const [avancesProyecto, setAvancesProyecto] = useState([]);
   const [transferido, setTransferido] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
-  const hayCampos = compromisos.length + avances.length + problemas.length + avancesProyecto.length > 0;
+  const hayCampos = compromisos.length + avances.length + problemas.length > 0;
 
   function transferir() {
     const r = separarMinuta(texto, hoy);
     setCompromisos(r.compromisos.map((c) => ({ ...c, id_proyecto: '', clave: nuevaClave() })));
-    setAvances(r.avances.map((descripcion) => ({ clave: nuevaClave(), descripcion, id_proyecto: '' })));
+    setAvances(r.avances.map((descripcion) => ({ clave: nuevaClave(), descripcion, id_proyecto: '', avance: '' })));
     setProblemas(r.problemas.map((descripcion) => ({ clave: nuevaClave(), descripcion, id_proyecto: '' })));
     setTransferido(true);
   }
@@ -100,10 +97,13 @@ export function CargarSeguimiento({ alTerminar }) {
     setGuardando(true);
     try {
       const avancesAGuardar = avances.filter((a) => a.descripcion.trim());
-      const problemasAGuardar = problemas.filter((p) => p.descripcion.trim());
-      const avancesProyectoAGuardar = avancesProyecto.filter(
+      // El número de avance viaja en la misma fila que la nota de texto,
+      // pero es independiente de ella: una fila puede traer sólo el número,
+      // sólo el texto, o los dos.
+      const avancesProyectoAGuardar = avances.filter(
         (a) => a.id_proyecto && a.avance !== '' && !Number.isNaN(Number(a.avance)),
       );
+      const problemasAGuardar = problemas.filter((p) => p.descripcion.trim());
 
       // A qué proyectos "tocó" este seguimiento se deriva de a cuáles quedó
       // vinculada alguna fila —compromiso, avance, problema o actualización
@@ -222,8 +222,8 @@ export function CargarSeguimiento({ alTerminar }) {
             setItems={setAvances}
             placeholder="Ej.: Se ejecutaron 200 metros de cordón cuneta."
             area={area}
+            conAvance
           />
-          <BloqueAvanceProyectos filas={avancesProyecto} setFilas={setAvancesProyecto} area={area} />
           <BloqueTexto
             titulo="Problemas / trabas"
             tono="vencido"
@@ -246,7 +246,7 @@ export function CargarSeguimiento({ alTerminar }) {
           <span className="mr-auto text-xs text-tenue">
             Se va a registrar el seguimiento, crear{' '}
             {compromisos.filter((c) => c.descripcion.trim()).length} compromiso(s) y actualizar el avance de{' '}
-            {avancesProyecto.filter((a) => a.id_proyecto && a.avance !== '').length} proyecto(s).
+            {avances.filter((a) => a.id_proyecto && a.avance !== '').length} proyecto(s).
           </span>
           <Boton variante="primario" icono={Check} onClick={guardar} disabled={guardando}>
             Guardar seguimiento
@@ -353,76 +353,14 @@ function BloqueCompromisos({ filas, setFilas, hoy, area }) {
 }
 
 /**
- * Actualiza el número real de avance de un proyecto — el mismo que alimenta
- * su barra de progreso en el resto del sistema —, distinto de "Avances
- * informados": ese bloque es una nota de texto sobre qué pasó, este cambia
- * el dato.
+ * `conAvance` (sólo lo usa "Avances informados") agrega, en la misma fila,
+ * un número de avance nuevo para el proyecto elegido — independiente de la
+ * nota de texto: una fila puede traer sólo el número, sólo el texto, o los
+ * dos. Es el mismo dato que alimenta la barra de progreso del proyecto en
+ * el resto del sistema, no una nota aparte.
  */
-function BloqueAvanceProyectos({ filas, setFilas, area }) {
+function BloqueTexto({ titulo, tono, items, setItems, placeholder, area, conAvance = false }) {
   const bd = useBD();
-  const actualizar = (clave, campo, valor) =>
-    setFilas((f) => f.map((x) => (x.clave === clave ? { ...x, [campo]: valor } : x)));
-
-  return (
-    <fieldset className="rounded-chip border border-borde">
-      <legend className="mx-3 flex items-center gap-2 px-1 text-xs font-semibold text-gris">
-        Actualizar avance de proyectos
-        <Chip tono="acento">{filas.filter((f) => f.id_proyecto && f.avance !== '').length}</Chip>
-      </legend>
-      <div className="flex flex-col gap-2 p-3">
-        {filas.length === 0 && (
-          <p className="py-2 text-center text-xs text-tenue">
-            Sin actualizaciones de avance. Agregá un proyecto si en este seguimiento se informó un número nuevo.
-          </p>
-        )}
-        {filas.map((fila) => {
-          const proyecto = bd?.proyectos?.find((p) => p.id_proyecto === fila.id_proyecto);
-          return (
-            <div key={fila.clave} className="grid grid-cols-1 gap-2 sm:grid-cols-[170px_110px_1fr_auto] sm:items-center">
-              <SelectorProyectoCompacto
-                area={area}
-                valor={fila.id_proyecto}
-                alCambiar={(id) => actualizar(fila.clave, 'id_proyecto', id)}
-              />
-              <input
-                type="number"
-                className="campo-base tabular py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-                placeholder="Avance"
-                value={fila.avance}
-                onChange={(e) => actualizar(fila.clave, 'avance', e.target.value)}
-                disabled={!fila.id_proyecto}
-              />
-              <p className="text-xs text-tenue">
-                {proyecto
-                  ? `Actual: ${numero(proyecto.avance)} / ${numero(proyecto.objetivo)} ${proyecto.unidad ?? ''}`
-                  : 'Elegí un proyecto para ver su objetivo'}
-              </p>
-              <button
-                type="button"
-                onClick={() => setFilas((f) => f.filter((x) => x.clave !== fila.clave))}
-                className="shrink-0 self-start rounded-chip p-2 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
-                aria-label="Quitar actualización de avance"
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
-          );
-        })}
-        <Boton
-          tamanio="sm"
-          variante="fantasma"
-          icono={Plus}
-          onClick={() => setFilas((f) => [...f, filaAvanceProyectoVacia()])}
-          className="self-start"
-        >
-          Agregar proyecto
-        </Boton>
-      </div>
-    </fieldset>
-  );
-}
-
-function BloqueTexto({ titulo, tono, items, setItems, placeholder, area }) {
   const actualizar = (clave, campo, valor) =>
     setItems((xs) => xs.map((x) => (x.clave === clave ? { ...x, [campo]: valor } : x)));
 
@@ -434,34 +372,58 @@ function BloqueTexto({ titulo, tono, items, setItems, placeholder, area }) {
       </legend>
       <div className="flex flex-col gap-2 p-3">
         {items.length === 0 && <p className="py-2 text-center text-xs text-tenue">Sin registros.</p>}
-        {items.map((item) => (
-          <div key={item.clave} className="grid grid-cols-1 gap-2 sm:grid-cols-[170px_1fr_auto] sm:items-start">
-            <SelectorProyectoCompacto
-              area={area}
-              valor={item.id_proyecto}
-              alCambiar={(id) => actualizar(item.clave, 'id_proyecto', id)}
-            />
-            <div className="flex items-start gap-2">
-              <Semaforo nivel={tono} soloPunto />
-              <textarea
-                rows={1}
-                className="campo-base min-h-9 resize-y py-1.5 text-sm"
-                value={item.descripcion}
-                placeholder={placeholder}
-                aria-label={`${titulo}`}
-                onChange={(e) => actualizar(item.clave, 'descripcion', e.target.value)}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setItems((xs) => xs.filter((x) => x.clave !== item.clave))}
-              className="shrink-0 self-start rounded-chip p-2 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
-              aria-label={`Quitar de ${titulo}`}
+        {items.map((item) => {
+          const proyecto = conAvance ? bd?.proyectos?.find((p) => p.id_proyecto === item.id_proyecto) : null;
+          return (
+            <div
+              key={item.clave}
+              className={`grid grid-cols-1 gap-2 sm:items-start ${
+                conAvance ? 'sm:grid-cols-[170px_110px_1fr_auto]' : 'sm:grid-cols-[170px_1fr_auto]'
+              }`}
             >
-              <Trash2 size={15} />
-            </button>
-          </div>
-        ))}
+              <SelectorProyectoCompacto
+                area={area}
+                valor={item.id_proyecto}
+                alCambiar={(id) => actualizar(item.clave, 'id_proyecto', id)}
+              />
+              {conAvance && (
+                <input
+                  type="number"
+                  className="campo-base tabular py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                  placeholder="Avance nuevo"
+                  aria-label="Avance nuevo del proyecto"
+                  value={item.avance ?? ''}
+                  onChange={(e) => actualizar(item.clave, 'avance', e.target.value)}
+                  disabled={!item.id_proyecto}
+                  title={
+                    proyecto
+                      ? `Actual: ${numero(proyecto.avance)} / ${numero(proyecto.objetivo)} ${proyecto.unidad ?? ''}`
+                      : 'Elegí un proyecto para poder cargar su avance'
+                  }
+                />
+              )}
+              <div className="flex items-start gap-2">
+                <Semaforo nivel={tono} soloPunto />
+                <textarea
+                  rows={1}
+                  className="campo-base min-h-9 resize-y py-1.5 text-sm"
+                  value={item.descripcion}
+                  placeholder={placeholder}
+                  aria-label={`${titulo}`}
+                  onChange={(e) => actualizar(item.clave, 'descripcion', e.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setItems((xs) => xs.filter((x) => x.clave !== item.clave))}
+                className="shrink-0 self-start rounded-chip p-2 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
+                aria-label={`Quitar de ${titulo}`}
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          );
+        })}
         <Boton tamanio="sm" variante="fantasma" icono={Plus} onClick={() => setItems((xs) => [...xs, filaTextoVacia()])} className="self-start">
           Agregar
         </Boton>

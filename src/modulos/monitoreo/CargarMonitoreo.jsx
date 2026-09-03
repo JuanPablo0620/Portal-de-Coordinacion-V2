@@ -742,7 +742,13 @@ function TarjetaProyectoVentana({
             etiqueta="Nuevo estado"
             opciones={ESTADOS_PROYECTO}
             valor={borrador?.estado}
-            alCambiar={(v) => alCambiarBorrador({ estado: v })}
+            // "Finalizado" completa solo el avance al objetivo: no tiene
+            // sentido pedir que alguien calcule a mano el número exacto que
+            // da 100% cuando ya está diciendo que el proyecto se terminó.
+            // Se puede corregir el número igual si hace falta.
+            alCambiar={(v) =>
+              alCambiarBorrador({ estado: v, ...(v === 'finalizado' ? { avance: proyecto.objetivo } : {}) })
+            }
           />
           <CampoNumero
             etiqueta="Avance"
