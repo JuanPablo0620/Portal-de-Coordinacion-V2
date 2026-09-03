@@ -45,7 +45,12 @@ export default function Proyectos() {
 
   const opcionesArea = useOpciones('areas');
   const opcionesPrograma = useOpciones('programas');
-  const opcionesEje = useOpciones('ejes');
+  // "Compromisos" es un valor de `ejes` que ningún proyecto real usa —los
+  // compromisos cuelgan de seguimiento/monitoreo/mesa, nunca de un eje de
+  // proyecto— así que filtrar por él siempre da la lista vacía. Se saca del
+  // filtro (no del catálogo: sigue en Configuración como vocabulario
+  // institucional, ver catalogos.js).
+  const opcionesEje = useOpciones('ejes').filter((o) => o.id !== 'ej_compromisos');
   const opcionesTipo = useOpciones('tipos');
 
   const filas = useMemo(() => (bd ? selProyectos(bd, filtros) : []), [bd, filtros]);
