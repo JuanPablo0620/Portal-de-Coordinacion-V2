@@ -11,7 +11,7 @@
  *    entre el último seguimiento y el próximo (`PanelVentana`), sin pasar
  *    por la carga de temas de arriba.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Calendar,
   Check,
@@ -664,8 +664,29 @@ function TarjetaProyectoVentana({
     [bd, proyecto.id_proyecto, ventana, hoy],
   );
 
+  // Abrir un proyecto, un compromiso o el formulario de "crear nuevo" agrega
+  // bastante alto DEBAJO de donde se hizo clic — sin esto, el scroll se queda
+  // clavado donde estaba y lo que se abrió termina fuera de vista, como si la
+  // pantalla se hubiera corrido sola. `block: 'nearest'` no mueve nada si ya
+  // está a la vista: sólo corrige cuando el contenido nuevo lo tapa.
+  const cardRef = useRef(null);
+  const compromisoRefs = useRef(new Map());
+  const formNuevoRef = useRef(null);
+
+  useEffect(() => {
+    if (abierto) cardRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [abierto]);
+
+  useEffect(() => {
+    if (abiertoCompromiso) compromisoRefs.current.get(abiertoCompromiso)?.scrollIntoView({ block: 'nearest' });
+  }, [abiertoCompromiso]);
+
+  useEffect(() => {
+    if (creandoCompromiso) formNuevoRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [creandoCompromiso]);
+
   return (
-    <div className={`rounded-card border ${abierto ? 'border-acento' : 'border-borde'} bg-card`}>
+    <div ref={cardRef} className={`rounded-card border ${abierto ? 'border-acento' : 'border-borde'} bg-card`}>
       <button
         type="button"
         onClick={alAlternar}
@@ -721,7 +742,14 @@ function TarjetaProyectoVentana({
               const cAbierto = abiertoCompromiso === c.id;
               const nivel = c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes);
               return (
-                <div key={c.id} className={`rounded-chip border ${cAbierto ? 'border-acento' : 'border-borde'}`}>
+                <div
+                  key={c.id}
+                  ref={(el) => {
+                    if (el) compromisoRefs.current.set(c.id, el);
+                    else compromisoRefs.current.delete(c.id);
+                  }}
+                  className={`rounded-chip border ${cAbierto ? 'border-acento' : 'border-borde'}`}
+                >
                   <button
                     type="button"
                     onClick={() => alAlternarCompromiso(c)}
@@ -760,7 +788,7 @@ function TarjetaProyectoVentana({
           </div>
 
           {creandoCompromiso ? (
-            <div className="mt-2.5 rounded-chip border border-acento bg-acento-suave/40 p-2.5">
+            <div ref={formNuevoRef} className="mt-2.5 rounded-chip border border-acento bg-acento-suave/40 p-2.5">
               <p className="mb-2 text-xs font-semibold text-acento-fuerte">Crear nuevo compromiso para este proyecto</p>
               <CampoArea
                 etiqueta="Descripción"
