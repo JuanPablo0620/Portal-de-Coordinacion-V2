@@ -12,7 +12,7 @@ import { StaticRouter } from 'react-router-dom/server';
 import { renderToString } from 'react-dom/server';
 import App from '../../src/App.jsx';
 import { HistorialProyecto } from '../../src/modulos/proyectos/HistorialProyecto.jsx';
-import { FormularioTema } from '../../src/modulos/monitoreo/CargarMonitoreo.jsx';
+import { FormularioTema, PanelVentana } from '../../src/modulos/monitoreo/CargarMonitoreo.jsx';
 import { separarTemas } from '../../src/datos/minutas/separarTemas.js';
 import { CATALOGOS_SEMILLA } from '../../src/datos/catalogos.js';
 import { establecerBD } from '../../src/estado/tienda.js';
@@ -49,6 +49,16 @@ const COMPONENTES = {
       opcionesCategoria={CATEGORIAS}
       hoy={hoyISO()}
     />
+  ),
+
+  /**
+   * Parte 2 de Monitoreo: proyectos y compromisos de la ventana entre
+   * seguimientos. Se prueba con el área real de un proyecto de la demo —
+   * `monitoreoId` no necesita corresponder a un monitoreo real: acá sólo se
+   * ejercita el render, no la creación de un compromiso nuevo.
+   */
+  PanelVentana: (bd, proyecto) => (
+    <PanelVentana area={proyecto.area} monitoreoId="mon-prueba" hoy={hoyISO()} />
   ),
 };
 

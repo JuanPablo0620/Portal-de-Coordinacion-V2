@@ -15,6 +15,7 @@ import { calcularAlertas, TIPOS_ALERTA, vencimientosProximos } from '../src/dato
 import { hoyISO } from '../src/datos/tiempo.js';
 import {
   compromisos as selCompromisos,
+  compromisosEnVentana,
   historialArea,
   historialProyecto,
   proyectoPorId,
@@ -24,6 +25,7 @@ import {
   serieAvance,
   temasDe,
   ultimaActualizacion,
+  ventanaSeguimiento,
   activos,
 } from '../src/datos/selectores.js';
 
@@ -464,6 +466,67 @@ test('actualizarEstadoCompromiso estampa y limpia la fecha de cumplimiento sola'
     c.id, { estado: 'en curso', descripcion: 'Texto corregido' }, HOY,
   );
   assert.equal(soloDescripcion.fecha_cumplimiento, PASADO);
+});
+
+/**
+ * La ventana de seguimiento de un área —lo que muestra la Parte 2 de la
+ * carga de Monitoreo— sale de sus propios seguimientos, nunca de una fecha
+ * fija: cada secretaría agenda la suya.
+ */
+test('ventanaSeguimiento trae el último realizado y el próximo programado del área, cada uno por su cuenta', async () => {
+  await limpio();
+  const p = await repo.crearProyecto(PROYECTO_BASE);
+  await repo.crearSeguimiento({ ids_proyecto: [p.id_proyecto], area: p.area, fecha: PASADO, tipo: 'realizado' });
+  await repo.crearSeguimiento({ ids_proyecto: [p.id_proyecto], area: p.area, fecha: AYER, tipo: 'realizado' });
+  await repo.crearSeguimiento({ ids_proyecto: [p.id_proyecto], area: p.area, fecha: FUTURO, tipo: 'programado' });
+  // Un "programado" vencido (nunca se marcó realizado) no cuenta como próximo.
+  await repo.crearSeguimiento({ ids_proyecto: [p.id_proyecto], area: p.area, fecha: PASADO, tipo: 'programado' });
+
+  const bd = await repo.obtenerBD();
+  const ventana = ventanaSeguimiento(bd, p.area, HOY);
+  assert.equal(ventana.ultimo.fecha, AYER, 'el último realizado es el más reciente, no cualquiera');
+  assert.equal(ventana.proximo.fecha, FUTURO);
+
+  // Otra área, sin seguimientos: los dos lados quedan en null, no en un dato inventado.
+  const vacia = ventanaSeguimiento(bd, 'Secretaría de Salud', HOY);
+  assert.equal(vacia.ultimo, null);
+  assert.equal(vacia.proximo, null);
+});
+
+test('compromisosEnVentana filtra por fecha límite, sin límite del lado que falta', async () => {
+  await limpio();
+  const p = await repo.crearProyecto(PROYECTO_BASE);
+  const m = await repo.crearMonitoreo({ fecha: HOY, area: p.area });
+  const antes = await repo.crearCompromiso({
+    origen_tipo: 'monitoreo', id_origen: m.id, id_proyecto: p.id_proyecto,
+    area: p.area, descripcion: 'Vence antes de la ventana', responsable: 'A', fecha_limite: PASADO,
+  });
+  const dentro = await repo.crearCompromiso({
+    origen_tipo: 'monitoreo', id_origen: m.id, id_proyecto: p.id_proyecto,
+    area: p.area, descripcion: 'Vence dentro de la ventana', responsable: 'B', fecha_limite: HOY,
+  });
+  const despues = await repo.crearCompromiso({
+    origen_tipo: 'monitoreo', id_origen: m.id, id_proyecto: p.id_proyecto,
+    area: p.area, descripcion: 'Vence después de la ventana', responsable: 'C', fecha_limite: FUTURO,
+  });
+  const sinFecha = await repo.crearCompromiso({
+    origen_tipo: 'monitoreo', id_origen: m.id, id_proyecto: p.id_proyecto,
+    area: p.area, descripcion: 'Sin fecha límite', responsable: 'D', fecha_limite: null,
+  });
+
+  const bd = await repo.obtenerBD();
+  const ventana = { ultimo: { fecha: AYER }, proximo: { fecha: HOY } };
+  const ids = compromisosEnVentana(bd, p.id_proyecto, ventana, HOY).map((c) => c.id);
+  assert.ok(ids.includes(dentro.id));
+  assert.ok(ids.includes(sinFecha.id), 'sin fecha límite no lo excluye ninguna ventana');
+  assert.ok(!ids.includes(antes.id));
+  assert.ok(!ids.includes(despues.id));
+
+  // Sin ventana de un lado (nunca hubo un seguimiento anterior, por ejemplo),
+  // ese lado no filtra nada.
+  const sinPiso = compromisosEnVentana(bd, p.id_proyecto, { ultimo: null, proximo: { fecha: HOY } }, HOY).map((c) => c.id);
+  assert.ok(sinPiso.includes(antes.id));
+  assert.ok(!sinPiso.includes(despues.id));
 });
 
 /* ── Flujo del módulo 5: mesa con compromisos ───────────────────────── */

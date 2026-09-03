@@ -14,14 +14,31 @@
  * mantiene el compromiso asociado en sincronía.
  */
 import { useMemo, useState } from 'react';
-import { Check, CheckCircle2, ClipboardCheck, Pencil, Plus, Radar, Trash2, X } from 'lucide-react';
-import { Aviso, Boton, Chip, Criticidad, Semaforo, Tarjeta, nivelPorDias } from '../../componentes/Basicos.jsx';
+import {
+  Calendar,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ClipboardCheck,
+  Pencil,
+  Plus,
+  Radar,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { BarraAvance, Boton, Aviso, Chip, Criticidad, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoCheck, CampoFecha, CampoRadios, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarTemas } from '../../datos/minutas/separarTemas.js';
-import { CRITICIDADES, ESTADOS_COMPROMISO } from '../../datos/catalogos.js';
-import { compromisos as selCompromisos, hoyISO } from '../../datos/selectores.js';
+import { CRITICIDADES, ESTADOS_COMPROMISO, ESTADOS_PROYECTO } from '../../datos/catalogos.js';
+import {
+  compromisos as selCompromisos,
+  compromisosEnVentana,
+  hoyISO,
+  proyectos as selProyectos,
+  ventanaSeguimiento,
+} from '../../datos/selectores.js';
 import { fecha as fFecha } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones, useBD } from '../../estado/tienda.js';
@@ -515,6 +532,335 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
         <Boton icono={Plus} onClick={() => setManualAbierto(true)} className="self-start">
           Agregar un tema a mano
         </Boton>
+      )}
+
+      {/* Proyectos y compromisos de la ventana entre seguimientos — camino
+          aparte de la carga de temas de arriba: repasar y actualizar sin
+          pasar por "Transferir desde texto" ni por "Agregar un tema". */}
+      <PanelVentana area={monitoreo.area} monitoreoId={monitoreo.id} hoy={hoy} />
+    </div>
+  );
+}
+
+/**
+ * Parte 2 de la carga de un monitoreo: los proyectos del área y sus
+ * compromisos vigentes con fecha límite dentro de la ventana entre el último
+ * seguimiento realizado y el próximo agendado (`ventanaSeguimiento`) — la
+ * franja que este monitoreo semanal cubre. Cada secretaría agenda sus
+ * seguimientos por su cuenta, así que esta ventana varía de área en área.
+ *
+ * Se puede actualizar el estado y la descripción de un proyecto, o de
+ * cualquiera de sus compromisos, o crear un compromiso nuevo — sin salir de
+ * acá ni pasar por Seguimiento.
+ *
+ * Se exporta por el mismo motivo que `FormularioTema`: vive detrás del
+ * estado local de "monitoreo iniciado", así que ninguna URL lo alcanza y sin
+ * esto no entraría en el render de control (ver `pruebas/humo/entrada.jsx`).
+ */
+export function PanelVentana({ area, monitoreoId, hoy }) {
+  const bd = useBD();
+
+  const ventana = useMemo(
+    () => (bd ? ventanaSeguimiento(bd, area, hoy) : { ultimo: null, proximo: null }),
+    [bd, area, hoy],
+  );
+  const proyectosArea = useMemo(
+    () => (bd ? selProyectos(bd, { area, solo_activos: true }) : []),
+    [bd, area],
+  );
+
+  const [abiertoProyecto, setAbiertoProyecto] = useState(null);
+  const [borradorProyecto, setBorradorProyecto] = useState(null);
+  const [abiertoCompromiso, setAbiertoCompromiso] = useState(null);
+  const [borradorCompromiso, setBorradorCompromiso] = useState(null);
+  const [creandoCompromiso, setCreandoCompromiso] = useState(false);
+  const [nuevoCompromiso, setNuevoCompromiso] = useState(null);
+
+  function alternarProyecto(p) {
+    if (abiertoProyecto === p.id_proyecto) {
+      setAbiertoProyecto(null);
+      setBorradorProyecto(null);
+    } else {
+      setAbiertoProyecto(p.id_proyecto);
+      setBorradorProyecto({ estado: p.estado, observaciones: p.observaciones ?? '' });
+    }
+    setAbiertoCompromiso(null);
+    setBorradorCompromiso(null);
+    setCreandoCompromiso(false);
+    setNuevoCompromiso(null);
+  }
+
+  async function guardarProyecto(p) {
+    await acciones.actualizarProyecto(p.id_proyecto, borradorProyecto);
+  }
+
+  function alternarCompromiso(c) {
+    if (abiertoCompromiso === c.id) {
+      setAbiertoCompromiso(null);
+      setBorradorCompromiso(null);
+    } else {
+      setAbiertoCompromiso(c.id);
+      setBorradorCompromiso({ estado: c.estado, descripcion: c.descripcion });
+    }
+  }
+
+  async function guardarCompromiso(c) {
+    await acciones.actualizarEstadoCompromiso(c.id, borradorCompromiso);
+    setAbiertoCompromiso(null);
+    setBorradorCompromiso(null);
+  }
+
+  function abrirNuevoCompromiso() {
+    setCreandoCompromiso(true);
+    setNuevoCompromiso({ descripcion: '', responsable: '', fecha_limite: '' });
+  }
+
+  async function guardarNuevoCompromiso(p) {
+    await acciones.crearCompromiso({
+      origen_tipo: 'monitoreo',
+      id_origen: monitoreoId,
+      id_proyecto: p.id_proyecto,
+      area: p.area,
+      descripcion: nuevoCompromiso.descripcion.trim(),
+      responsable: nuevoCompromiso.responsable.trim(),
+      fecha_limite: nuevoCompromiso.fecha_limite || null,
+    });
+    setCreandoCompromiso(false);
+    setNuevoCompromiso(null);
+  }
+
+  return (
+    <Tarjeta
+      titulo="Proyectos y compromisos de esta ventana"
+      descripcion="Lo que corresponde repasar en este monitoreo, según el calendario de seguimiento del área."
+    >
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-chip border border-acento/40 bg-acento-suave p-2.5 text-xs text-acento-fuerte">
+        <Calendar size={15} className="shrink-0" />
+        <span>
+          Ventana de este monitoreo:{' '}
+          <b>{ventana.ultimo ? fFecha(ventana.ultimo.fecha) : 'sin seguimiento anterior'}</b>
+          {' → '}
+          <b>{ventana.proximo ? fFecha(ventana.proximo.fecha) : 'sin próximo seguimiento agendado'}</b>
+        </span>
+        <span className="ml-auto text-acento">{area}</span>
+      </div>
+
+      {proyectosArea.length === 0 ? (
+        <Vacio
+          icono={Calendar}
+          compacto
+          titulo="Sin proyectos activos en esta área"
+          descripcion="Los proyectos de la Base maestra que pertenecen a esta secretaría van a aparecer acá."
+        />
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {proyectosArea.map((p) => (
+            <TarjetaProyectoVentana
+              key={p.id_proyecto}
+              proyecto={p}
+              bd={bd}
+              ventana={ventana}
+              hoy={hoy}
+              abierto={abiertoProyecto === p.id_proyecto}
+              alAlternar={() => alternarProyecto(p)}
+              borrador={borradorProyecto}
+              alCambiarBorrador={(parcial) => setBorradorProyecto((b) => ({ ...b, ...parcial }))}
+              alGuardar={() => guardarProyecto(p)}
+              abiertoCompromiso={abiertoCompromiso}
+              alAlternarCompromiso={alternarCompromiso}
+              borradorCompromiso={borradorCompromiso}
+              alCambiarBorradorCompromiso={(parcial) => setBorradorCompromiso((b) => ({ ...b, ...parcial }))}
+              alGuardarCompromiso={guardarCompromiso}
+              creandoCompromiso={creandoCompromiso}
+              alAbrirNuevoCompromiso={abrirNuevoCompromiso}
+              alCerrarNuevoCompromiso={() => {
+                setCreandoCompromiso(false);
+                setNuevoCompromiso(null);
+              }}
+              nuevoCompromiso={nuevoCompromiso}
+              alCambiarNuevoCompromiso={(parcial) => setNuevoCompromiso((n) => ({ ...n, ...parcial }))}
+              alGuardarNuevoCompromiso={() => guardarNuevoCompromiso(p)}
+            />
+          ))}
+        </div>
+      )}
+    </Tarjeta>
+  );
+}
+
+/** Una tarjeta-acordeón por proyecto, con sus compromisos de la ventana adentro. */
+function TarjetaProyectoVentana({
+  proyecto,
+  bd,
+  ventana,
+  hoy,
+  abierto,
+  alAlternar,
+  borrador,
+  alCambiarBorrador,
+  alGuardar,
+  abiertoCompromiso,
+  alAlternarCompromiso,
+  borradorCompromiso,
+  alCambiarBorradorCompromiso,
+  alGuardarCompromiso,
+  creandoCompromiso,
+  alAbrirNuevoCompromiso,
+  alCerrarNuevoCompromiso,
+  nuevoCompromiso,
+  alCambiarNuevoCompromiso,
+  alGuardarNuevoCompromiso,
+}) {
+  const compromisosVentana = useMemo(
+    () => (bd ? compromisosEnVentana(bd, proyecto.id_proyecto, ventana, hoy) : []),
+    [bd, proyecto.id_proyecto, ventana, hoy],
+  );
+
+  return (
+    <div className={`rounded-card border ${abierto ? 'border-acento' : 'border-borde'} bg-card`}>
+      <button
+        type="button"
+        onClick={alAlternar}
+        className="flex w-full flex-wrap items-center gap-2.5 p-3 text-left"
+      >
+        <span className="text-sm font-semibold text-tinta">
+          {proyecto.proyecto} <span className="text-xs font-normal text-acento">· {proyecto.id_proyecto}</span>
+        </span>
+        <EstadoProyecto estado={proyecto.estado} />
+        <div className="w-24">
+          <BarraAvance valor={proyecto.porcentaje_avance} compacta />
+        </div>
+        {compromisosVentana.length > 0 && (
+          <Chip tono="neutro">
+            {compromisosVentana.length} compromiso{compromisosVentana.length === 1 ? '' : 's'} en la ventana
+          </Chip>
+        )}
+        <ChevronDown size={16} className={`ml-auto shrink-0 text-tenue transition-transform ${abierto ? 'rotate-180' : ''}`} />
+      </button>
+
+      {abierto && (
+        <div className="border-t border-dashed border-acento/30 p-3 pt-3">
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-tinta">
+            <Pencil size={13} className="text-acento" /> Actualizar proyecto
+          </p>
+          <CampoRadios
+            etiqueta="Nuevo estado"
+            opciones={ESTADOS_PROYECTO}
+            valor={borrador?.estado}
+            alCambiar={(v) => alCambiarBorrador({ estado: v })}
+          />
+          <CampoArea
+            etiqueta="Descripción / observaciones"
+            className="mt-2.5"
+            filas={2}
+            value={borrador?.observaciones ?? ''}
+            onChange={(e) => alCambiarBorrador({ observaciones: e.target.value })}
+          />
+          <div className="mt-2 flex justify-end">
+            <Boton variante="primario" tamanio="sm" icono={Check} onClick={alGuardar}>
+              Guardar cambios del proyecto
+            </Boton>
+          </div>
+
+          <p className="mb-2 mt-4 border-t border-borde pt-3 text-xs font-semibold text-tinta">
+            Compromisos en esta ventana ({compromisosVentana.length})
+          </p>
+          {compromisosVentana.length === 0 && (
+            <p className="text-[11px] text-tenue">Ningún compromiso vigente de este proyecto vence en esta ventana.</p>
+          )}
+          <div className="flex flex-col gap-1.5">
+            {compromisosVentana.map((c) => {
+              const cAbierto = abiertoCompromiso === c.id;
+              const nivel = c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes);
+              return (
+                <div key={c.id} className={`rounded-chip border ${cAbierto ? 'border-acento' : 'border-borde'}`}>
+                  <button
+                    type="button"
+                    onClick={() => alAlternarCompromiso(c)}
+                    className="flex w-full items-center gap-2 p-2.5 text-left"
+                  >
+                    <Semaforo nivel={nivel} soloPunto texto={c.estado_efectivo} />
+                    <span className="text-sm text-tinta">{c.descripcion}</span>
+                    <span className="ml-auto text-[11px] text-tenue">{fFecha(c.fecha_limite)}</span>
+                    <ChevronDown size={14} className={`shrink-0 text-tenue transition-transform ${cAbierto ? 'rotate-180' : ''}`} />
+                  </button>
+                  {cAbierto && (
+                    <div className="border-t border-dashed border-borde-fuerte/40 p-2.5">
+                      <CampoRadios
+                        etiqueta="Nuevo estado"
+                        opciones={ESTADOS_COMPROMISO}
+                        valor={borradorCompromiso?.estado}
+                        alCambiar={(v) => alCambiarBorradorCompromiso({ estado: v })}
+                      />
+                      <CampoArea
+                        etiqueta="Descripción"
+                        className="mt-2.5"
+                        filas={2}
+                        value={borradorCompromiso?.descripcion ?? ''}
+                        onChange={(e) => alCambiarBorradorCompromiso({ descripcion: e.target.value })}
+                      />
+                      <div className="mt-2 flex justify-end">
+                        <Boton variante="primario" tamanio="sm" icono={Check} onClick={() => alGuardarCompromiso(c)}>
+                          Guardar cambios
+                        </Boton>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {creandoCompromiso ? (
+            <div className="mt-2.5 rounded-chip border border-acento bg-acento-suave/40 p-2.5">
+              <p className="mb-2 text-xs font-semibold text-acento-fuerte">Crear nuevo compromiso para este proyecto</p>
+              <CampoArea
+                etiqueta="Descripción"
+                requerido
+                filas={2}
+                value={nuevoCompromiso?.descripcion ?? ''}
+                onChange={(e) => alCambiarNuevoCompromiso({ descripcion: e.target.value })}
+              />
+              <GrillaCampos columnas={2} className="mt-2.5">
+                <CampoTexto
+                  etiqueta="Responsable"
+                  requerido
+                  value={nuevoCompromiso?.responsable ?? ''}
+                  onChange={(e) => alCambiarNuevoCompromiso({ responsable: e.target.value })}
+                />
+                <CampoFecha
+                  etiqueta="Fecha límite"
+                  min={hoy}
+                  value={nuevoCompromiso?.fecha_limite ?? ''}
+                  onChange={(e) => alCambiarNuevoCompromiso({ fecha_limite: e.target.value })}
+                />
+              </GrillaCampos>
+              <p className="mt-2 text-[11px] text-tenue">Se crea con estado <b>pendiente</b>.</p>
+              <div className="mt-2 flex justify-end gap-2">
+                <Boton tamanio="sm" onClick={alCerrarNuevoCompromiso}>
+                  Cancelar
+                </Boton>
+                <Boton
+                  variante="primario"
+                  tamanio="sm"
+                  icono={Check}
+                  disabled={!nuevoCompromiso?.descripcion?.trim() || !nuevoCompromiso?.responsable?.trim()}
+                  onClick={alGuardarNuevoCompromiso}
+                >
+                  Crear compromiso
+                </Boton>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={alAbrirNuevoCompromiso}
+              className="mt-2.5 flex w-full items-center gap-2 rounded-chip border border-dashed border-acento/50 p-2.5 text-xs font-medium text-acento transition hover:bg-acento-suave/40"
+            >
+              <Plus size={14} /> Crear nuevo compromiso para este proyecto
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

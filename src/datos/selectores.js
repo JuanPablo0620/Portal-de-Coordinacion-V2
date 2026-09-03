@@ -604,11 +604,42 @@ export function resumenSecretaria(bd, area, filtros = {}, hoy = hoyISO()) {
 
 /** Próximo seguimiento agendado del área; null si no hay ninguno por delante. */
 function proximoSeguimiento(bd, area, hoy) {
-  return (
+  return ventanaSeguimiento(bd, area, hoy).proximo;
+}
+
+/**
+ * Ventana de seguimiento de un área: el último REALIZADO (pasado) y el
+ * próximo PROGRAMADO (futuro). Cada secretaría agenda sus seguimientos por
+ * su cuenta, así que esta ventana varía de área en área — nunca es una fecha
+ * fija del sistema. La usa Monitoreo para mostrar, durante la carga
+ * semanal, los proyectos y compromisos que corresponden al período que este
+ * monitoreo cubre.
+ */
+export function ventanaSeguimiento(bd, area, hoy = hoyISO()) {
+  // `seguimientos()` ya devuelve ordenado desc por fecha: el primero
+  // "realizado" es el más reciente sin más vuelta.
+  const ultimo = seguimientos(bd, { area, tipo: 'realizado' })[0] ?? null;
+  const proximo =
     seguimientos(bd, { area, tipo: 'programado' })
       .filter((s) => String(s.fecha).slice(0, 10) >= hoy)
-      .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))[0] ?? null
-  );
+      .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))[0] ?? null;
+  return { ultimo, proximo };
+}
+
+/**
+ * Compromisos vigentes de un proyecto cuya fecha límite cae dentro de la
+ * ventana de seguimiento del área. Sin límite de un lado si ese seguimiento
+ * todavía no existe (nunca se hizo uno antes, o no hay ninguno agendado
+ * después) — y sin excluir los que no tienen fecha límite cargada: no hay
+ * ventana que los pueda dejar afuera.
+ */
+export function compromisosEnVentana(bd, idProyecto, ventana, hoy = hoyISO()) {
+  return compromisos(bd, { id_proyecto: idProyecto, solo_vigentes: true }, hoy).filter((c) => {
+    if (!c.fecha_limite) return true;
+    if (ventana.ultimo && c.fecha_limite < ventana.ultimo.fecha) return false;
+    if (ventana.proximo && c.fecha_limite > ventana.proximo.fecha) return false;
+    return true;
+  });
 }
 
 /**
