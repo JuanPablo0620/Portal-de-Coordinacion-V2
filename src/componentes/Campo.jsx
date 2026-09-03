@@ -165,7 +165,14 @@ export function CampoRadios({ etiqueta, requerido, opciones = [], valor, alCambi
           return (
             <label
               key={op.valor}
-              className={`cursor-pointer rounded-chip border px-2.5 py-1.5 text-xs font-medium capitalize transition ${
+              // `relative`: el input de acá abajo es `sr-only` (`position:
+              // absolute`, oculto). Sin un ancestro posicionado cerca, se
+              // ubica relativo al documento entero en vez de a este botón —
+              // en una pantalla larga, tildarlo le da foco y el navegador
+              // scrollea para "mostrarlo" donde cree que está, lejos de
+              // donde en realidad se ve. `relative` acá lo ancla en el lugar
+              // correcto y elimina el salto.
+              className={`relative cursor-pointer rounded-chip border px-2.5 py-1.5 text-xs font-medium capitalize transition ${
                 activo ? 'border-acento bg-acento-suave text-acento-fuerte' : 'border-borde-fuerte bg-card text-gris hover:bg-paper'
               }`}
             >

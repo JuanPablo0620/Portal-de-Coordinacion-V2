@@ -90,7 +90,10 @@ export function ImportarPlanificacion({ abierto, alCerrar, anio }) {
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-chip border border-borde-fuerte bg-card px-3.5 py-2 text-sm font-medium text-tinta transition hover:bg-paper">
+            {/* relative: ver la nota en CampoRadios (Campo.jsx) — el input
+                sr-only necesita un ancestro posicionado cerca, si no el
+                foco puede scrollear la página lejos de donde se lo ve. */}
+            <label className="relative inline-flex cursor-pointer items-center gap-2 rounded-chip border border-borde-fuerte bg-card px-3.5 py-2 text-sm font-medium text-tinta transition hover:bg-paper">
               <FileUp size={16} />
               Subir archivo
               <input
