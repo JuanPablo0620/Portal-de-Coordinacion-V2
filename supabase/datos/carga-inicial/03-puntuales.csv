@@ -1,9 +1,2 @@
-﻿area,nombre,estado_general,fecha_ultima_actualizacion,observaciones
-Ambiente,Ambiente+ TYP,vigente,2026-04-25,"Pendiente coordinación de reunion entre Nahuel Vitacovisch y Hernan Lorenzo, para armar un taller de reparacion de luminaria"
-Ambiente,Plantación de nativas,vigente,2026-08-17,Pendiente habla con Lore para sacar el contenedor
-Obras,Estacion Bosch,vigente,,
-Obras,Listado de de SSGG y Acupuntura,vigente,2026-03-23,
-Obras,Pedidos,vigente,2026-06-15,Hacer carpeta/ vereda en Plaza La Carbonilla. Se mandó a la cuadrilla a verificar. No es prioridad
-Obras,Planificacion Pluviales,vigente,2026-02-02,
-Obras,Reunion Miramar,vigente,2026-03-23,
-Obras,Reunion Movilidad,vigente,2026-03-23,
+﻿NOTA
+Tomas revirtio 'puntuales' como tabla propia el 01/09/2026 (commit 63226a4). Los 8 puntuales de este paquete se movieron a 02-proyectos.csv con eje='Puntual'. Este archivo queda vacio para que no se cargue por error contra una tabla que ya no existe.

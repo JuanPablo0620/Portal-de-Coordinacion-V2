@@ -1,3 +1,9 @@
+> **Actualizado el 04/09/2026.** El 01/09 Tomás revirtió `puntuales` como tabla
+> propia (commit `63226a4`, PR #4): el prototipo nunca la adoptó, así que vuelve
+> a ser una fila de `proyectos` con `eje_id='Puntual'`. Los 8 puntuales de este
+> paquete se movieron de `03-puntuales.csv` a `02-proyectos.csv` con esa forma.
+> `03-puntuales.csv` queda vacío, con la nota, para que no se cargue por error
+> contra una tabla que ya no existe.
 # Carga inicial a Supabase — datos reales auditados
 
 **Generado el 01/09/2026.** Datos del `1. Cualitativo` de los seis `_db`,
@@ -10,10 +16,10 @@ actualizaciones) queda en standby por decisión de JP.
 | Archivo | Filas | Tabla destino |
 |---|---:|---|
 | `01-programas.csv` | 61 | `programas` |
-| `02-proyectos.csv` | 87 | `proyectos` |
+| `02-proyectos.csv` | 95 | `proyectos` (87 del POA + 8 puntuales con `eje='Puntual'`) |
 | `02b-proyectos-SIN-PROGRAMA.csv` | 10 | **no cargar todavía** — ver abajo |
 | `02c-proyectos-PROGRAMA-DUDOSO.csv` | 5 | **no cargar todavía** — ver abajo |
-| `03-puntuales.csv` | 8 | `puntuales` |
+| `03-puntuales.csv` | 0 | **vacío** — la tabla ya no existe, ver nota arriba |
 | `04-mesas.csv` | 3 | `mesas` |
 | `05-compromisos.csv` | 124 | `compromisos` |
 
@@ -73,18 +79,12 @@ join public.programas p on p.nombre = s.programa and p.area_id = a.id
 join public.ejes e      on e.nombre = s.eje
 left join public.tipos_proyecto t on t.nombre = s.tipo;
 
-select count(*) from public.proyectos;  -- 87
+select count(*) from public.proyectos;  -- 95 (87 del POA + 8 puntuales)
 ```
 
 Si salen menos de 87, algún `join` no encontró su catálogo.
 
-### 3. Puntuales
-
-```sql
-insert into public.puntuales (area_id, nombre, estado_general, observaciones)
-select a.id, s.nombre, 'vigente'::public.estado_general, s.observaciones
-from stg_puntuales s join public.areas a on a.nombre = s.area;
-```
+### 3. (sacado — los puntuales van con proyectos, ver arriba)
 
 ### 4. Mesas
 
