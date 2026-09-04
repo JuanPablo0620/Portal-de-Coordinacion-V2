@@ -21,7 +21,7 @@ actualizaciones) queda en standby por decisión de JP.
 | `02c-proyectos-PROGRAMA-DUDOSO.csv` | 5 | **no cargar todavía** — ver abajo |
 | `03-puntuales.csv` | 0 | **vacío** — la tabla ya no existe, ver nota arriba |
 | `04-mesas.csv` | 3 | `mesas` |
-| `05-compromisos.csv` | 124 | `compromisos` |
+| `05-compromisos.csv` | 130 | `compromisos` (124 del `_db` + 6 del PDF de Obras 20/08) |
 
 **Los catálogos no están acá a propósito**: `areas`, `ejes`, `estados` y
 `tipos_proyecto` ya vienen en los seeds de `0001_esquema.sql`, y los nombres de
@@ -223,3 +223,42 @@ está ahí.
   [`../../docs/traspaso-datos-reales.md`](../../docs/traspaso-datos-reales.md).
 - Por qué el cualitativo no entra tal cual:
   [`../../docs/carga-cualitativo-al-portal.md`](../../docs/carga-cualitativo-al-portal.md).
+
+
+---
+
+## Agregado el 04/09/2026 — 6 compromisos del PDF de Obras (20/08)
+
+El jefe de JP pidió cargar compromisos recientes que están en PDF porque no se
+cargaron en el sheet — se esperaba a que el portal estuviera disponible. Se
+recibieron 3 PDF: Capital Humano 15/07, Seguridad 08/07, Obras 20/08.
+
+**Capital Humano y Seguridad: se verificaron y NO aportan nada nuevo.** Los 14
+ítems de esos dos PDF ya están en el `_db`, con el mismo texto exacto, repetido
+semana a semana hasta el 17/08/2026 — es el patrón de arrastre que ya
+documentamos (mismo comentario copiado sin cambios). Ya están en este paquete.
+Se verificó por nombre exacto + fecha, no por texto aproximado.
+
+**Obras sí tenía novedades reales.** De los 8 ítems del PDF, 6 se agregaron:
+
+| Título | Motivo |
+|---|---|
+| `PBN Hornos` | El `_db` lo tenía marcado `Finalizado` desde el 06/07 — el PDF del 20/08 lo reabre con trabajo pendiente nuevo. **Avisar en la reunión**: o se reabrió de verdad, o el `_db` nunca reflejó que seguía abierto |
+| `Difusión demolición parrilla` | El `_db` ya tenía un compromiso "Comunicación" pero de otro tema (evento con Quilmes). Se le puso nombre distinto para no confundirlos — JP confirmó: nuevo, sin vincular a ningún proyecto |
+| `Cartelería escolar` | Mismo caso: el `_db` ya tenía "Cartelería" de otro tema (Centros Comerciales) |
+| `Estudio Observacional` | Nuevo, sin nombre previo en el `_db` |
+| `Obras en ejecución` | Nuevo |
+| `Viviendas Firpo` | Nuevo |
+
+**Un ítem del PDF se descartó a pedido de JP**: el punto 4 (sin nombre propio en
+el original — "Articular con Ceremonial para que Roco vaya a comunicar el plan
+de colocación de refugios") no se cargó.
+
+**`fecha_limite` de los 6 nuevos: `2026-10-01`, sin confirmar.** Es el default
+de la regla (fecha de la reunión + 42 días = próximo seguimiento), no la fecha
+real agendada de Obras. Si tienen la fecha real, corregirla antes de subir a
+Supabase.
+
+**Se agregó la columna `fuente`** a las 130 filas: `_db cualitativo` para las
+124 históricas, `PDF Seguimiento Obras 20/08/2026` para las 6 nuevas — para que
+el archivo quede autodescriptivo sobre de dónde salió cada compromiso.
