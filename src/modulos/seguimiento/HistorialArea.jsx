@@ -90,7 +90,7 @@ export function HistorialArea({ bd, filtros, setFiltros }) {
   }
 
   const cumplidos = datos.compromisos.filter((c) => c.estado_efectivo === 'cumplido').length;
-  const vencidos = datos.compromisos.filter((c) => c.estado_efectivo === 'vencido').length;
+  const vencidos = datos.compromisos.filter((c) => c.estado_efectivo === 'alerta').length;
 
   function exportar() {
     descargarCSV(

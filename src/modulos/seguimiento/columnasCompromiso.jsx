@@ -53,7 +53,7 @@ export const COLUMNAS_COMPROMISO = [
       <Semaforo
         nivel={nivelDe(f)}
         sinPunto
-        texto={f.estado_efectivo === 'vencido' ? `vencido · ${f.dias_atraso} d` : f.estado_efectivo}
+        texto={f.estado_efectivo === 'alerta' ? `alerta · ${f.dias_atraso} d` : f.estado_efectivo}
       />
     ),
   },

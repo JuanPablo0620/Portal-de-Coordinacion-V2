@@ -152,7 +152,7 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
    */
   const compromisos = enModulo('compromisos')
     ? selCompromisos(bd, { area: filtros.area, responsable: filtros.responsable }, hoy)
-        .filter((c) => dentroDelPeriodo(c.fecha_limite) || c.estado_efectivo === 'vencido')
+        .filter((c) => dentroDelPeriodo(c.fecha_limite) || c.estado_efectivo === 'alerta')
         .filter((c) => !hayRecorteProyecto || !c.id_proyecto || idsProyecto.has(c.id_proyecto))
     : [];
 
@@ -212,7 +212,7 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     obras: proyectos.filter((p) => p.es_obra).length,
     prioritarios: proyectos.filter((p) => p.prioridad === 'alta').length,
     compromisos: compromisos.length,
-    compromisosVencidos: compromisos.filter((c) => c.estado_efectivo === 'vencido').length,
+    compromisosVencidos: compromisos.filter((c) => c.estado_efectivo === 'alerta').length,
     seguimientos: seguimientos.length,
     monitoreos: monitoreos.length,
     temasCriticos: temas.filter((t) => t.criticidad === 'alta' && !t.resuelto).length,

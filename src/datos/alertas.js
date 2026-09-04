@@ -77,7 +77,7 @@ export function nivelPorSeveridad(severidad) {
 
 function compromisosVencidos(bd, hoy) {
   return activos(bd.compromisos)
-    .filter((c) => estadoCompromiso(c, hoy) === 'vencido')
+    .filter((c) => estadoCompromiso(c, hoy) === 'alerta')
     .map((c) => ({
       id: `al_cv_${c.id}`,
       tipo: TIPOS_ALERTA.COMPROMISO_VENCIDO,

@@ -63,7 +63,7 @@ test('las mesas cubren los tres tipos, que se muestran en pestañas separadas', 
 /* ── Casos de borde declarados ────────────────────────────────────── */
 
 test('hay compromisos vencidos', () => {
-  const vencidos = bd.compromisos.filter((c) => estadoCompromiso(c, HOY) === 'vencido');
+  const vencidos = bd.compromisos.filter((c) => estadoCompromiso(c, HOY) === 'alerta');
   assert.ok(vencidos.length >= 4, `se esperaban al menos 4 vencidos, hay ${vencidos.length}`);
 });
 

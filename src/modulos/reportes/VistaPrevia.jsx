@@ -219,7 +219,7 @@ function BloqueCompromisos({ filas }) {
             render: (f) => (
               <Semaforo
                 nivel={f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes)}
-                texto={f.estado_efectivo === 'vencido' ? `vencido · ${f.dias_atraso} d` : f.estado_efectivo}
+                texto={f.estado_efectivo === 'alerta' ? `alerta · ${f.dias_atraso} d` : f.estado_efectivo}
               />
             ),
           },

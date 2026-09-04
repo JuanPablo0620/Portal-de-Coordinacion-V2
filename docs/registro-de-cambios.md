@@ -11,6 +11,59 @@ y el resultado de `npm run verificar`.
 
 ---
 
+## 28/08/2026 — Datos reales: 51 proyectos validados del "1. Cualitativo"
+
+**Pedido de JP:** *"necesito cargar datos del sistema de planillas actual que
+sepamos que están ok para ser cargados en el portal, porque quiero que se
+empiece a ver datos reales de la gestión así sé qué falta modificar del portal
+y de la db"*.
+
+**Qué se cargó.** 51 proyectos, uno por uno validados. Salen de la pestaña
+`1. Cualitativo` de los seis `_db`: 3.806 filas que se colapsaron en 425
+nombres distintos, JP revisó cuáles son proyectos de verdad y cuáles son
+compromisos, puntuales o actualizaciones de otra cosa, y acá entraron solo los
+que quedaron como proyecto con **confianza alta** — es decir, los que cuelgan
+de un programa oficial de la hoja `Intereses` y tienen eje POA.
+
+Reparto: Ambiente 30 · Obras 10 · Capital Humano 5 · Salud 3 · Seguridad 3 ·
+Trabajo y Producción 0 (esa secretaría no tiene ningún proyecto que llegue a
+confianza alta).
+
+**Por qué no se usó el importador CSV.** Era el plan original, pero exige
+`unidad` y `objetivo` obligatorios y el cualitativo no los tiene por
+definición — la simulación daba 3 filas cargables de 3.806. Además Tomás sacó
+el botón de "Importar CSV" de Cargar Proyectos el 28/08. El camino que sí
+sirve ya existía: `cargarProyectosRealesSecretarias()`, que llama a
+`crearProyecto()` directo y no pide esos campos. No hubo que aflojar ninguna
+validación.
+
+**Lo que aporta de nuevo esta fuente.** El `eje` real. El loader del maestro
+le pone `Puntual` a todo porque la pestaña "Estado de proyectos" no trae esa
+columna; estos 51 traen `POA`, que es lo que dice el sheet. Cargando todo
+junto quedan 128 proyectos: 51 con eje real, 69 con el `Puntual` aproximado y
+8 de Posicionamiento.
+
+**Archivos tocados:**
+- `src/datos/proyectos-validados-cualitativo.js` (nuevo) — los 51, generados
+  desde los CSV corregidos y la clasificación revisada.
+- `src/datos/repositorio.js` — se extrajo `cargarListaDeSecretarias()`, que
+  ahora comparten las dos fuentes; el eje del dato manda y el por defecto es
+  solo para las fuentes que no lo traen. Se agregó
+  `cargarProyectosValidadosCualitativo()` y se sumó a
+  `cargarTodosLosProyectosReales()`, que los corre PRIMERO para que si un
+  proyecto está en las dos fuentes gane el que tiene eje real.
+- `pruebas/proyectos-validados.test.mjs` (nuevo) — 6 casos.
+- `docs/carga-cualitativo-al-portal.md` (nuevo) — el diagnóstico completo de
+  por qué el cualitativo no entra tal cual.
+
+**Bug encontrado de paso:** el loader viejo armaba `yaCargados` una sola vez
+antes del bucle, así que dos filas iguales dentro de la MISMA lista entraban
+las dos. No se notaba porque el maestro no tenía repetidos; el cualitativo sí.
+
+**Verificación:** 313 tests en verde (307 previos + 6 nuevos), `vite build` OK.
+
+---
+
 ## 24/08/2026 — Seguimiento: selector de proyecto en avances y problemas también
 
 **Pedido de JP**, probando la carga real de Trabajo y Producción: en la

@@ -29,3 +29,19 @@ export function hoyISO() {
 export function ahoraISO() {
   return aLocal(new Date()).toISOString().replace('Z', '');
 }
+
+/**
+ * Suma días a una fecha ISO y devuelve otra fecha ISO.
+ *
+ * Se construye en UTC a propósito. Con `new Date('2026-09-01')` el motor
+ * interpreta la cadena como medianoche UTC, pero `getDate()` la lee en la zona
+ * local: en Argentina (UTC-3) eso devuelve el día ANTERIOR, y la fecha sale
+ * corrida por uno. Es el error clásico de sumar días sobre fechas sin hora.
+ */
+export function sumarDias(fechaISO, dias) {
+  if (!fechaISO) return '';
+  const [a, m, d] = String(fechaISO).slice(0, 10).split('-').map(Number);
+  if (!a || !m || !d) return '';
+  const t = Date.UTC(a, m - 1, d) + dias * 86_400_000;
+  return new Date(t).toISOString().slice(0, 10);
+}

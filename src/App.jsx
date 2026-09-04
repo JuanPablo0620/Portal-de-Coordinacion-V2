@@ -17,6 +17,7 @@ import Mesas from './modulos/mesas/Mesas.jsx';
 import Eventos from './modulos/eventos/Eventos.jsx';
 import Reportes from './modulos/reportes/Reportes.jsx';
 import Configuracion from './modulos/configuracion/Configuracion.jsx';
+import VigentesSupabase from './modulos/vigentes-supabase/VigentesSupabase.jsx';
 
 export default function App() {
   const cargando = useCargando();
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="mesas" element={<Mesas />} />
         <Route path="eventos" element={<Eventos />} />
         <Route path="reportes" element={<Reportes />} />
+        <Route path="vigentes-supabase" element={<VigentesSupabase />} />
         <Route path="configuracion" element={<Configuracion />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

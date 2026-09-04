@@ -32,7 +32,7 @@ test('porcentajeAvance devuelve 0 si el objetivo es cero o falta', () => {
 /* ── Estado derivado de compromisos ───────────────────────────────── */
 
 test('un compromiso con fecha pasada y sin cumplir es vencido', () => {
-  assert.equal(estadoCompromiso({ estado: 'pendiente', fecha_limite: '2026-08-01' }, HOY), 'vencido');
+  assert.equal(estadoCompromiso({ estado: 'pendiente', fecha_limite: '2026-08-01' }, HOY), 'alerta');
 });
 
 test('un compromiso cumplido nunca es vencido, aunque la fecha haya pasado', () => {
@@ -44,7 +44,7 @@ test('un compromiso que vence hoy todavía no está vencido', () => {
 });
 
 test('un compromiso en curso vencido pasa a vencido', () => {
-  assert.equal(estadoCompromiso({ estado: 'en curso', fecha_limite: '2026-07-01' }, HOY), 'vencido');
+  assert.equal(estadoCompromiso({ estado: 'en_curso', fecha_limite: '2026-07-01' }, HOY), 'alerta');
 });
 
 test('un compromiso sin fecha límite nunca vence', () => {
@@ -144,7 +144,7 @@ test('compromisos anexa estado_efectivo y dias_atraso', () => {
     ],
   };
   const r = compromisos(bd, {}, HOY);
-  assert.equal(r[0].estado_efectivo, 'vencido');
+  assert.equal(r[0].estado_efectivo, 'alerta');
   assert.equal(r[0].dias_atraso, 7);
   assert.equal(r[1].estado_efectivo, 'cumplido');
   assert.equal(r[1].dias_atraso, 0);
@@ -157,7 +157,7 @@ test('compromisos filtra por el estado efectivo, no por el persistido', () => {
       { id: 'c2', estado: 'pendiente', fecha_limite: '2026-09-01', activo: true },
     ],
   };
-  assert.equal(compromisos(bd, { estado: 'vencido' }, HOY).length, 1);
+  assert.equal(compromisos(bd, { estado: 'alerta' }, HOY).length, 1);
   assert.equal(compromisos(bd, { estado: 'pendiente' }, HOY).length, 1);
 });
 
@@ -197,4 +197,36 @@ test('desvioTrimestral compara el avance acumulado contra la meta del trimestre'
   assert.equal(r[0].real, 60);
   assert.equal(r[0].cumplimiento, 80);
   assert.equal(r[0].desvio, -15);
+});
+
+/* ── Ciclo de vida del compromiso (regla confirmada por JP el 01/09/2026) ── */
+
+test('sumarDias no se corre un día por la zona horaria', async () => {
+  const { sumarDias } = await import('../src/datos/tiempo.js');
+  // En Argentina (UTC-3), construir la fecha en hora local devolvía el día
+  // anterior. Seis semanas después del 01/09 es el 13/10, no el 12.
+  assert.equal(sumarDias('2026-09-01', 42), '2026-10-13');
+  assert.equal(sumarDias('2026-12-31', 1), '2027-01-01');
+  assert.equal(sumarDias('2026-03-01', -1), '2026-02-28');
+  assert.equal(sumarDias('', 42), '');
+});
+
+test('un compromiso vencido y abierto queda en alerta, no en su estado guardado', async () => {
+  const { estadoCompromiso } = await import('../src/datos/selectores.js');
+  const HOY_ = '2026-09-01';
+  assert.equal(estadoCompromiso({ estado: 'pendiente', fecha_limite: '2026-08-01' }, HOY_), 'alerta');
+  assert.equal(estadoCompromiso({ estado: 'en_curso', fecha_limite: '2026-08-01' }, HOY_), 'alerta');
+  // Cumplido gana: aunque haya vencido, ya está hecho.
+  assert.equal(estadoCompromiso({ estado: 'cumplido', fecha_limite: '2026-08-01' }, HOY_), 'cumplido');
+  // Todavía no vence: conserva el estado guardado.
+  assert.equal(estadoCompromiso({ estado: 'pendiente', fecha_limite: '2026-10-01' }, HOY_), 'pendiente');
+});
+
+test('sin fecha límite un compromiso NUNCA llega a alerta', async () => {
+  const { estadoCompromiso } = await import('../src/datos/selectores.js');
+  // Es el caso de los 124 compromisos históricos de los `_db`: quedan
+  // pendientes para siempre. Por eso la fecha es obligatoria al cargar uno
+  // nuevo desde el portal.
+  assert.equal(estadoCompromiso({ estado: 'pendiente', fecha_limite: null }, '2026-09-01'), 'pendiente');
+  assert.equal(estadoCompromiso({ estado: 'en_curso' }, '2026-09-01'), 'en_curso');
 });

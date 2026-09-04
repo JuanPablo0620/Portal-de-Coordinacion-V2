@@ -1,0 +1,2 @@
+﻿NOTA
+Tomas revirtio 'puntuales' como tabla propia el 01/09/2026 (commit 63226a4). Los 8 puntuales de este paquete se movieron a 02-proyectos.csv con eje='Puntual'. Este archivo queda vacio para que no se cargue por error contra una tabla que ya no existe.
