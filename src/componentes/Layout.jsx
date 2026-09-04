@@ -4,6 +4,7 @@ import logo3f from '../assets/logo-3f.png';
 import {
   CalendarCheck,
   CalendarDays,
+  CloudCog,
   FileBarChart,
   FolderKanban,
   Gem,
@@ -32,6 +33,7 @@ const MODULOS = [
   { ruta: '/mesas', titulo: 'Mesas de trabajo', icono: Users },
   { ruta: '/eventos', titulo: 'Eventos', icono: CalendarDays },
   { ruta: '/reportes', titulo: 'Reportes', icono: FileBarChart },
+  { ruta: '/vigentes-supabase', titulo: 'Vigentes (Supabase)', icono: CloudCog },
 ];
 
 function Navegacion({ alNavegar }) {
