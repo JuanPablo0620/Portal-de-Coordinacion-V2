@@ -23,6 +23,7 @@ import {
   Radar,
   Star,
   XCircle,
+  BookOpen,
 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import {
@@ -43,6 +44,7 @@ import { CampoSelect } from '../../componentes/Campo.jsx';
 import { GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../../componentes/Filtros.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { FormularioEstrategico } from './FormularioEstrategico.jsx';
+import { FormularioNovedad } from './FormularioNovedad.jsx';
 import { PRIORIDADES, UMBRALES } from '../../datos/catalogos.js';
 import {
   candidatosEstrategicos,
@@ -75,6 +77,7 @@ export default function Estrategicos() {
   const hoy = hoyISO();
   const [filtros, setFiltros] = useFiltrosUrl(DEFAULTS);
   const [formulario, setFormulario] = useState(null);
+  const [novedad, setNovedad] = useState(null);
   const [aQuitar, setAQuitar] = useState(null);
 
   const criterios = useMemo(
@@ -122,6 +125,7 @@ export default function Estrategicos() {
             filtros={filtros}
             setFiltros={setFiltros}
             alEditar={(p) => setFormulario({ proyecto: p })}
+            alRegistrarNovedad={(p) => setNovedad(p)}
             alQuitar={(p) => setAQuitar(p)}
           />
         )}
@@ -141,6 +145,14 @@ export default function Estrategicos() {
           proyecto={formulario.proyecto}
           candidato={formulario.candidato}
           alCerrar={() => setFormulario(null)}
+        />
+      )}
+
+      {novedad && (
+        <FormularioNovedad
+          abierto
+          proyecto={novedad}
+          alCerrar={() => setNovedad(null)}
         />
       )}
 
@@ -177,7 +189,7 @@ function Tablero({ resumen, cartera, setFiltros }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <Metrica valor={resumen.total} etiqueta="Proyectos estratégicos" icono={Gem} detalle={`${resumen.activos} activos · ${resumen.finalizados} finalizados`} />
         <Metrica
           valor={resumen.en_riesgo}
@@ -191,7 +203,6 @@ function Tablero({ resumen, cartera, setFiltros }) {
           etiqueta={`Sin novedades hace más de ${UMBRALES.DIAS_ESTRATEGICO_SIN_NOVEDAD} días`}
           detalle="la mitad del umbral del resto de la cartera"
         />
-        <Metrica valor={`${resumen.avance_promedio}%`} etiqueta="Avance agregado" detalle={`ejecución presupuestaria ${resumen.ejecucion}%`} />
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -262,27 +273,17 @@ function Tablero({ resumen, cartera, setFiltros }) {
           </ul>
         </Tarjeta>
 
-        <Tarjeta titulo="Por qué son estratégicos" descripcion="El motivo declarado al momento de promoverlos.">
-          <GraficoBarras
-            datos={resumen.por_motivo}
-            horizontal
-            anchoEtiqueta={210}
-            alto={Math.max(220, resumen.por_motivo.length * 30)}
-            series={[{ clave: 'cantidad', titulo: 'Proyectos' }]}
-          />
+        <Tarjeta titulo="Por prioridad estratégica" descripcion="No todos los estratégicos pesan igual.">
+          <GraficoBarras datos={porPrioridad} alto={200} series={[{ clave: 'cantidad', titulo: 'Proyectos' }]} />
         </Tarjeta>
       </div>
-
-      <Tarjeta titulo="Por prioridad estratégica" descripcion="No todos los estratégicos pesan igual.">
-        <GraficoBarras datos={porPrioridad} alto={200} series={[{ clave: 'cantidad', titulo: 'Proyectos' }]} />
-      </Tarjeta>
     </div>
   );
 }
 
 /* ── Cartera ────────────────────────────────────────────────────────── */
 
-function PanelCartera({ cartera, filtros, setFiltros, alEditar, alQuitar }) {
+function PanelCartera({ cartera, filtros, setFiltros, alEditar, alRegistrarNovedad, alQuitar }) {
   const navegar = useNavigate();
   const opcionesArea = useOpciones('areas');
   const opcionesMotivo = useOpciones('motivos_estrategicos');
@@ -401,6 +402,9 @@ function PanelCartera({ cartera, filtros, setFiltros, alEditar, alQuitar }) {
             <>
               <Boton tamanio="sm" onClick={() => navegar(`/proyectos/${elegido.id_proyecto}`)}>
                 Abrir ficha
+              </Boton>
+              <Boton tamanio="sm" icono={BookOpen} onClick={() => alRegistrarNovedad(elegido)}>
+                Registrar novedad
               </Boton>
               <Boton tamanio="sm" icono={Pencil} onClick={() => alEditar(elegido)}>
                 Editar
