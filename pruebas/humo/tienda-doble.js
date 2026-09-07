@@ -34,4 +34,12 @@ export const useTienda = (selector) => {
 useTienda.getState = () => ({ bd: base, cargando: false, iniciar: () => {} });
 useTienda.setState = () => {};
 
+/**
+ * No-op: en la app real esto muda las áreas de «Mis áreas» al nombre de la
+ * sesión y escribe en la base local. Acá escribiría sobre el escenario que la
+ * prueba acaba de inyectar, y cada ruta renderizada lo iría modificando para
+ * la siguiente.
+ */
+export async function sincronizarUsuario() {}
+
 export const acciones = repo;

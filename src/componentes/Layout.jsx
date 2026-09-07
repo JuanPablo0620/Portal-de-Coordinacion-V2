@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import logo3f from '../assets/logo-3f.png';
+import { usePerfil, useSesion } from '../estado/sesion.js';
 import {
   CalendarCheck,
   CalendarDays,
@@ -11,6 +12,7 @@ import {
   Globe2,
   HardHat,
   LayoutDashboard,
+  LogOut,
   Menu,
   Radar,
   Settings,
@@ -57,8 +59,45 @@ function Navegacion({ alNavegar }) {
           <Settings size={17} className="shrink-0" />
           Configuración
         </NavLink>
+        <UsuarioSesion />
       </div>
     </nav>
+  );
+}
+
+/**
+ * Nombre del rol tal como se dice en el municipio. El valor guardado en la
+ * base es el técnico (`jefe_gabinete`); mostrarlo crudo en pantalla sería
+ * filtrar vocabulario de la implementación a una interfaz institucional.
+ */
+const ROTULO_ROL = {
+  admin: 'Control de Gestión',
+  coordinacion: 'Control de Gestión',
+  jefe_gabinete: 'Jefatura de Gabinete',
+  intendencia: 'Intendencia',
+  area: 'Secretaría',
+};
+
+function UsuarioSesion() {
+  const perfil = usePerfil();
+  const salir = useSesion((e) => e.salir);
+  if (!perfil) return null;
+
+  return (
+    <div className="mt-2 border-t border-borde px-3 pt-3">
+      <p className="truncate text-sm font-medium leading-tight text-tinta">{perfil.nombre}</p>
+      <p className="truncate text-[11px] leading-tight text-tenue">
+        {ROTULO_ROL[perfil.rol] ?? perfil.rol}
+      </p>
+      <button
+        type="button"
+        onClick={salir}
+        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-gris transition hover:text-tinta"
+      >
+        <LogOut size={14} className="shrink-0" />
+        Salir
+      </button>
+    </div>
   );
 }
 
