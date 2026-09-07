@@ -11,6 +11,38 @@ y el resultado de `npm run verificar`.
 
 ---
 
+## 04/09/2026 — Pantalla nueva "Vigentes (Supabase)": primera lectura real de la base
+
+**Pedido de JP** (viernes, con Tomás afuera): el jefe necesitaba ver los
+compromisos vigentes en el portal ya. Se desplegó Supabase por primera vez
+(carga completa en `supabase/datos/carga-inicial/`, detalle en
+`docs/traspaso-04-09-supabase-en-vivo.md`) y se conectó el portal, acotado:
+una pantalla nueva y aislada que lee `proyectos` y `compromisos` en vivo,
+solo lectura. El resto del sistema sigue igual, en `localStorage` — migrar
+todo es trabajo aparte, para que Tomás lo revise.
+
+**Decisión de JP sobre RLS**: solo lectura pública, nada de escritura sin
+login real (el portal no tiene autenticación — `config.usuario` es texto
+libre). La clave `anon` es pública de hecho al viajar en el bundle.
+
+**Archivos:** `src/datos/supabaseClient.js` (cliente),
+`src/datos/vigentesSupabase.js` (lectura — reusa `estadoCompromiso()` y
+`nivelPorDias()` de `selectores.js` sin reimplementarlos, son funciones
+puras),`src/modulos/vigentes-supabase/VigentesSupabase.jsx` (pantalla), ruta
+en `App.jsx`, entrada de menú en `Layout.jsx`. `.env.example` nuevo — cada
+dev necesita su propio `.env.local` con `VITE_SUPABASE_ANON_KEY`.
+
+**Verificado:** 323 tests, build, humo (120 chequeos) y accesibilidad (29
+rutas) en verde. Mergeado con los 20 commits de Tomás sin pérdida (dos
+conflictos menores en `CargarSeguimiento.jsx`/`columnasCompromiso.jsx`,
+resueltos combinando ambos lados) y pusheado a `fork/main`.
+
+**Pendiente sin confirmar:** si las variables de entorno ya están cargadas en
+Vercel — sin eso, la pantalla en producción muestra el aviso de "no
+configurado" en vez de datos.
+
+---
+
 ## 28/08/2026 — Datos reales: 51 proyectos validados del "1. Cualitativo"
 
 **Pedido de JP:** *"necesito cargar datos del sistema de planillas actual que
