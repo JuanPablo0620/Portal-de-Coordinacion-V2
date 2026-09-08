@@ -1,14 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(echo \"session-start sin grafo exit=$?\")",
-      "Bash(node \"C:/Users/CRA/.claude/helpers/graft-hooks.cjs\" prompt)",
-      "Bash(echo \"prompt sin grafo exit=$?\")",
-      "PowerShell(git branch -a --format=\"%\\(refname:short\\) %\\(upstream:short\\)\")",
-      "PowerShell(git ls-tree --name-only origin/main 2>$null)",
-      "PowerShell(git rev-list --left-right --count origin/main...construccion-prototipo)",
-      "PowerShell(git push origin construccion-prototipo:main; \"--- vercel cli ---\"; if \\(Get-Command vercel -ErrorAction SilentlyContinue\\) { \\(Get-Command vercel\\).Source } else { \"no instalado\" })",
-      "PowerShell(\"--- graft/ ---\"; \\(Get-ChildItem graft -Recurse -File | Measure-Object\\).Count; Get-ChildItem graft -Name | Select-Object -First 8; \"--- version cli ---\"; graft --version; \"--- config usuario ---\"; Get-ChildItem \"$env:USERPROFILE\\\\.claude\\\\settings.json\" -ErrorAction SilentlyContinue | Select-Object FullName)"
+      "Bash(npm run test)",
+      "Bash(npm run humo)",
+      "Bash(npm run verificar)",
+      "Bash(npm run build)",
+      "Bash(npm install)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote -v)",
+      "Bash(git rev-list:*)",
+      "Bash(git rev-parse:*)"
     ]
   }
 }

@@ -8,3 +8,7 @@ graft/
 
 # Listado del equipo: mails personales, y este repo es publico.
 *.local.sql
+
+# Permisos y ajustes de Claude Code propios de cada maquina.
+# Lo compartido va en .claude/settings.json; lo personal, aca.
+.claude/settings.local.json
