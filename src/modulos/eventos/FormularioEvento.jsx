@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, BarraAvance, Boton, Chip } from '../../componentes/Basicos.jsx';
-import { CampoFecha, CampoHora, CampoNumero, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
+import { CampoArea, CampoFecha, CampoHora, CampoNumero, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { ESTADOS_EVENTO, ESTADOS_REQUERIMIENTO } from '../../datos/catalogos.js';
 import { cortesDeEvento, ubicacionDe, vigenciaDe } from '../../datos/cortes.js';
@@ -16,6 +16,7 @@ const ITEM_CORTE = 'Corte de calle';
 
 const VACIO = {
   nombre: '',
+  detalle: '',
   fecha: '',
   hora: '',
   lugar: '',
@@ -78,6 +79,20 @@ export function FormularioEvento({ abierto, alCerrar, evento }) {
           value={datos.nombre}
           onChange={cambiar('nombre')}
           placeholder="Ej.: Inauguración de plaza renovada"
+          disabled={Boolean(idEvento) && !esEdicion}
+        />
+
+        {/* Texto libre y opcional: lo que no entra en los campos cerrados de
+            abajo — de qué se trata, quién expone, qué hay que tener en cuenta.
+            Va acá arriba, pegado al nombre, porque describe el evento; los
+            campos que siguen son su ficha (cuándo, dónde, quién organiza). */}
+        <CampoArea
+          etiqueta="Detalle"
+          ayuda="opcional"
+          filas={3}
+          value={datos.detalle}
+          onChange={cambiar('detalle')}
+          placeholder="De qué se trata, quiénes participan, qué hay que tener en cuenta…"
           disabled={Boolean(idEvento) && !esEdicion}
         />
 

@@ -336,6 +336,14 @@ function DetalleChecklist({ evento, bd, hoy, alEditar }) {
           </div>
         )}
 
+        {/* `whitespace-pre-line` respeta los saltos de línea que la persona
+            escribió en el textarea: sin eso, tres párrafos se ven como un
+            bloque corrido. Los eventos cargados antes de que existiera el
+            campo no tienen `detalle`, por eso el condicional. */}
+        {evento.detalle && (
+          <p className="mb-3 whitespace-pre-line text-sm leading-relaxed text-gris">{evento.detalle}</p>
+        )}
+
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <div className="min-w-40 flex-1">
             <BarraAvance valor={evento.requerimientos.porcentaje} />
