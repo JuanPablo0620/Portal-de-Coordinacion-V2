@@ -55,6 +55,11 @@ uno. La seguridad es la de la base, y es `0003_rls.sql`.
 3. **Actualizar el `README.md`.** Está desactualizado: dice "sin backend, sin base
    de datos real" y "hoy no hay login ni roles". Las dos cosas dejaron de ser
    ciertas entre el 04/09 y el 07/09.
+4. **Implementar los ajustes de Eventos y Mapa pedidos por JP el 08/09.** Quedaron
+   especificados con criterios de terminado en [`pendientes-interfaz.md`](pendientes-interfaz.md):
+   eventos con varias fechas, ficha desde el calendario, Secretaría General,
+   eliminación de porcentajes y baja de eventos; mapa claro, límite del partido,
+   encuadre territorial y zoom con la rueda.
 
 ## 3. Decisiones pendientes (necesitan que alguien defina, no que alguien programe)
 
