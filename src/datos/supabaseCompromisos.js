@@ -88,12 +88,14 @@ async function aFilaBase(datos, { alta = false } = {}) {
     const cat = await catalogos();
     const areaId = cat.areas.get(datos.area);
     if (!areaId) throw new Error(`El área «${datos.area}» no existe en el catálogo de la base.`);
-    if (!origenColumna[datos.origen_tipo]) {
+    if (datos.origen_tipo && !origenColumna[datos.origen_tipo]) {
       throw new Error(`El origen «${datos.origen_tipo}» todavía no está migrado a Supabase.`);
     }
-    if (!datos.id_origen) throw new Error('El compromiso necesita un origen válido.');
-    fila.origen_tipo = datos.origen_tipo;
-    fila[origenColumna[datos.origen_tipo]] = datos.id_origen;
+    if (datos.origen_tipo) {
+      if (!datos.id_origen) throw new Error('El compromiso necesita un origen válido.');
+      fila.origen_tipo = datos.origen_tipo;
+      fila[origenColumna[datos.origen_tipo]] = datos.id_origen;
+    }
     fila.area_id = areaId;
     fila.proyecto_id = await proyectoId(datos.id_proyecto);
   }

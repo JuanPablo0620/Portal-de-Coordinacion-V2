@@ -17,6 +17,7 @@ import * as eventosRemotos from './supabaseEventos.js';
 import * as proyectosRemotos from './supabaseProyectos.js';
 import * as seguimientosRemotos from './supabaseSeguimientos.js';
 import * as compromisosRemotos from './supabaseCompromisos.js';
+import * as monitoreosRemotos from './supabaseMonitoreos.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -95,7 +96,7 @@ let errorRemoto = null;
 export const estadoRemoto = () => ({ error: errorRemoto });
 
 async function traerRemotos() {
-  if (!eventosRemotos.activo() && !proyectosRemotos.activo() && !seguimientosRemotos.activo() && !compromisosRemotos.activo()) return;
+  if (!eventosRemotos.activo() && !proyectosRemotos.activo() && !seguimientosRemotos.activo() && !compromisosRemotos.activo() && !monitoreosRemotos.activo()) return;
   try {
     if (eventosRemotos.activo()) {
       const remotoEventos = await eventosRemotos.cargar();
@@ -110,6 +111,10 @@ async function traerRemotos() {
     }
     if (compromisosRemotos.activo()) {
       bdActual.compromisos = await compromisosRemotos.cargar();
+    }
+    if (monitoreosRemotos.activo()) {
+      bdActual.monitoreos = await monitoreosRemotos.cargar();
+      bdActual.temas_monitoreo = bdActual.monitoreos.flatMap((m) => m.temas ?? []);
     }
     errorRemoto = null;
   } catch (error) {
@@ -140,6 +145,7 @@ export async function refrescar() {
   proyectosRemotos.olvidarCatalogos();
   seguimientosRemotos.olvidarCatalogos();
   compromisosRemotos.olvidarCatalogos();
+  monitoreosRemotos.olvidarCatalogos();
   await traerRemotos();
   notificar();
   return bdActual;
@@ -687,6 +693,18 @@ export async function crearCompromiso(datos) {
   );
 }
 
+/** Compromiso cargado directamente desde la tarjeta de un proyecto. */
+export async function crearCompromisoDirecto(datos) {
+  if (compromisosRemotos.activo()) {
+    return escribirRemoto(
+      'compromisos',
+      () => compromisosRemotos.crearCompromiso({ estado: 'pendiente', fecha_cumplimiento: null, ...datos }),
+      { accion: 'alta', id_proyecto: datos.id_proyecto ?? null },
+    );
+  }
+  return crearCompromiso({ ...datos, origen_tipo: 'monitoreo', id_origen: datos.id_origen });
+}
+
 export async function crearCompromisos(lista) {
   return enLote(async () => {
     const creados = [];
@@ -723,12 +741,13 @@ export async function marcarCumplido(id, fecha) {
  * nunca queda una fecha de cumplimiento colgada de un compromiso que dejó de
  * estarlo.
  */
-export async function actualizarEstadoCompromiso(id, { estado, descripcion }, hoy = hoyISO()) {
+export async function actualizarEstadoCompromiso(id, { estado, descripcion, fecha_limite }, hoy = hoyISO()) {
   const bd = await obtenerBD();
   const previo = bd.compromisos.find((c) => c.id === id);
   if (!previo) throw new Error(`No existe el compromiso ${id}`);
 
   const cambios = { descripcion };
+  if (fecha_limite !== undefined) cambios.fecha_limite = fecha_limite || null;
   if (estado !== previo.estado) {
     cambios.estado = estado;
     cambios.fecha_cumplimiento = estado === 'cumplido' ? previo.fecha_cumplimiento || hoy : null;
@@ -739,6 +758,9 @@ export async function actualizarEstadoCompromiso(id, { estado, descripcion }, ho
 /* ── Monitoreos ─────────────────────────────────────────────────────── */
 
 export async function crearMonitoreo(datos) {
+  if (monitoreosRemotos.activo()) {
+    return escribirRemoto('monitoreos', () => monitoreosRemotos.crearMonitoreo(datos), { accion: 'alta' });
+  }
   return crear('monitoreos', { cerrado: false, ...datos });
 }
 
@@ -755,11 +777,9 @@ export async function agregarTema(idMonitoreo, tema) {
   // Un tema con acción son tres operaciones —el tema, su compromiso y el
   // vínculo entre los dos— que para el usuario son un solo acto de carga.
   return enLote(async () => {
-    const registro = await crear(
-      'temas_monitoreo',
-      { id_monitoreo: idMonitoreo, resuelto: false, ...tema },
-      { id_proyecto: tema.id_proyecto ?? null },
-    );
+    const registro = monitoreosRemotos.activo()
+      ? await monitoreosRemotos.crearTema(idMonitoreo, tema)
+      : await crear('temas_monitoreo', { id_monitoreo: idMonitoreo, resuelto: false, ...tema }, { id_proyecto: tema.id_proyecto ?? null });
 
     let compromiso = null;
     // Si el tema ya viene vinculado a un compromiso que existía de antes
@@ -769,7 +789,7 @@ export async function agregarTema(idMonitoreo, tema) {
     if (tema.requiere_accion && !tema.compromiso_existente) {
       compromiso = await crearCompromiso({
         origen_tipo: 'monitoreo',
-        id_origen: idMonitoreo,
+        id_origen: monitoreosRemotos.activo() ? registro.id : idMonitoreo,
         id_proyecto: tema.id_proyecto ?? null,
         area: monitoreo.area,
         // La descripción del compromiso puede ser distinta a la del tema — el
@@ -779,7 +799,17 @@ export async function agregarTema(idMonitoreo, tema) {
         responsable: tema.responsable,
         fecha_limite: tema.fecha_limite,
       });
-      await actualizar('temas_monitoreo', registro.id, { id_compromiso: compromiso.id });
+      if (!monitoreosRemotos.activo()) await actualizar('temas_monitoreo', registro.id, { id_compromiso: compromiso.id });
+    }
+    if (monitoreosRemotos.activo()) {
+      const temaFinal = compromiso
+        ? await monitoreosRemotos.vincularCompromiso(registro.id, compromiso.id)
+        : registro;
+      const temaGuardado = await escribirRemoto('temas_monitoreo', () => Promise.resolve(temaFinal), {
+        accion: 'alta',
+        id_proyecto: temaFinal.id_proyecto ?? null,
+      });
+      return { tema: temaGuardado, compromiso };
     }
     return { tema: registro, compromiso };
   });
@@ -809,9 +839,11 @@ export async function actualizarTema(id, cambios) {
   const monitoreo = bd.monitoreos.find((m) => m.id === previo.id_monitoreo);
 
   return enLote(async () => {
-    const tema = await actualizar('temas_monitoreo', id, cambios, {
-      id_proyecto: cambios.id_proyecto ?? previo.id_proyecto ?? null,
-    });
+    const tema = monitoreosRemotos.activo()
+      ? await monitoreosRemotos.actualizarTema(id, cambios)
+      : await actualizar('temas_monitoreo', id, cambios, {
+        id_proyecto: cambios.id_proyecto ?? previo.id_proyecto ?? null,
+      });
 
     // El compromiso propio que este tema ya tenía deja de tener dueño si el
     // tema pasa a referenciar otra cosa (o nada) — se da de baja antes de
@@ -819,7 +851,7 @@ export async function actualizarTema(id, cambios) {
     const teniaPropio = Boolean(previo.id_compromiso) && !previo.compromiso_existente;
     const sigueApuntandoIgual = tema.id_compromiso === previo.id_compromiso;
     if (teniaPropio && !sigueApuntandoIgual) {
-      await bajaLogica('compromisos', previo.id_compromiso);
+      await actualizarCompromiso(previo.id_compromiso, { activo: false });
     }
 
     if (tema.compromiso_existente) return tema;
@@ -836,10 +868,11 @@ export async function actualizarTema(id, cambios) {
     if (tema.requiere_accion && !(teniaPropio && sigueApuntandoIgual)) {
       const compromiso = await crearCompromiso({
         origen_tipo: 'monitoreo',
-        id_origen: previo.id_monitoreo,
+        id_origen: monitoreosRemotos.activo() ? tema.id : previo.id_monitoreo,
         area: monitoreo?.area ?? '',
         ...datos,
       });
+      if (monitoreosRemotos.activo()) return monitoreosRemotos.vincularCompromiso(id, compromiso.id);
       return actualizar('temas_monitoreo', id, { id_compromiso: compromiso.id });
     }
     if (tema.requiere_accion) {
@@ -849,7 +882,8 @@ export async function actualizarTema(id, cambios) {
     if (teniaPropio && sigueApuntandoIgual) {
       // Baja lógica, no borrado: el sistema no borra nada, y el asiento de
       // bitácora deja constancia de por qué ese compromiso dejó de contar.
-      await bajaLogica('compromisos', previo.id_compromiso);
+      await actualizarCompromiso(previo.id_compromiso, { activo: false });
+      if (monitoreosRemotos.activo()) return monitoreosRemotos.vincularCompromiso(id, null);
       return actualizar('temas_monitoreo', id, { id_compromiso: null });
     }
     return tema;
@@ -859,8 +893,9 @@ export async function actualizarTema(id, cambios) {
 /** Validación §8.6: no se puede cerrar un monitoreo sin al menos un tema. */
 export async function finalizarMonitoreo(id) {
   const bd = await obtenerBD();
-  const temas = bd.temas_monitoreo.filter((t) => t.id_monitoreo === id && t.activo !== false);
-  if (!temas.length) throw new Error('No se puede finalizar un monitoreo sin al menos un tema');
+  if (monitoreosRemotos.activo()) {
+    return escribirRemoto('monitoreos', () => monitoreosRemotos.finalizarMonitoreo(id), { accion: 'edicion', id, previo: bd.monitoreos.find((m) => m.id === id) });
+  }
   return actualizar('monitoreos', id, { cerrado: true });
 }
 

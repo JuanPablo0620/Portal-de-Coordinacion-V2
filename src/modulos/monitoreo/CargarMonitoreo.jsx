@@ -15,7 +15,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Calendar,
   Check,
-  CheckCircle2,
   ChevronDown,
   ClipboardCheck,
   Pencil,
@@ -133,6 +132,7 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
   const [cabecera, setCabecera] = useState({ fecha: hoy, area: areaInicial });
   const [monitoreo, setMonitoreo] = useState(null);
   const [temasCargados, setTemasCargados] = useState([]);
+  const [huboActualizacionProyecto, setHuboActualizacionProyecto] = useState(false);
 
   const [texto, setTexto] = useState('');
   const [transferido, setTransferido] = useState(false);
@@ -266,12 +266,8 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
   }
 
   async function finalizar() {
-    if (!temasCargados.length) {
-      marcar('cierre', 'No se puede finalizar un monitoreo sin al menos un tema.');
-      return;
-    }
-    if (borradores.length) {
-      marcar('cierre', `Quedan ${borradores.length} borrador(es) sin confirmar. Confirmalos o descartalos.`);
+    if (!huboActualizacionProyecto) {
+      marcar('cierre', 'Guardá al menos una actualización de proyecto antes de finalizar.');
       return;
     }
     setTrabajando(true);
@@ -328,22 +324,20 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
           <Chip tono="acento">{fFecha(monitoreo.fecha)}</Chip>
           <span className="text-sm font-medium text-tinta">{monitoreo.area}</span>
           <span className="text-xs text-gris">
-            {temasCargados.length} tema{temasCargados.length === 1 ? '' : 's'} confirmado
-            {temasCargados.length === 1 ? '' : 's'}
-            {borradores.length > 0 && ` · ${borradores.length} sin confirmar`}
+            {huboActualizacionProyecto ? 'Actualización de proyecto registrada' : 'Sin actualizaciones todavía'}
           </span>
           <Boton
             variante="primario"
             icono={ClipboardCheck}
             onClick={finalizar}
-            disabled={trabajando || !temasCargados.length}
+            disabled={trabajando || !huboActualizacionProyecto}
             className="ml-auto"
           >
             Finalizar monitoreo
           </Boton>
         </div>
-        {!temasCargados.length && (
-          <p className="mt-2 text-xs text-tenue">Hace falta al menos un tema confirmado para poder finalizar.</p>
+        {!huboActualizacionProyecto && (
+          <p className="mt-2 text-xs text-tenue">Guardá al menos una actualización de proyecto para poder finalizar.</p>
         )}
         {errores.cierre && (
           <div className="mt-3">
@@ -352,7 +346,8 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
         )}
       </Tarjeta>
 
-      {/* Transferencia de texto a temas */}
+      {false && <>
+      {/* Compatibilidad con el flujo anterior de temas; el portal actual actualiza proyectos. */}
       <Transferencia
         titulo="Transferir desde texto"
         descripcion="Pegá lo que pasó en el área y transferilo: sale un tema por oración, editable."
@@ -508,10 +503,17 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
         </div>
       )}
 
+      </>}
+
       {/* Proyectos y compromisos de la ventana entre seguimientos — camino
           aparte de la transferencia de texto de arriba: repasar y
           actualizar proyectos y compromisos sin escribir un tema. */}
-      <PanelVentana area={monitoreo.area} monitoreoId={monitoreo.id} hoy={hoy} />
+      <PanelVentana
+        area={monitoreo.area}
+        monitoreoId={monitoreo.id}
+        hoy={hoy}
+        alActualizarProyecto={() => setHuboActualizacionProyecto(true)}
+      />
     </div>
   );
 }
@@ -531,7 +533,7 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
  * estado local de "monitoreo iniciado", así que ninguna URL lo alcanza y sin
  * esto no entraría en el render de control (ver `pruebas/humo/entrada.jsx`).
  */
-export function PanelVentana({ area, monitoreoId, hoy }) {
+export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
   const bd = useBD();
 
   const ventana = useMemo(
@@ -549,6 +551,8 @@ export function PanelVentana({ area, monitoreoId, hoy }) {
   const [borradorCompromiso, setBorradorCompromiso] = useState(null);
   const [creandoCompromiso, setCreandoCompromiso] = useState(false);
   const [nuevoCompromiso, setNuevoCompromiso] = useState(null);
+  const [errorAccion, setErrorAccion] = useState('');
+  const [guardando, setGuardando] = useState(false);
 
   function alternarProyecto(p) {
     if (abiertoProyecto === p.id_proyecto) {
@@ -565,10 +569,21 @@ export function PanelVentana({ area, monitoreoId, hoy }) {
   }
 
   async function guardarProyecto(p) {
-    await acciones.actualizarProyecto(p.id_proyecto, {
-      ...borradorProyecto,
-      avance: Number(borradorProyecto.avance) || 0,
-    });
+    setErrorAccion('');
+    setGuardando(true);
+    try {
+      await acciones.actualizarProyecto(p.id_proyecto, {
+        ...borradorProyecto,
+        avance: Number(borradorProyecto.avance) || 0,
+      });
+      alActualizarProyecto?.();
+      setAbiertoProyecto(null);
+      setBorradorProyecto(null);
+    } catch (error) {
+      setErrorAccion(`No se pudo guardar el proyecto: ${error.message}`);
+    } finally {
+      setGuardando(false);
+    }
   }
 
   function alternarCompromiso(c) {
@@ -577,7 +592,7 @@ export function PanelVentana({ area, monitoreoId, hoy }) {
       setBorradorCompromiso(null);
     } else {
       setAbiertoCompromiso(c.id);
-      setBorradorCompromiso({ estado: c.estado, descripcion: c.descripcion });
+      setBorradorCompromiso({ estado: c.estado, descripcion: c.descripcion, fecha_limite: c.fecha_limite ?? '' });
     }
   }
 
@@ -593,21 +608,28 @@ export function PanelVentana({ area, monitoreoId, hoy }) {
   }
 
   async function guardarNuevoCompromiso(p) {
-    await acciones.crearCompromiso({
-      origen_tipo: 'monitoreo',
-      id_origen: monitoreoId,
-      id_proyecto: p.id_proyecto,
-      area: p.area,
-      descripcion: nuevoCompromiso.descripcion.trim(),
-      responsable: nuevoCompromiso.responsable.trim(),
-      fecha_limite: nuevoCompromiso.fecha_limite || null,
-    });
-    setCreandoCompromiso(false);
-    setNuevoCompromiso(null);
+    setErrorAccion('');
+    setGuardando(true);
+    try {
+      await acciones.crearCompromisoDirecto({
+        id_origen: monitoreoId,
+        id_proyecto: p.id_proyecto,
+        area: p.area,
+        descripcion: nuevoCompromiso.descripcion.trim(),
+        responsable: nuevoCompromiso.responsable.trim(),
+        fecha_limite: nuevoCompromiso.fecha_limite || null,
+      });
+      setCreandoCompromiso(false);
+      setNuevoCompromiso(null);
+    } catch (error) {
+      setErrorAccion(`No se pudo crear el compromiso: ${error.message}`);
+    } finally {
+      setGuardando(false);
+    }
   }
 
-  return (
-    <Tarjeta
+    return (
+      <Tarjeta
       titulo="Proyectos y compromisos de esta ventana"
       descripcion="Lo que corresponde repasar en este monitoreo, según el calendario de seguimiento del área."
     >
@@ -657,6 +679,8 @@ export function PanelVentana({ area, monitoreoId, hoy }) {
               nuevoCompromiso={nuevoCompromiso}
               alCambiarNuevoCompromiso={(parcial) => setNuevoCompromiso((n) => ({ ...n, ...parcial }))}
               alGuardarNuevoCompromiso={() => guardarNuevoCompromiso(p)}
+              errorAccion={errorAccion}
+              guardando={guardando}
             />
           ))}
         </div>
@@ -687,6 +711,8 @@ function TarjetaProyectoVentana({
   nuevoCompromiso,
   alCambiarNuevoCompromiso,
   alGuardarNuevoCompromiso,
+  errorAccion,
+  guardando,
 }) {
   const compromisosVentana = useMemo(
     () => (bd ? compromisosEnVentana(bd, proyecto.id_proyecto, ventana, hoy) : []),
@@ -724,6 +750,7 @@ function TarjetaProyectoVentana({
         onClick={alAlternar}
         className="flex w-full flex-wrap items-center gap-2.5 p-3 text-left"
       >
+      {errorAccion && <Aviso tono="error">{errorAccion}</Aviso>}
         <span className="text-sm font-semibold text-tinta">
           {proyecto.proyecto} <span className="text-xs font-normal text-acento">· {proyecto.id_proyecto}</span>
         </span>
@@ -771,7 +798,7 @@ function TarjetaProyectoVentana({
             onChange={(e) => alCambiarBorrador({ observaciones: e.target.value })}
           />
           <div className="mt-2 flex justify-end">
-            <Boton variante="primario" tamanio="sm" icono={Check} onClick={alGuardar}>
+              <Boton variante="primario" tamanio="sm" icono={Check} onClick={alGuardar} disabled={guardando}>
               Guardar cambios del proyecto
             </Boton>
           </div>
@@ -820,6 +847,12 @@ function TarjetaProyectoVentana({
                         value={borradorCompromiso?.descripcion ?? ''}
                         onChange={(e) => alCambiarBorradorCompromiso({ descripcion: e.target.value })}
                       />
+                      <CampoFecha
+                        etiqueta="Fecha límite"
+                        className="mt-2.5 max-w-48"
+                        value={borradorCompromiso?.fecha_limite ?? ''}
+                        onChange={(e) => alCambiarBorradorCompromiso({ fecha_limite: e.target.value })}
+                      />
                       <div className="mt-2 flex justify-end">
                         <Boton variante="primario" tamanio="sm" icono={Check} onClick={() => alGuardarCompromiso(c)}>
                           Guardar cambios
@@ -865,8 +898,8 @@ function TarjetaProyectoVentana({
                   variante="primario"
                   tamanio="sm"
                   icono={Check}
-                  disabled={!nuevoCompromiso?.descripcion?.trim() || !nuevoCompromiso?.responsable?.trim()}
-                  onClick={alGuardarNuevoCompromiso}
+                  onClick={() => alGuardarNuevoCompromiso(proyecto)}
+                  disabled={guardando || !nuevoCompromiso?.descripcion?.trim() || !nuevoCompromiso?.responsable?.trim()}
                 >
                   Crear compromiso
                 </Boton>

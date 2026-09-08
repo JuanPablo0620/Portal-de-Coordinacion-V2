@@ -262,15 +262,10 @@ test('agregar temas encadenados: cada uno queda, y sólo los que requieren acci�
   assert.ok(lista.every((c) => c.origen_tipo === 'monitoreo' && c.id_origen === m.id));
 });
 
-test('no se puede finalizar un monitoreo sin temas, y sí con al menos uno', async () => {
+test('se puede finalizar un monitoreo aunque no tenga temas', async () => {
   await limpio();
   const m = await repo.crearMonitoreo({ fecha: HOY, area: 'Secretaría de Salud' });
 
-  await assert.rejects(() => repo.finalizarMonitoreo(m.id), /sin al menos un tema/);
-
-  await repo.agregarTema(m.id, {
-    categoria: 'Operativo', descripcion: 'Un tema', criticidad: 'baja', requiere_accion: false,
-  });
   const cerrado = await repo.finalizarMonitoreo(m.id);
   assert.equal(cerrado.cerrado, true);
 });
