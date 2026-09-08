@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Database, FolderKanban, Gem, HardHat } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import {
   BarraAvance,
+  Aviso,
   Boton,
   Chip,
   EstadoProyecto,
@@ -42,6 +43,17 @@ export default function Proyectos() {
   const navegar = useNavigate();
   const [filtros, setFiltros, limpiarFiltros] = useFiltrosUrl(DEFAULTS);
   const [confirmandoDemo, setConfirmandoDemo] = useState(false);
+  const [errorRemoto, setErrorRemoto] = useState(null);
+
+  useEffect(() => {
+    let vigente = true;
+    acciones.refrescar().then(() => {
+      if (vigente) setErrorRemoto(acciones.estadoRemoto().error);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, []);
 
   const opcionesArea = useOpciones('areas');
   const opcionesPrograma = useOpciones('programas');
@@ -129,6 +141,7 @@ export default function Proyectos() {
       />
 
       <Pagina className="flex flex-col gap-4">
+        {errorRemoto && <Aviso tono="error">No se pudieron actualizar los proyectos: {errorRemoto}</Aviso>}
         <TarjetaFiltros filtros={filtros} defaults={DEFAULTS} alLimpiar={limpiarFiltros}>
           <GrillaFiltros columnas={6}>
             <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />

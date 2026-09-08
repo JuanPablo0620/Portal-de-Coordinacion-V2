@@ -202,6 +202,8 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
     try {
       await persistir(borrador);
       setBorradores((bs) => bs.filter((b) => b.clave !== borrador.clave));
+    } catch (err) {
+      marcar(borrador.clave, `No se pudo guardar el tema: ${err.message}`);
     } finally {
       setTrabajando(false);
     }
@@ -226,6 +228,8 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
         for (const b of borradores) await persistir(b);
       });
       setBorradores([]);
+    } catch (err) {
+      marcar('lote', `No se pudo confirmar el monitoreo: ${err.message}`);
     } finally {
       setTrabajando(false);
     }
@@ -254,6 +258,8 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
         ),
       );
       setEditando(null);
+    } catch (err) {
+      marcar('edicion', `No se pudo guardar la edición: ${err.message}`);
     } finally {
       setTrabajando(false);
     }

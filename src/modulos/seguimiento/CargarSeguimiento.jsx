@@ -184,6 +184,8 @@ export function CargarSeguimiento({ alTerminar }) {
       });
 
       alTerminar?.();
+    } catch (err) {
+      setError(`No se pudo guardar el seguimiento: ${err.message}`);
     } finally {
       setGuardando(false);
     }

@@ -79,6 +79,8 @@ export function FormularioEstrategico({ abierto, alCerrar, proyecto, candidato }
         });
       }
       alCerrar();
+    } catch (err) {
+      setError(`No se pudo guardar el proyecto estratégico: ${err.message}`);
     } finally {
       setGuardando(false);
     }

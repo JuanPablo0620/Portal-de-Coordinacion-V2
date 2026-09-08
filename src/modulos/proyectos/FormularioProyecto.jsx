@@ -139,6 +139,8 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
       if (esEdicion) await acciones.actualizarProyecto(proyecto.id_proyecto, payload);
       else await acciones.crearProyecto(payload);
       alCerrar();
+    } catch (err) {
+      setErrores((e) => ({ ...e, general: `No se pudo guardar el proyecto: ${err.message}` }));
     } finally {
       setGuardando(false);
       setConfirmarExceso(false);
@@ -166,6 +168,7 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
       }
     >
       <div className="flex flex-col gap-4">
+        {errores.general && <Aviso tono="error">{errores.general}</Aviso>}
         <div className="flex items-center gap-2 rounded-chip bg-paper px-3 py-2">
           <span className="text-xs text-gris">Identificador</span>
           <Chip tono="acento">{idPrevisto}</Chip>

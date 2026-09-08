@@ -14,6 +14,7 @@ import { crearAsiento, diffCampos } from './bitacora.js';
 import { nuevoId, generarIdProyecto } from './ids.js';
 import { hoyISO } from './tiempo.js';
 import * as eventosRemotos from './supabaseEventos.js';
+import * as proyectosRemotos from './supabaseProyectos.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -92,11 +93,16 @@ let errorRemoto = null;
 export const estadoRemoto = () => ({ error: errorRemoto });
 
 async function traerRemotos() {
-  if (!eventosRemotos.activo()) return;
+  if (!eventosRemotos.activo() && !proyectosRemotos.activo()) return;
   try {
-    const remoto = await eventosRemotos.cargar();
-    bdActual.eventos = remoto.eventos;
-    bdActual.requerimientos_evento = remoto.requerimientos_evento;
+    if (eventosRemotos.activo()) {
+      const remotoEventos = await eventosRemotos.cargar();
+      bdActual.eventos = remotoEventos.eventos;
+      bdActual.requerimientos_evento = remotoEventos.requerimientos_evento;
+    }
+    if (proyectosRemotos.activo()) {
+      bdActual.proyectos = await proyectosRemotos.cargar();
+    }
     errorRemoto = null;
   } catch (error) {
     errorRemoto = error.message ?? String(error);
@@ -123,6 +129,7 @@ export async function hidratar() {
 export async function refrescar() {
   await obtenerBD();
   eventosRemotos.olvidarCatalogos();
+  proyectosRemotos.olvidarCatalogos();
   await traerRemotos();
   notificar();
   return bdActual;
@@ -235,11 +242,28 @@ export async function guardarAsignacionesMonitoreo(usuario, areas) {
 export async function crearProyecto(datos) {
   const bd = await obtenerBD();
   const id_proyecto = datos.id_proyecto || generarIdProyecto(bd, datos.id_area, datos.fecha_carga);
-  return crear('proyectos', { ...datos, id_proyecto }, { id_proyecto });
+  if (!proyectosRemotos.activo()) {
+    return crear('proyectos', { ...datos, id_proyecto }, { id_proyecto });
+  }
+  return escribirRemoto('proyectos', () => proyectosRemotos.crearProyecto({ ...datos, id_proyecto }), {
+    accion: 'alta',
+    id_proyecto,
+  });
 }
 
 export async function actualizarProyecto(id, cambios) {
-  return actualizar('proyectos', id, cambios, { id_proyecto: id });
+  if (!proyectosRemotos.activo()) return actualizar('proyectos', id, cambios, { id_proyecto: id });
+  const bd = await obtenerBD();
+  const previo = bd.proyectos.find((p) => p.id_proyecto === id);
+  return escribirRemoto(
+    'proyectos',
+    () => proyectosRemotos.actualizarProyecto(id, cambios, {
+      uuid: previo?.uuid,
+      estadoActual: previo?.estado,
+      avanceActual: previo?.avance ?? 0,
+    }),
+    { accion: 'edicion', id, previo, id_proyecto: id },
+  );
 }
 
 export async function bajaProyecto(id) {
@@ -498,7 +522,7 @@ export async function cargarTodosLosProyectosReales() {
  * despegar en la primera carga.
  */
 export async function marcarEstrategico(idProyecto, datos = {}) {
-  return actualizarProyecto(idProyecto, {
+  const cambios = {
     estrategico: true,
     prioridad_estrategica: datos.prioridad_estrategica ?? 'alta',
     motivo_estrategico: datos.motivo_estrategico ?? '',
@@ -508,7 +532,19 @@ export async function marcarEstrategico(idProyecto, datos = {}) {
     origen_estrategico: datos.origen_estrategico ?? 'base',
     id_origen_estrategico: datos.id_origen_estrategico ?? null,
     fecha_marcado_estrategico: datos.fecha_marcado_estrategico ?? hoyISO(),
-  });
+  };
+  if (!proyectosRemotos.activo()) return actualizarProyecto(idProyecto, cambios);
+  const bd = await obtenerBD();
+  const previo = bd.proyectos.find((p) => p.id_proyecto === idProyecto);
+  return escribirRemoto(
+    'proyectos',
+    () => proyectosRemotos.marcarEstrategico(idProyecto, cambios, {
+      uuid: previo?.uuid,
+      estadoActual: previo?.estado,
+      avanceActual: previo?.avance ?? 0,
+    }),
+    { accion: 'edicion', id: idProyecto, previo, id_proyecto: idProyecto },
+  );
 }
 
 /**
@@ -517,7 +553,18 @@ export async function marcarEstrategico(idProyecto, datos = {}) {
  * sigue pudiendo explicar por qué durante seis meses fue prioritario.
  */
 export async function quitarEstrategico(idProyecto) {
-  return actualizarProyecto(idProyecto, { estrategico: false });
+  if (!proyectosRemotos.activo()) return actualizarProyecto(idProyecto, { estrategico: false });
+  const bd = await obtenerBD();
+  const previo = bd.proyectos.find((p) => p.id_proyecto === idProyecto);
+  return escribirRemoto(
+    'proyectos',
+    () => proyectosRemotos.quitarEstrategico(idProyecto, {
+      uuid: previo?.uuid,
+      estadoActual: previo?.estado,
+      avanceActual: previo?.avance ?? 0,
+    }),
+    { accion: 'edicion', id: idProyecto, previo, id_proyecto: idProyecto },
+  );
 }
 
 /**
