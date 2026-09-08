@@ -49,6 +49,25 @@ export const ESTADOS_MESA = Object.freeze(['activa', 'latente', 'cerrada']);
 export const ESTADOS_EVENTO = Object.freeze(['previsto', 'confirmado', 'realizado', 'suspendido']);
 
 /**
+ * Cortes de calle.
+ *
+ * Los cuatro grupos van congelados porque el módulo de mapa los interpreta: la
+ * forma decide qué se dibuja y qué campos se piden, el alcance y el motivo
+ * entran en el texto del aviso, y el estado alimenta el semáforo.
+ *
+ * `ESTADOS_CORTE` tiene sólo tres valores y ninguno es `vigente`: que un corte
+ * esté cortando AHORA se deduce de su vigencia, igual que `alerta` en los
+ * compromisos. Ver `estadoCorte()` en cortes.js.
+ */
+export const FORMAS_CORTE = Object.freeze(['tramo', 'punto']);
+
+export const ALCANCES_CORTE = Object.freeze(['total', 'media_calzada', 'desvio']);
+
+export const MOTIVOS_CORTE = Object.freeze(['evento', 'obra', 'operativo', 'externo', 'otro']);
+
+export const ESTADOS_CORTE = Object.freeze(['previsto', 'levantado', 'suspendido']);
+
+/**
  * Ciclo de vida de un proyecto de posicionamiento.
  *
  * Es un embudo, no una lista de etiquetas: se identifica una oportunidad, se
@@ -263,6 +282,9 @@ export const CATALOGOS_SEMILLA = Object.freeze({
     { id: 'rq_gacebos', nombre: 'Gacebos', activo: true },
     { id: 'rq_energia', nombre: 'Energía', activo: true },
     { id: 'rq_difusion', nombre: 'Difusión', activo: true },
+    // Pedirlo como requerimiento no dibuja el corte: es la bandera de que el
+    // evento lo necesita, y el corte se carga en el módulo de Mapa.
+    { id: 'rq_corte', nombre: 'Corte de calle', activo: true },
   ],
   tipos_evento: [
     { id: 'te_inaug', nombre: 'Inauguración', activo: true },

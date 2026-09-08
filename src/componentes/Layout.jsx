@@ -12,6 +12,7 @@ import {
   HardHat,
   LayoutDashboard,
   Menu,
+  MapPinned,
   Radar,
   Settings,
   Target,
@@ -32,6 +33,7 @@ const MODULOS = [
   { ruta: '/planificacion', titulo: 'Planificación', icono: Target },
   { ruta: '/mesas', titulo: 'Mesas de trabajo', icono: Users },
   { ruta: '/eventos', titulo: 'Eventos', icono: CalendarDays },
+  { ruta: '/mapa', titulo: 'Mapa de cortes', icono: MapPinned },
   { ruta: '/reportes', titulo: 'Reportes', icono: FileBarChart },
   { ruta: '/vigentes-supabase', titulo: 'Vigentes (Supabase)', icono: CloudCog },
 ];

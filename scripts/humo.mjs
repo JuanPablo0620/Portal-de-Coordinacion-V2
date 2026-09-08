@@ -74,6 +74,12 @@ const CON_DEMO = [
   ['/eventos', 'Próximos eventos'],
   ['/eventos?tab=lista', 'Requerimientos'],
   ['/eventos?tab=checklist', 'Requerimientos sin confirmar'],
+  // El mapa se monta en el navegador (Leaflet necesita `window`), así que acá
+  // sólo se comprueba lo que sí renderiza en Node: encabezado, métricas,
+  // control de período y estado vacío de la lista.
+  ['/mapa', 'Mapa de cortes de calle'],
+  ['/mapa', 'Cortado hoy'],
+  ['/mapa?periodo=todo', 'Todos los cortes cargados'],
   ['/reportes', 'Municipio de Tres de Febrero'],
   ['/reportes', 'Filtros aplicados'],
   ['/configuracion', 'Usuario actual'],
@@ -148,6 +154,7 @@ const CON_SISTEMA_VACIO = [
   ['/eventos', 'Sin eventos próximos'],
   ['/eventos?tab=lista', 'Sin eventos cargados'],
   ['/eventos?tab=checklist', 'Sin eventos pendientes'],
+  ['/mapa', 'No hay cortes en este período'],
   ['/reportes', 'Sin filtros aplicados'],
   ['/configuracion', 'Usuario actual'],
 ];

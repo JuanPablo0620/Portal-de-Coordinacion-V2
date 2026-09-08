@@ -1,13 +1,18 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, BarraAvance, Boton, Chip } from '../../componentes/Basicos.jsx';
 import { CampoFecha, CampoHora, CampoNumero, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { ESTADOS_EVENTO, ESTADOS_REQUERIMIENTO } from '../../datos/catalogos.js';
+import { cortesDeEvento, ubicacionDe, vigenciaDe } from '../../datos/cortes.js';
 import { hoyISO, requerimientosDe, resumenRequerimientos } from '../../datos/selectores.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones, useBD } from '../../estado/tienda.js';
+
+/** Nombre del ítem de catálogo que marca «este evento necesita corte». */
+const ITEM_CORTE = 'Corte de calle';
 
 const VACIO = {
   nombre: '',
@@ -101,7 +106,10 @@ export function FormularioEvento({ abierto, alCerrar, evento }) {
         {error && <Aviso tono="error">{error}</Aviso>}
 
         {idEvento ? (
-          <SeccionRequerimientos idEvento={idEvento} bd={bd} />
+          <>
+            <SeccionRequerimientos idEvento={idEvento} bd={bd} />
+            <SeccionCortes idEvento={idEvento} bd={bd} alCerrar={alCerrar} />
+          </>
         ) : (
           <Aviso tono="info">
             Después de crear el evento vas a poder cargarle los requerimientos sin cerrar esta ventana.
@@ -109,6 +117,57 @@ export function FormularioEvento({ abierto, alCerrar, evento }) {
         )}
       </div>
     </Modal>
+  );
+}
+
+/**
+ * Cortes de calle del evento.
+ *
+ * El corte no se dibuja acá: se carga en el módulo de Mapa, contra el callejero
+ * oficial. Esta sección hace de puente en las dos direcciones — muestra los que
+ * ya están y avisa cuando el evento PIDIÓ corte como requerimiento pero nadie lo
+ * marcó todavía en el mapa, que es la forma en que un corte se pierde.
+ */
+function SeccionCortes({ idEvento, bd, alCerrar }) {
+  const cortes = useMemo(() => (bd ? cortesDeEvento(bd, idEvento) : []), [bd, idEvento]);
+  const loPidio = useMemo(
+    () => (bd ? requerimientosDe(bd, idEvento).some((r) => r.item === ITEM_CORTE) : false),
+    [bd, idEvento],
+  );
+
+  if (!loPidio && !cortes.length) return null;
+
+  return (
+    <fieldset className="rounded-chip border border-borde">
+      <legend className="mx-3 flex items-center gap-2 px-1 text-xs font-semibold text-gris">
+        Cortes de calle
+        <Chip tono={cortes.length ? 'enregla' : 'proximo'}>{cortes.length} cargado(s)</Chip>
+      </legend>
+      <div className="flex flex-col gap-2 p-3">
+        {cortes.length > 0 && (
+          <ul className="flex flex-col gap-1">
+            {cortes.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-baseline gap-2 text-sm">
+                <span className="text-tinta">{ubicacionDe(c)}</span>
+                <span className="text-xs text-tenue">{vigenciaDe(c)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {loPidio && !cortes.length && (
+          <Aviso tono="alerta">
+            Este evento pide corte de calle como requerimiento y todavía no hay ninguno marcado en el mapa.
+          </Aviso>
+        )}
+        <Link
+          to="/mapa"
+          onClick={alCerrar}
+          className="self-start text-sm font-medium text-acento underline underline-offset-2"
+        >
+          {cortes.length ? 'Ver en el mapa de cortes' : 'Marcar el corte en el mapa'}
+        </Link>
+      </div>
+    </fieldset>
   );
 }
 

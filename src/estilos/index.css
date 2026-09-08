@@ -238,3 +238,106 @@ body {
 .scroll-fino::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   MAPA DE CORTES — Leaflet.
+
+   El color de cada corte se define acá y no en el componente: Leaflet lo
+   escribiría como atributo SVG, que es exactamente lo que la regla del
+   sistema prohíbe. El componente sólo pone la clase del nivel y estas reglas
+   la resuelven contra los tokens.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* `isolation` encierra los z-index internos de Leaflet —que llegan a 1000— en
+   su propio contexto de apilamiento. Sin esto el mapa se dibuja por encima de
+   los modales del sistema y el formulario de carga queda tapado por él. */
+.mapa-leaflet {
+  isolation: isolate;
+  position: relative;
+  z-index: 0;
+  background: var(--color-paper);
+}
+
+.mapa-leaflet .leaflet-container {
+  font: inherit;
+  background: var(--color-paper);
+}
+
+/* En modo dibujo el cursor dice que el mapa espera un clic. */
+.mapa-dibujando .leaflet-container {
+  cursor: crosshair;
+}
+
+.corte-forma,
+.corte-punta {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke-width 120ms ease;
+}
+
+.corte-forma {
+  cursor: pointer;
+}
+
+.corte-vencido {
+  stroke: var(--color-vencido);
+  fill: var(--color-vencido);
+}
+.corte-proximo {
+  stroke: var(--color-proximo);
+  fill: var(--color-proximo);
+}
+.corte-enregla {
+  stroke: var(--color-enregla);
+  fill: var(--color-enregla);
+}
+.corte-sindato {
+  stroke: var(--color-sindato);
+  fill: var(--color-sindato);
+}
+.corte-acento {
+  stroke: var(--color-acento);
+  fill: var(--color-acento);
+}
+
+/* El corte en edición o seleccionado: halo blanco para que se despegue del
+   fondo de calles sin cambiarle el color, que es el que dice su estado. */
+.corte-sel {
+  paint-order: stroke;
+  filter: drop-shadow(0 0 3px var(--color-card));
+}
+
+.corte-punta {
+  fill: var(--color-card);
+  stroke-width: 3;
+}
+
+/* Las esquinas candidatas mientras se dibuja: se ven, pero no compiten con el
+   corte que se está cargando. */
+.corte-esquina {
+  stroke: var(--color-acento);
+  fill: var(--color-card);
+  stroke-width: 2;
+}
+
+/* Cuadras del callejero mientras se elige un corte. La no elegida tiene que
+   verse lo justo para poder apuntarle —el trazo es ancho para que el clic no
+   dependa de la puntería— sin competir con las calles del mapa de abajo. */
+.corte-cuadra {
+  stroke: var(--color-acento);
+  stroke-opacity: 0.22;
+}
+.corte-cuadra:hover {
+  stroke-opacity: 0.55;
+}
+
+.corte-elegida {
+  stroke: var(--color-acento);
+  stroke-opacity: 0.9;
+}
+
+/* Los cortes ya cargados, mientras se elige uno nuevo: siguen visibles para no
+   duplicar trabajo, pero no compiten con lo que se está eligiendo. */
+.corte-atenuado {
+  stroke-opacity: 0.35;
+}

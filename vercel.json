@@ -3,5 +3,11 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/geo/:ruta*",
+      "destination": "https://geoportal.tresdefebrero.gob.ar/:ruta*"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

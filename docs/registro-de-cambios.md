@@ -11,6 +11,114 @@ y el resultado de `npm run verificar`.
 
 ---
 
+## 07/09/2026 (tarde) — Los cortes se cargan eligiendo calles en el mapa
+
+**Pedido de JP**, sobre el módulo que se había armado esa misma mañana: en vez
+de completar un formulario con dos esquinas, que el botón habilite la selección
+de calles sobre el mapa —clic para elegir— y que recién después se abra el
+módulo con «Motivo del corte», «Tiempo» y «Calles seleccionadas».
+
+**Qué cambió**
+
+- El botón pasó a llamarse **«Agregar corte»** y activa un modo de selección: el
+  mapa se acerca solo y se dibuja el callejero municipal encima, con cada
+  **cuadra clickeable**. Un clic la elige, otro la quita.
+- El panel lateral muestra el **Paso 1** con lo elegido agrupado por calle y el
+  rango de alturas de cada cuadra, para poder sacar la que sobró.
+- «Continuar» agrupa las cuadras por calle, resuelve las **esquinas de cada
+  punta** contra el callejero y abre el módulo de datos con las tres cosas
+  pedidas: calles seleccionadas, motivo y tiempo.
+- Desde el módulo de datos se puede **volver a elegir calles** sin perder lo
+  cargado, y se puede quitar una calle entera de la lista.
+- **Un corte puede abarcar varias calles.** Se guardan `cuadras` (con su
+  geometría) y `tramos` (agrupados por calle, con sus esquinas); `calle` /
+  `esquina_desde` / `esquina_hasta` siguen guardándose sueltos con el primer
+  tramo, así que los cortes cargados a la mañana se leen igual.
+- Se fue el selector «Tramo / Punto» y el buscador de calle del formulario: la
+  selección sobre el mapa los reemplaza a los dos.
+
+**Dos cosas que aparecieron probando en el navegador**
+
+1. `Cannot read properties of undefined (reading '_leaflet_pos')` al volver del
+   formulario al mapa. Los movimientos de vista que dispara un cambio de props
+   quedaban a mitad de animación cuando el modal desmontaba uno de los dos
+   mapas. Se resolvió con `animate: false` en `setZoom`, `setView` y
+   `fitBounds` — son movimientos programáticos, nadie los mira.
+2. Leaflet dibuja paths **más allá del recorte del contenedor**, así que la
+   prueba de extremo a extremo tenía que descartar las cuadras que no se ven
+   antes de clickear. No es un bug del módulo, pero cuesta un rato darse cuenta.
+
+**Sacado en el mismo cambio**: la tarjeta **«Financiamiento en gestión»** del
+tablero de Posicionamiento, a pedido de JP.
+
+**Archivos**: `src/modulos/mapa/seleccionCuadras.js` (nuevo),
+`src/modulos/mapa/Mapa.jsx`, `src/modulos/mapa/FormularioCorte.jsx` (reescrito),
+`src/componentes/MapaLeaflet.jsx`, `src/datos/geoportal.js`,
+`src/datos/cortes.js`, `src/estilos/index.css`, `pruebas/cortes.test.mjs`,
+`src/modulos/posicionamiento/Posicionamiento.jsx`.
+
+**Verificación**: `npm test` 359/359 (11 pruebas nuevas de agrupación de cuadras
+y descripción de tramos) · `npm run humo` sin fallas nuevas · build OK · dos
+pruebas de extremo a extremo en Chrome contra el geoportal real, una del alta
+completa y otra de la edición con «volver a elegir calles».
+
+## 07/09/2026 — Módulo nuevo "Mapa de cortes de calle"
+
+**Pedido del jefe de JP**: un mapa para ver los cortes de calle y organizarse
+mejor — cada vez que un área lo consulta para hacer algo en un lugar, necesita
+saber si ahí va a haber corte y por cuánto tiempo, y poder avisarle a las otras
+áreas. Nadie en el municipio lleva hoy un registro consolidado: la información
+le llega a Coordinación área por área.
+
+Diseño y decisiones completas en `docs/cortes-de-calle.md`. Lo que se construyó:
+
+- **Módulo `/mapa`** con control de período (hoy / mañana / 7 / 30 días / todo /
+  elegir, más flechas de día a día), mapa Leaflet, lista lateral, buscador por
+  calle y ficha de cada corte.
+- **Carga con imán a la esquina oficial**: se hace clic en el mapa y el punto
+  salta a la intersección real del callejero municipal; dos clics arman el
+  tramo, y la calle sale de la que ambas esquinas comparten. Segunda vía por
+  desplegables, que es la alcanzable con el teclado.
+- **`cortes` como colección propia** con `id_evento` opcional — un corte puede
+  no tener evento y un evento puede tener varios.
+- **`vigente` no se guarda, se deduce**, con el mismo criterio que `alerta` en
+  los compromisos. Se guardan `previsto`, `levantado` y `suspendido`.
+- **Cortes recurrentes** (ferias) con seis campos de vigencia, sin tabla de
+  repeticiones ni una fila por fecha.
+- **"A quién avisar"**: cruza el corte con las capas del geoportal (recorridos
+  de colectivo, puertas de escuela, centros de salud, comisarías, red de
+  tránsito pesado) y arma el texto del aviso para copiar.
+
+**Dos hallazgos técnicos que quedaron documentados en el código:**
+
+1. El geoportal municipal manda el header `access-control-allow-origin` **dos
+   veces** y el navegador rechaza la respuesta por eso. Con `curl` no se nota.
+   Se resolvió con proxy de mismo origen: `vite.config.js` en desarrollo y un
+   rewrite en `vercel.json` en producción, los dos sobre `/geo`.
+2. Leaflet toca `window` al evaluarse, así que un import estático rompía la
+   prueba de humo ENTERA (no sólo esta ruta: `App.jsx` importa el módulo). Se
+   carga con `import()` dentro del efecto, lo que además lo saca del bundle
+   principal — que bajó de 1.407 kB a 1.258 kB.
+
+**Archivos**: `src/datos/geoportal.js`, `src/datos/cortes.js` (nuevos),
+`src/componentes/MapaLeaflet.jsx` (nuevo), `src/modulos/mapa/` (nuevo, tres
+archivos), `pruebas/cortes.test.mjs` (nuevo, 25 pruebas), y toques en
+`esquema.js`, `repositorio.js`, `catalogos.js`, `index.css`, `App.jsx`,
+`Layout.jsx`, `FormularioEvento.jsx`, `scripts/humo.mjs`, `vite.config.js` y
+`vercel.json`.
+
+**Verificación**: `npm test` 348/348 · `npm run humo` sin fallas nuevas · build
+OK. Además se probó de punta a punta en Chrome contra el geoportal real
+(cargar una calle, elegir esquinas, trazar el tramo, guardar y ver el corte con
+sus líneas de colectivo afectadas).
+
+**Pendiente**: `npm run verificar` falla por importaciones sin uso en
+`src/modulos/estrategicos/FormularioNovedad.jsx`, que ya venía así y no se tocó.
+
+**Sigue pendiente lo de fondo**: esto persiste en `localStorage` como todo el
+prototipo. Llevarlo a Supabase implica escritura, y por lo tanto auth y RLS —
+hay que acordarlo con Tomás.
+
 ## 04/09/2026 — Pantalla nueva "Vigentes (Supabase)": primera lectura real de la base
 
 **Pedido de JP** (viernes, con Tomás afuera): el jefe necesitaba ver los

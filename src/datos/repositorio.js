@@ -761,6 +761,43 @@ export async function actualizarRequerimiento(id, cambios) {
   return actualizar('requerimientos_evento', id, cambios);
 }
 
+/* ── Cortes de calle ────────────────────────────────────────────────── */
+
+/**
+ * Alta de un corte. `id_evento` en null es lo normal, no una excepción: la
+ * mayoría de los cortes los informan las áreas por fuera de un evento propio.
+ */
+export async function crearCorte(datos) {
+  return crear('cortes', {
+    estado: 'previsto',
+    alcance: 'total',
+    dias_semana: [],
+    fechas_excluidas: [],
+    ...datos,
+    id_evento: datos.id_evento || null,
+  });
+}
+
+export async function actualizarCorte(id, cambios) {
+  return actualizar('cortes', id, cambios);
+}
+
+/**
+ * Levantar un corte antes de su fecha de fin.
+ *
+ * Guarda además el día en que se levantó: sin eso, un corte levantado el
+ * miércoles con vigencia hasta el domingo seguiría figurando como que cortó
+ * toda la semana, y el histórico mentiría.
+ */
+export async function levantarCorte(id, hoy = hoyISO()) {
+  return actualizar('cortes', id, { estado: 'levantado', levantado_en: hoy });
+}
+
+/** Baja lógica: el corte se cargó por error o duplicado. */
+export async function eliminarCorte(id) {
+  return actualizar('cortes', id, { activo: false });
+}
+
 /* ── Planificación ──────────────────────────────────────────────────── */
 
 /** Una planificación por proyecto y año: si ya existe, se actualiza. */

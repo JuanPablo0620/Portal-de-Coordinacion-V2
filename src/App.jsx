@@ -15,6 +15,7 @@ import Posicionamiento from './modulos/posicionamiento/Posicionamiento.jsx';
 import Planificacion from './modulos/planificacion/Planificacion.jsx';
 import Mesas from './modulos/mesas/Mesas.jsx';
 import Eventos from './modulos/eventos/Eventos.jsx';
+import Mapa from './modulos/mapa/Mapa.jsx';
 import Reportes from './modulos/reportes/Reportes.jsx';
 import Configuracion from './modulos/configuracion/Configuracion.jsx';
 import VigentesSupabase from './modulos/vigentes-supabase/VigentesSupabase.jsx';
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="planificacion" element={<Planificacion />} />
         <Route path="mesas" element={<Mesas />} />
         <Route path="eventos" element={<Eventos />} />
+        <Route path="mapa" element={<Mapa />} />
         <Route path="reportes" element={<Reportes />} />
         <Route path="vigentes-supabase" element={<VigentesSupabase />} />
         <Route path="configuracion" element={<Configuracion />} />

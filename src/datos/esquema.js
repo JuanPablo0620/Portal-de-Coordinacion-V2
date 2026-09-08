@@ -19,6 +19,10 @@ export const COLECCIONES = Object.freeze([
   'reuniones_mesa',
   'eventos',
   'requerimientos_evento',
+  // Cortes de calle del módulo de Mapa. Colección propia y no un campo de
+  // `eventos`: un corte puede no tener evento (obra, aviso externo) y un evento
+  // puede tener varios. El vínculo es `id_evento`, opcional.
+  'cortes',
   'planificacion_anual',
   'proyectos_posicionamiento',
   'historial',
