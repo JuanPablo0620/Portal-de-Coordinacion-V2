@@ -14,17 +14,16 @@
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../componentes/Modal.jsx';
-import { Aviso, Boton, Chip } from '../../componentes/Basicos.jsx';
+import { Aviso, Boton } from '../../componentes/Basicos.jsx';
 import {
   CampoArea,
   CampoFecha,
   CampoNumero,
   CampoRadios,
-  CampoSelect,
   CampoTexto,
   GrillaCampos,
 } from '../../componentes/Campo.jsx';
-import { CRITICIDADES, ESTADOS_ACTIVOS } from '../../datos/catalogos.js';
+import { ESTADOS_ACTIVOS } from '../../datos/catalogos.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones } from '../../estado/tienda.js';
