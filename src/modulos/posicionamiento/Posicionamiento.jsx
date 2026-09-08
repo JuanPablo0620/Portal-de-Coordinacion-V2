@@ -177,12 +177,6 @@ function Tablero({ resumen, lista, setFiltros, bd, proyectoSeleccionado, setProy
         />
       </div>
 
-      <Metrica
-        valor={dolares(resumen.financiamiento_en_gestion)}
-        etiqueta="Financiamiento en gestión"
-        detalle="lo que está en juego en las postulaciones abiertas"
-      />
-
       <ProyectosEnCurso bd={bd} proyectoSeleccionado={proyectoSeleccionado} setProyectoSeleccionado={setProyectoSeleccionado} hoy={hoy} />
 
       <Tarjeta
