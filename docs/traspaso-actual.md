@@ -29,9 +29,9 @@ que el otro no puede deducir leyendo el repo.
 
 | Qué | Estado |
 |---|---|
-| `main` | Implementación de Eventos y Mapa lista para publicar en `fork/main` |
-| Producción | `portal-de-coordinacion-v2.vercel.app`, con login y despliegue automático desde `fork/main` |
-| Migraciones `0001` a `0009` | El front vigente depende de ellas; su historial remoto no se re-auditó en esta sesión |
+| Implementación Eventos/Mapa | `9cd03a9`, publicada en `fork/main` |
+| Producción | Bundle `index-D2U6FZQ3.js` verificado con Eventos multidía y mapa claro |
+| Migraciones `0001` a `0010` | El front vigente depende de ellas; su historial remoto no se re-auditó en esta sesión |
 | Migración `0011` | **Escrita, todavía no aplicada**: agrega `eventos.fecha_hasta` y normaliza los rangos temporales |
 | Secretaría General | Agregada y verificada en el catálogo real de Supabase por API REST |
 | Datos remotos del portal | Proyectos, seguimientos, compromisos, eventos y requerimientos de evento leen y escriben en Supabase |
@@ -49,7 +49,7 @@ oculta al mostrar el detalle y la propia `0010` migra esas marcas a la columna.
    desde el SQL Editor de Supabase. Después, verificar por REST que
    `eventos.fecha_hasta` existe; la migración es re-ejecutable y convierte las
    marcas temporales que se hayan creado antes.
-2. **Probar el despliegue con una sesión real:** crear un evento de sábado a
+2. **Completar una prueba funcional con una sesión real:** crear un evento de sábado a
    domingo, abrir ambos días desde el calendario, editarlo y comprobar la
    confirmación de eliminación; en Mapa, probar rueda, límite y encuadre.
 3. **Actualizar `README.md` y la sección de persistencia de `CLAUDE.md`.** Ambos
