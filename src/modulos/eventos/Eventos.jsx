@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarDays, ClipboardCheck, List, Pencil, Plus } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
@@ -12,7 +12,7 @@ import { UMBRALES, calcularAlertas, TIPOS_ALERTA } from '../../datos/alertas.js'
 import { ESTADOS_EVENTO } from '../../datos/catalogos.js';
 import { diasHasta, eventos as selEventos, hoyISO, itemsCalendario, requerimientosDe } from '../../datos/selectores.js';
 import { fecha as fFecha, textoVencimiento } from '../../utilidades/formato.js';
-import { useBD } from '../../estado/tienda.js';
+import { acciones, useBD } from '../../estado/tienda.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
@@ -26,6 +26,23 @@ export default function Eventos() {
   const hoy = hoyISO();
   const [filtros, setFiltros] = useFiltrosUrl(DEFAULTS);
   const [formulario, setFormulario] = useState(null);
+  const [errorRemoto, setErrorRemoto] = useState(null);
+
+  // Eventos es la primera colección que vive en Supabase y no en el navegador,
+  // así que otra persona puede haber cargado algo desde que abriste el portal.
+  // Se trae lo fresco al entrar a la pantalla — es la estrategia de
+  // concurrencia acordada para esta etapa, en vez de escuchar cambios en vivo.
+  useEffect(() => {
+    let vigente = true;
+    acciones.refrescar().then(() => {
+      if (vigente) setErrorRemoto(acciones.estadoRemoto().error);
+    });
+    // Si el componente se desmontó mientras esperábamos, no se toca el estado:
+    // React avisa por consola y, peor, se pisaría el aviso de otra pantalla.
+    return () => {
+      vigente = false;
+    };
+  }, []);
 
   const alertasEvento = useMemo(
     () => (bd ? calcularAlertas(bd, hoy).filter((a) => a.tipo === TIPOS_ALERTA.EVENTO_INCOMPLETO) : []),
@@ -51,6 +68,16 @@ export default function Eventos() {
       />
 
       <Pagina className="flex flex-col gap-4">
+        {/* Los eventos ya no viven en esta computadora. Si no se pudieron
+            traer, lo que se ve puede estar desactualizado o incompleto — y eso
+            hay que decirlo, no dejar que parezca la lista real. */}
+        {errorRemoto && (
+          <Aviso tono="error" titulo="No se pudieron traer los eventos de la base">
+            Puede que estés viendo información desactualizada, y lo que cargues ahora quizás no se
+            guarde. Probá recargar la página. Si sigue, avisale a Control de Gestión. ({errorRemoto})
+          </Aviso>
+        )}
+
         <Pestanias opciones={pestanias} valor={filtros.tab} alCambiar={(v) => setFiltros({ tab: v })} />
 
         {alertasEvento.length > 0 && filtros.tab !== 'checklist' && (

@@ -13,6 +13,7 @@ import { bdVacia, normalizarBD, claveDe } from './esquema.js';
 import { crearAsiento, diffCampos } from './bitacora.js';
 import { nuevoId, generarIdProyecto } from './ids.js';
 import { hoyISO } from './tiempo.js';
+import * as eventosRemotos from './supabaseEventos.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -77,8 +78,53 @@ export async function enLote(fn) {
 
 /* ── Ciclo de vida ──────────────────────────────────────────────────── */
 
+/**
+ * Último problema al hablar con Supabase, para que la pantalla pueda avisar.
+ *
+ * Si falla la lectura NO se vacía lo que ya estaba: un corte de red de dos
+ * segundos dejaría la pantalla en blanco y parecería que se borraron los
+ * eventos. Se conserva lo último bueno y se marca que puede estar
+ * desactualizado, que es lo honesto — mostrar datos viejos sin avisar sería
+ * peor, y borrarlos también.
+ */
+let errorRemoto = null;
+
+export const estadoRemoto = () => ({ error: errorRemoto });
+
+async function traerRemotos() {
+  if (!eventosRemotos.activo()) return;
+  try {
+    const remoto = await eventosRemotos.cargar();
+    bdActual.eventos = remoto.eventos;
+    bdActual.requerimientos_evento = remoto.requerimientos_evento;
+    errorRemoto = null;
+  } catch (error) {
+    errorRemoto = error.message ?? String(error);
+    console.error('No se pudieron traer los eventos de Supabase', error);
+  }
+}
+
 export async function hidratar() {
   bdActual = normalizarBD(leerBD());
+  await traerRemotos();
+  return bdActual;
+}
+
+/**
+ * Vuelve a traer de Supabase lo que ya no vive en el navegador.
+ *
+ * Es la estrategia de concurrencia que se eligió para esta etapa: en vez de
+ * escuchar cambios en vivo, cada uno trae lo fresco al entrar a la pantalla.
+ * Alcanza para nueve personas que rara vez tocan el mismo evento a la vez, y
+ * es muchísimo mejor que antes, cuando sencillamente no se veían entre sí.
+ *
+ * Si dos editan el mismo registro, gana el último que guarda. Está asumido.
+ */
+export async function refrescar() {
+  await obtenerBD();
+  eventosRemotos.olvidarCatalogos();
+  await traerRemotos();
+  notificar();
   return bdActual;
 }
 
@@ -745,20 +791,91 @@ export async function crearReunionMesa(datos) {
 
 /* ── Eventos ────────────────────────────────────────────────────────── */
 
+/**
+ * Eventos y requerimientos son la PRIMERA colección que se guarda en Supabase
+ * en vez de en el navegador. Todo lo demás sigue siendo local.
+ *
+ * De ahí que cada función tenga dos caminos. No es indecisión: es lo que
+ * permite migrar de a una colección en vez de todo de una noche a la mañana.
+ * El camino local sigue siendo el que corren los tests y la prueba de humo,
+ * que no tienen —ni deben tener— conexión a la base.
+ *
+ * `escribirRemoto` mantiene la copia en memoria y la bitácora igual que el
+ * camino local, para que las pantallas y el historial no noten la diferencia.
+ * La bitácora sigue siendo local porque `historial` todavía no tiene tabla en
+ * Supabase (ver la sección 11 del traspaso del 07/09).
+ */
+async function escribirRemoto(entidad, operacion, { accion, id, previo, id_proyecto = null }) {
+  const registro = await operacion();
+  const bd = await obtenerBD();
+  const clave = claveDe(entidad);
+
+  bd[entidad] =
+    accion === 'alta'
+      ? [...bd[entidad], registro]
+      : bd[entidad].map((r) => (r[clave] === id ? registro : r));
+
+  const cambios = accion === 'alta' ? [] : diffCampos(previo ?? {}, registro);
+  if (accion === 'alta' || cambios.length) {
+    bd.historial = [
+      ...bd.historial,
+      crearAsiento({
+        entidad,
+        id_entidad: registro[clave],
+        accion: registro.activo === false ? 'baja' : accion,
+        cambios,
+        usuario: bd.config.usuario,
+        id_proyecto,
+      }),
+    ];
+  }
+
+  await persistir();
+  return registro;
+}
+
 export async function crearEvento(datos) {
-  return crear('eventos', datos, { id_proyecto: datos.id_proyecto ?? null });
+  if (!eventosRemotos.activo()) {
+    return crear('eventos', datos, { id_proyecto: datos.id_proyecto ?? null });
+  }
+  return escribirRemoto('eventos', () => eventosRemotos.crearEvento(datos), {
+    accion: 'alta',
+    id_proyecto: datos.id_proyecto ?? null,
+  });
 }
 
 export async function actualizarEvento(id, cambios) {
-  return actualizar('eventos', id, cambios);
+  if (!eventosRemotos.activo()) return actualizar('eventos', id, cambios);
+  const bd = await obtenerBD();
+  const previo = bd.eventos.find((e) => e.id === id);
+  return escribirRemoto('eventos', () => eventosRemotos.actualizarEvento(id, cambios), {
+    accion: 'edicion',
+    id,
+    previo,
+    id_proyecto: previo?.id_proyecto ?? null,
+  });
 }
 
 export async function crearRequerimiento(datos) {
-  return crear('requerimientos_evento', { estado: 'solicitado', ...datos });
+  if (!eventosRemotos.activo()) {
+    return crear('requerimientos_evento', { estado: 'solicitado', ...datos });
+  }
+  return escribirRemoto(
+    'requerimientos_evento',
+    () => eventosRemotos.crearRequerimiento({ estado: 'solicitado', ...datos }),
+    { accion: 'alta' },
+  );
 }
 
 export async function actualizarRequerimiento(id, cambios) {
-  return actualizar('requerimientos_evento', id, cambios);
+  if (!eventosRemotos.activo()) return actualizar('requerimientos_evento', id, cambios);
+  const bd = await obtenerBD();
+  const previo = bd.requerimientos_evento.find((r) => r.id === id);
+  return escribirRemoto(
+    'requerimientos_evento',
+    () => eventosRemotos.actualizarRequerimiento(id, cambios),
+    { accion: 'edicion', id, previo },
+  );
 }
 
 /* ── Cortes de calle ────────────────────────────────────────────────── */
@@ -866,10 +983,25 @@ export async function importarPlanificacion(filas) {
  * El generador se importa dinámicamente: es código voluminoso que sólo hace
  * falta al apretar el botón, así que no viaja en el bundle inicial.
  */
+/**
+ * Estos tres botones reemplazan la base local entera. Desde que los eventos
+ * viven en Supabase, eso ya no puede tocarlos: la base compartida no se vacía
+ * ni se llena de datos de prueba desde el navegador de una persona — y está
+ * bien que así sea, sería un desastre que un botón local borrara lo de todos.
+ *
+ * Pero sin volver a traerlos, la pantalla quedaría mostrando los eventos de
+ * demostración hasta el próximo F5, y ahí desaparecerían sin explicación. Se
+ * refrescan en el momento para que lo que se ve sea cierto desde el principio.
+ */
+async function reemplazarBaseLocal(nueva) {
+  bdActual = nueva;
+  await traerRemotos();
+  return persistir();
+}
+
 export async function cargarDemo(hoyISO) {
   const { generarDemo } = await import('./demo.js');
-  bdActual = generarDemo(hoyISO);
-  return persistir();
+  return reemplazarBaseLocal(generarDemo(hoyISO));
 }
 
 /**
@@ -880,12 +1012,10 @@ export async function cargarDemo(hoyISO) {
  */
 export async function cargarBaseCompleta(hoyISO) {
   const { generarBaseCompleta } = await import('./base-completa.js');
-  bdActual = generarBaseCompleta(hoyISO);
-  return persistir();
+  return reemplazarBaseLocal(generarBaseCompleta(hoyISO));
 }
 
 export async function vaciarSistema() {
   limpiar();
-  bdActual = bdVacia();
-  return persistir();
+  return reemplazarBaseLocal(bdVacia());
 }

@@ -32,6 +32,7 @@ export function FormularioEvento({ abierto, alCerrar, evento }) {
   const esEdicion = Boolean(evento);
   const [datos, setDatos] = useState(() => (evento ? { ...VACIO, ...evento } : { ...VACIO, fecha: hoy }));
   const [error, setError] = useState('');
+  const [guardando, setGuardando] = useState(false);
   const [idEvento, setIdEvento] = useState(evento?.id ?? null);
 
   const opcionesArea = useOpciones('areas');
@@ -39,18 +40,35 @@ export function FormularioEvento({ abierto, alCerrar, evento }) {
 
   const cambiar = (campo) => (e) => setDatos((d) => ({ ...d, [campo]: e.target.value }));
 
+  /**
+   * El try/catch no es defensivo por las dudas: desde que los eventos se
+   * guardan en Supabase y no en el navegador, esto FALLA de verdad —se cae la
+   * red, el área elegida no está en el catálogo de la base, RLS rechaza la
+   * escritura—. Sin catch, la promesa se rompe en silencio y el botón «Crear
+   * evento» no hace nada ni explica por qué, que es lo peor que puede pasarle
+   * a alguien cargando datos.
+   */
   async function guardar() {
     if (!datos.nombre.trim()) return setError('El nombre es obligatorio.');
     if (!datos.fecha) return setError('La fecha es obligatoria.');
+    if (guardando) return;
+
     setError('');
+    setGuardando(true);
     const payload = { ...datos, id_proyecto: datos.id_proyecto || null };
-    if (esEdicion) {
-      await acciones.actualizarEvento(evento.id, payload);
-      alCerrar();
-    } else {
-      // Se crea primero el evento para poder cargarle requerimientos sin cerrar.
-      const creado = await acciones.crearEvento(payload);
-      setIdEvento(creado.id);
+    try {
+      if (esEdicion) {
+        await acciones.actualizarEvento(evento.id, payload);
+        alCerrar();
+      } else {
+        // Se crea primero el evento para poder cargarle requerimientos sin cerrar.
+        const creado = await acciones.crearEvento(payload);
+        setIdEvento(creado.id);
+      }
+    } catch (e) {
+      setError(e?.message ?? 'No se pudo guardar el evento.');
+    } finally {
+      setGuardando(false);
     }
   }
 
@@ -65,8 +83,8 @@ export function FormularioEvento({ abierto, alCerrar, evento }) {
         <>
           <Boton onClick={alCerrar}>{idEvento && !esEdicion ? 'Cerrar' : 'Cancelar'}</Boton>
           {(!idEvento || esEdicion) && (
-            <Boton variante="primario" onClick={guardar}>
-              {esEdicion ? 'Guardar cambios' : 'Crear evento'}
+            <Boton variante="primario" onClick={guardar} disabled={guardando}>
+              {guardando ? 'Guardando…' : esEdicion ? 'Guardar cambios' : 'Crear evento'}
             </Boton>
           )}
         </>
@@ -195,16 +213,34 @@ export function SeccionRequerimientos({ idEvento, bd }) {
   const requerimientos = useMemo(() => (bd ? requerimientosDe(bd, idEvento) : []), [bd, idEvento]);
   const resumen = useMemo(() => (bd ? resumenRequerimientos(bd, idEvento) : null), [bd, idEvento]);
 
+  // Mismo motivo que en `guardar()`: los requerimientos también viajan a
+  // Supabase y también pueden fallar. Sin esto, el botón «Agregar» queda mudo.
+  const [error, setError] = useState('');
+
   async function agregar() {
     if (!nuevo.item) return;
-    await acciones.crearRequerimiento({
-      id_evento: idEvento,
-      item: nuevo.item,
-      cantidad: Number(nuevo.cantidad) || 1,
-      area_responsable: nuevo.area_responsable,
-      estado: 'solicitado',
-    });
-    setNuevo({ item: '', cantidad: '1', area_responsable: '' });
+    setError('');
+    try {
+      await acciones.crearRequerimiento({
+        id_evento: idEvento,
+        item: nuevo.item,
+        cantidad: Number(nuevo.cantidad) || 1,
+        area_responsable: nuevo.area_responsable,
+        estado: 'solicitado',
+      });
+      setNuevo({ item: '', cantidad: '1', area_responsable: '' });
+    } catch (e) {
+      setError(e?.message ?? 'No se pudo agregar el requerimiento.');
+    }
+  }
+
+  async function cambiarRequerimiento(id, cambios) {
+    setError('');
+    try {
+      await acciones.actualizarRequerimiento(id, cambios);
+    } catch (e) {
+      setError(e?.message ?? 'No se pudo actualizar el requerimiento.');
+    }
   }
 
   return (
@@ -216,6 +252,7 @@ export function SeccionRequerimientos({ idEvento, bd }) {
         </Chip>
       </legend>
       <div className="flex flex-col gap-3 p-3">
+        {error && <Aviso tono="error">{error}</Aviso>}
         {resumen?.total > 0 && <BarraAvance valor={resumen.porcentaje} />}
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_90px_1fr_auto]">
@@ -256,7 +293,7 @@ export function SeccionRequerimientos({ idEvento, bd }) {
                   // nombre del ítem, ninguno dice de qué requerimiento es.
                   aria-label={`Estado de ${r.item}`}
                   value={r.estado}
-                  onChange={(e) => acciones.actualizarRequerimiento(r.id, { estado: e.target.value })}
+                  onChange={(e) => cambiarRequerimiento(r.id, { estado: e.target.value })}
                 >
                   {ESTADOS_REQUERIMIENTO.map((s) => (
                     <option key={s} value={s}>
@@ -266,7 +303,7 @@ export function SeccionRequerimientos({ idEvento, bd }) {
                 </select>
                 <button
                   type="button"
-                  onClick={() => acciones.actualizarRequerimiento(r.id, { activo: false })}
+                  onClick={() => cambiarRequerimiento(r.id, { activo: false })}
                   className="shrink-0 rounded p-1 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
                   aria-label="Quitar requerimiento"
                 >

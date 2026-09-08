@@ -21,8 +21,15 @@
  */
 import { createClient } from '@supabase/supabase-js';
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// `import.meta.env` lo inyecta Vite al compilar. En Node no existe, y desde que
+// `repositorio.js` importa este módulo, los tests y la prueba de humo pasan por
+// acá: sin el `?? {}` reventaban con «Cannot read properties of undefined».
+// Que quede en `no configurado` es exactamente lo que corresponde ahí — esos
+// entornos no tienen ni deben tener conexión a la base.
+const env = import.meta.env ?? {};
+
+const url = env.VITE_SUPABASE_URL;
+const anonKey = env.VITE_SUPABASE_ANON_KEY;
 
 export const supabaseConfigurado = Boolean(url && anonKey);
 
