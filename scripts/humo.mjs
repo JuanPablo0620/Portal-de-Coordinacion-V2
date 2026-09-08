@@ -82,7 +82,7 @@ const CON_DEMO = [
   ['/mapa?periodo=todo', 'Todos los cortes cargados'],
   ['/reportes', 'Municipio de Tres de Febrero'],
   ['/reportes', 'Filtros aplicados'],
-  ['/configuracion', 'Usuario actual'],
+  ['/configuracion', 'Tu usuario'],
   ['/configuracion', 'Cargar datos de demostración'],
 ];
 
@@ -156,7 +156,7 @@ const CON_SISTEMA_VACIO = [
   ['/eventos?tab=checklist', 'Sin eventos pendientes'],
   ['/mapa', 'No hay cortes en este período'],
   ['/reportes', 'Sin filtros aplicados'],
-  ['/configuracion', 'Usuario actual'],
+  ['/configuracion', 'Tu usuario'],
 ];
 
 /** `{id}` se reemplaza por un id real de la demo; `{proyecto}`, por su nombre. */

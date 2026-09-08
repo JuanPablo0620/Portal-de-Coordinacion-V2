@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Database, Layers, MapPin, Plus, Save, Trash2, Undo2 } from 'lucide-react';
+import { Database, Layers, LogOut, MapPin, Plus, Trash2, Undo2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Aviso, Boton, Chip, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
-import { CampoTexto } from '../../componentes/Campo.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { CATALOGOS_ADMINISTRABLES } from '../../datos/catalogos.js';
 import { hoyISO } from '../../datos/selectores.js';
-import { acciones, useBD, useCatalogos, useUsuario } from '../../estado/tienda.js';
+import { acciones, useBD, useCatalogos } from '../../estado/tienda.js';
+import { usePerfil, useSesion } from '../../estado/sesion.js';
 import { nuevoId } from '../../datos/ids.js';
 
 export default function Configuracion() {
@@ -27,45 +27,60 @@ export default function Configuracion() {
 
 /* ── Usuario ────────────────────────────────────────────────────────── */
 
-function SeccionUsuario() {
-  const usuario = useUsuario();
-  const [valor, setValor] = useState(usuario);
-  const [guardado, setGuardado] = useState(false);
+/** Nombre institucional del rol; el valor guardado es el técnico. */
+const ROTULO_ROL = {
+  admin: 'Control de Gestión',
+  coordinacion: 'Control de Gestión',
+  jefe_gabinete: 'Jefatura de Gabinete',
+  intendencia: 'Intendencia',
+  area: 'Secretaría',
+};
 
-  async function guardar() {
-    await acciones.guardarConfig({ usuario: valor.trim() || 'Coordinación' });
-    setGuardado(true);
-    setTimeout(() => setGuardado(false), 2000);
-  }
+/**
+ * Identidad de quien está usando el portal.
+ *
+ * Antes era un campo de texto libre: cada uno escribía el nombre que quisiera
+ * y el sistema lo estampaba en `creado_por` sin verificar nada. Desde que hay
+ * login, el dato sale de la sesión y por eso ya no se edita acá — cambiarlo a
+ * mano solo lograría que el próximo ingreso lo pisara de vuelta. El nombre se
+ * corrige en la lista de usuarios de la base, y lo hace un administrador.
+ */
+function SeccionUsuario() {
+  const perfil = usePerfil();
+  const salir = useSesion((e) => e.salir);
+  if (!perfil) return null;
 
   return (
     <Tarjeta
-      titulo="Usuario actual"
+      titulo="Tu usuario"
       descripcion="Firma cada carga del sistema y aparece en el historial de cada registro."
     >
-      <div className="flex flex-wrap items-end gap-3">
-        <CampoTexto
-          etiqueta="Nombre"
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-          placeholder="Ej.: M. López"
-          className="min-w-56 flex-1"
-        />
-        <Boton variante="primario" icono={Save} onClick={guardar} disabled={valor === usuario}>
-          Guardar
+      <dl className="flex flex-wrap gap-x-10 gap-y-3 text-sm">
+        <div>
+          <dt className="text-xs text-tenue">Nombre</dt>
+          <dd className="font-medium text-tinta">{perfil.nombre}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-tenue">Mail</dt>
+          <dd className="font-medium text-tinta">{perfil.email}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-tenue">Rol</dt>
+          <dd className="font-medium text-tinta">{ROTULO_ROL[perfil.rol] ?? perfil.rol}</dd>
+        </div>
+      </dl>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Boton icono={LogOut} onClick={salir}>
+          Cerrar sesión
         </Boton>
-        {/* `role="status"` lo anuncia sin robar el foco: el chip aparece y
-            desaparece solo, y sin esto un lector de pantalla no se entera de
-            que la carga se guardó. */}
-        <span role="status" aria-live="polite">
-          {guardado && <Chip tono="enregla">Guardado</Chip>}
-        </span>
       </div>
+
       <div className="mt-3">
         <Aviso tono="info">
-          El sistema no tiene login ni usuarios: este nombre es el que se estampa en{' '}
-          <code className="rounded bg-card px-1">creado_por</code> de cada registro. Cuando se
-          incorpore el acceso por usuario, se reemplaza la fuente de este dato y nada más cambia.
+          El nombre sale de tu sesión, no se escribe a mano: es el que queda en{' '}
+          <code className="rounded bg-card px-1">creado_por</code> de cada registro que cargues. Si
+          está mal escrito, lo corrige un administrador en la lista de usuarios.
         </Aviso>
       </div>
     </Tarjeta>
