@@ -16,6 +16,7 @@ import { hoyISO } from './tiempo.js';
 import * as eventosRemotos from './supabaseEventos.js';
 import * as proyectosRemotos from './supabaseProyectos.js';
 import * as seguimientosRemotos from './supabaseSeguimientos.js';
+import * as compromisosRemotos from './supabaseCompromisos.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -94,7 +95,7 @@ let errorRemoto = null;
 export const estadoRemoto = () => ({ error: errorRemoto });
 
 async function traerRemotos() {
-  if (!eventosRemotos.activo() && !proyectosRemotos.activo() && !seguimientosRemotos.activo()) return;
+  if (!eventosRemotos.activo() && !proyectosRemotos.activo() && !seguimientosRemotos.activo() && !compromisosRemotos.activo()) return;
   try {
     if (eventosRemotos.activo()) {
       const remotoEventos = await eventosRemotos.cargar();
@@ -106,6 +107,9 @@ async function traerRemotos() {
     }
     if (seguimientosRemotos.activo()) {
       bdActual.seguimientos = await seguimientosRemotos.cargar();
+    }
+    if (compromisosRemotos.activo()) {
+      bdActual.compromisos = await compromisosRemotos.cargar();
     }
     errorRemoto = null;
   } catch (error) {
@@ -135,6 +139,7 @@ export async function refrescar() {
   eventosRemotos.olvidarCatalogos();
   proyectosRemotos.olvidarCatalogos();
   seguimientosRemotos.olvidarCatalogos();
+  compromisosRemotos.olvidarCatalogos();
   await traerRemotos();
   notificar();
   return bdActual;
@@ -668,6 +673,13 @@ export async function crearCompromiso(datos) {
   if (!datos.origen_tipo || !datos.id_origen) {
     throw new Error('Un compromiso requiere origen_tipo e id_origen');
   }
+  if (compromisosRemotos.activo()) {
+    return escribirRemoto(
+      'compromisos',
+      () => compromisosRemotos.crearCompromiso({ estado: 'pendiente', fecha_cumplimiento: null, ...datos }),
+      { accion: 'alta', id_proyecto: datos.id_proyecto ?? null },
+    );
+  }
   return crear(
     'compromisos',
     { estado: 'pendiente', fecha_cumplimiento: null, ...datos },
@@ -684,6 +696,15 @@ export async function crearCompromisos(lista) {
 }
 
 export async function actualizarCompromiso(id, cambios) {
+  if (compromisosRemotos.activo()) {
+    const bd = await obtenerBD();
+    const previo = bd.compromisos.find((c) => c.id === id);
+    return escribirRemoto(
+      'compromisos',
+      () => compromisosRemotos.actualizarCompromiso(id, cambios),
+      { accion: 'edicion', id, previo, id_proyecto: previo?.id_proyecto ?? null },
+    );
+  }
   return actualizar('compromisos', id, cambios);
 }
 
