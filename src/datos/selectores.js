@@ -734,13 +734,27 @@ export function mesasSinReunion(bd, hoy = hoyISO()) {
 
 /* ── Eventos ────────────────────────────────────────────────────────── */
 
+/** Inicio y fin efectivos de un evento. Los registros anteriores al rango
+ * sólo tienen `fecha`, por eso siguen representando un único día. */
+function rangoEvento(evento) {
+  const inicio = String(evento?.fecha ?? '').slice(0, 10);
+  const hasta = String(evento?.fecha_hasta ?? '').slice(0, 10);
+  return [inicio, hasta && hasta >= inicio ? hasta : inicio];
+}
+
+function eventoDentroDelRango(evento, desde, hasta) {
+  const [inicio, fin] = rangoEvento(evento);
+  if (!inicio) return false;
+  return (!hasta || inicio <= hasta) && (!desde || fin >= desde);
+}
+
 export function eventos(bd, filtros = {}) {
   return activos(bd.eventos)
     .filter((e) =>
       coincide(filtros.area, e.area_organizadora) &&
       coincide(filtros.tipo, e.tipo) &&
       coincide(filtros.estado, e.estado) &&
-      dentroDelRango(e.fecha, filtros.desde, filtros.hasta),
+      eventoDentroDelRango(e, filtros.desde, filtros.hasta),
     )
     .map((e) => ({ ...e, requerimientos: resumenRequerimientos(bd, e.id) }))
     .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
@@ -759,6 +773,24 @@ export function resumenRequerimientos(bd, idEvento) {
     pendientes: reqs.length - confirmados,
     porcentaje: reqs.length ? Math.round((confirmados / reqs.length) * 100) : 0,
   };
+}
+
+/** Fechas del evento que caen dentro del período visible del calendario. */
+export function fechasDeEvento(evento, desde, hasta) {
+  const [inicioEvento, finEvento] = rangoEvento(evento);
+  if (!inicioEvento) return [];
+  const inicio = desde && desde > inicioEvento ? desde : inicioEvento;
+  const fin = hasta && hasta < finEvento ? hasta : finEvento;
+  if (inicio > fin) return [];
+
+  const fechas = [];
+  const cursor = new Date(`${inicio}T00:00:00Z`);
+  const limite = new Date(`${fin}T00:00:00Z`);
+  while (cursor <= limite) {
+    fechas.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return fechas;
 }
 
 /* ── Bitácora ───────────────────────────────────────────────────────── */
@@ -1442,14 +1474,15 @@ export function itemsCalendario(bd, capas, desde, hasta) {
   }
   if (capas.eventos !== false) {
     for (const e of activos(bd.eventos)) {
-      if (!enRango(e.fecha)) continue;
-      items.push({
-        fecha: e.fecha.slice(0, 10),
-        capa: 'eventos',
-        titulo: e.nombre,
-        detalle: [e.hora, e.lugar].filter(Boolean).join(' · '),
-        ruta: `/eventos?evento=${e.id}`,
-      });
+      for (const fecha of fechasDeEvento(e, desde, hasta)) {
+        items.push({
+          fecha,
+          capa: 'eventos',
+          titulo: e.nombre,
+          detalle: [e.hora, e.lugar].filter(Boolean).join(' · '),
+          ruta: `/eventos?tab=checklist&evento=${e.id}`,
+        });
+      }
     }
   }
   if (capas.mesas !== false) {

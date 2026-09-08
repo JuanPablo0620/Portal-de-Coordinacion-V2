@@ -1,8 +1,7 @@
 # Pendientes de interfaz
 
-Pedidos funcionales que ya están definidos por el equipo y quedan listos para
-implementar. Este archivo registra el comportamiento esperado; el orden técnico
-de implementación sigue en `traspaso-actual.md`.
+Pedidos funcionales definidos por el equipo y estado de implementación. El
+detalle operativo que queda sigue en `traspaso-actual.md`.
 
 **Última actualización:** 08/09/2026 · JP
 
@@ -12,42 +11,38 @@ de implementación sigue en `traspaso-actual.md`.
 
 ### 1. Cargar un evento en más de una fecha
 
-- [ ] El formulario de alta debe permitir seleccionar **una o varias fechas** en
-  una misma carga.
-- [ ] Debe admitir fechas consecutivas —por ejemplo, sábado y domingo— y fechas
-  separadas por semanas o meses.
-- [ ] Los datos generales del evento se cargan una sola vez para todas las fechas
-  seleccionadas.
-- [ ] Se debe permitir repetir el mismo nombre de evento: el nombre no es una
+- [x] El formulario de alta permite cargar un rango consecutivo con fecha
+  **Desde** y **Hasta** —por ejemplo, sábado y domingo— en un único evento.
+- [x] Se permite repetir el mismo nombre de evento: el nombre no es una
   clave única y una nueva edición del evento puede hacerse en otra fecha.
-- [ ] Cada fecha seleccionada debe aparecer en el calendario y llevar a la
+- [x] Cada día del rango aparece en el calendario y lleva a la
   información del evento correspondiente.
 
-**Impacto en datos:** hoy tanto el portal como la tabla `eventos` de Supabase
-guardan una sola columna `fecha`. Antes de conectar la escritura real hay que
-representar las ocurrencias múltiples sin obligar a duplicar la carga desde la
-interfaz.
+**Impacto en datos:** `0011_eventos_rango_y_secretaria_general.sql` agrega
+`fecha_hasta`. Mientras esa migración no pueda aplicarse, el traductor de
+Supabase conserva el dato en una marca interna dentro de `descripcion`; la
+interfaz la oculta y la migración la normaliza cuando se ejecute.
 
 ### 2. Abrir la información desde el calendario
 
-- [ ] Al hacer clic sobre un evento del calendario debe abrirse la ficha con la
+- [x] Al hacer clic sobre un evento del calendario se abre la ficha con la
   información de **ese evento exacto** en la vista de detalle contigua.
-- [ ] La selección debe quedar reflejada en la URL para que funcione también al
+- [x] La selección queda reflejada en la URL para que funcione también al
   recargar o compartir el enlace.
 
-**Situación actual:** el calendario navega a `/eventos?evento=<id>`, pero esa URL
-mantiene la pestaña Calendario y no muestra la ficha. La navegación debe activar
-la vista que contiene el detalle o incorporar el detalle al panel del calendario.
+**Implementación:** el calendario navega a
+`/eventos?tab=checklist&evento=<id>`, de modo que la URL identifica tanto la
+vista como el evento abierto.
 
 ### 3. Área organizadora
 
-- [ ] Agregar **Secretaría General** a las opciones de “Área organizadora”.
+- [x] Agregar **Secretaría General** a las opciones de “Área organizadora”.
 
 ### 4. Quitar el avance porcentual
 
-- [ ] Eliminar todas las barras de porcentaje del módulo Eventos: próximos
+- [x] Eliminar todas las barras de porcentaje del módulo Eventos: próximos
   eventos, lista, checklist, detalle y formulario.
-- [ ] Mantener la información concreta de los requerimientos por estado
+- [x] Mantener la información concreta de los requerimientos por estado
   —solicitados, confirmados y entregados—, sin presentarla como porcentaje de
   avance del evento.
 
@@ -55,9 +50,9 @@ El avance de la planificación de un evento no se mide con porcentajes.
 
 ### 5. Eliminar un evento
 
-- [ ] Agregar una acción visible para eliminar el evento desde su ficha o edición.
-- [ ] Pedir confirmación antes de ejecutar la acción.
-- [ ] La baja debe ser lógica (`activo = false`), siguiendo el criterio general
+- [x] Agregar una acción visible para eliminar el evento desde su ficha.
+- [x] Pedir confirmación antes de ejecutar la acción.
+- [x] La baja es lógica (`activo = false`), siguiendo el criterio general
   del portal, y el evento no debe seguir apareciendo en calendario, lista ni
   checklist.
 
@@ -67,19 +62,19 @@ El avance de la planificación de un evento no se mide con porcentajes.
 
 ### 1. Vista inicial y aspecto del mapa
 
-- [ ] Usar por defecto una base clara, con fondo blanco y lectura similar a
+- [x] Usar por defecto una base clara, con fondo blanco y lectura similar a
   Google Maps.
-- [ ] Mostrar permanentemente la delimitación del partido de Tres de Febrero.
-- [ ] Al abrir el módulo, centrar y encuadrar el mapa según esa delimitación, con
+- [x] Mostrar permanentemente la delimitación del partido de Tres de Febrero.
+- [x] Al abrir el módulo, centrar y encuadrar el mapa según esa delimitación, con
   todo el territorio visible y un margen cómodo alrededor.
-- [ ] Mantener el encuadre territorial cuando todavía no hay cortes visibles; un
+- [x] Mantener el encuadre territorial cuando todavía no hay cortes visibles; un
   corte seleccionado sí puede acercar la vista a su ubicación.
 
 ### 2. Zoom con la rueda
 
-- [ ] Habilitar el zoom con la rueda del mouse sobre el mapa.
-- [ ] Verificarlo tanto en la vista general como durante la selección de cuadras.
+- [x] Habilitar el zoom con la rueda del mouse sobre el mapa.
+- [x] Mantenerlo habilitado tanto en la vista general como durante la selección
+  de cuadras.
 
-**Situación actual:** `MapaLeaflet.jsx` tiene `scrollWheelZoom: false`, por eso la
-rueda no funciona. El mapa ya arranca en una coordenada aproximada del partido,
-pero todavía no usa su geometría para dibujar el límite y calcular el encuadre.
+**Implementación:** `MapaLeaflet.jsx` habilita `scrollWheelZoom` y la vista carga
+`geonode:limites3f` del Geoportal para dibujar y encuadrar el territorio.

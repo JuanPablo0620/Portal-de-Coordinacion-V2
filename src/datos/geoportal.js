@@ -56,6 +56,8 @@ const OWS_DIRECTO =
 const CAPA_CALLEJERO = 'geonode:callejero_normalizado';
 /** Capa de esquinas: un punto por intersección, con las dos calles. */
 const CAPA_ESQUINAS = 'geonode:intersecciones_callejero';
+/** Límite oficial del partido, usado para orientar y encuadrar el mapa. */
+const CAPA_LIMITE_PARTIDO = 'geonode:limites3f';
 
 /** Capa base opcional del mapa, servida por WMS. */
 export const WMS_OWS = OWS_DIRECTO;
@@ -194,6 +196,26 @@ function nombrePropio(texto) {
 
 /** GeoJSON `[lon, lat]` → `{ lat, lng }` de Leaflet. Ver la cabecera. */
 const aLatLng = ([lng, lat]) => ({ lat, lng });
+
+/** Contornos exteriores de una geometría Polygon o MultiPolygon. */
+function contornosDe(geometria) {
+  if (geometria?.type === 'Polygon') {
+    return geometria.coordinates[0]?.length ? [geometria.coordinates[0].map(aLatLng)] : [];
+  }
+  if (geometria?.type === 'MultiPolygon') {
+    return geometria.coordinates
+      .map((poligono) => poligono[0])
+      .filter((anillo) => anillo?.length)
+      .map((anillo) => anillo.map(aLatLng));
+  }
+  return [];
+}
+
+/** Delimitación oficial de Tres de Febrero, ya lista para Leaflet. */
+export async function limitePartido() {
+  const features = await wfs(CAPA_LIMITE_PARTIDO, { limite: 5 });
+  return features.flatMap((feature) => contornosDe(feature.geometry));
+}
 
 /**
  * Aplana cualquier geometría de línea a un array de polilíneas.

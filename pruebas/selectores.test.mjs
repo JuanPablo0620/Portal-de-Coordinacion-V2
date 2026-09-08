@@ -12,6 +12,8 @@ import {
   mesasSinReunion,
   desvioTrimestral,
   trimestreDe,
+  eventos,
+  itemsCalendario,
 } from '../src/datos/selectores.js';
 
 const HOY = '2026-08-08';
@@ -116,6 +118,37 @@ test('resumenRequerimientos de un evento sin requerimientos no divide por cero',
     pendientes: 0,
     porcentaje: 0,
   });
+});
+
+test('un evento de varios días aparece en cada fecha del calendario y abre su detalle', () => {
+  const bd = {
+    eventos: [
+      { id: 'e1', nombre: 'Festival', fecha: '2026-09-12', fecha_hasta: '2026-09-13', activo: true },
+    ],
+    seguimientos: [],
+    reuniones_mesa: [],
+    compromisos: [],
+    proyectos: [],
+  };
+  const items = itemsCalendario(
+    bd,
+    { seguimientos: false, eventos: true, mesas: false, vencimientos: false },
+    '2026-09-01',
+    '2026-09-30',
+  );
+  assert.deepEqual(items.map((item) => item.fecha), ['2026-09-12', '2026-09-13']);
+  assert.ok(items.every((item) => item.ruta === '/eventos?tab=checklist&evento=e1'));
+});
+
+test('el filtro de eventos incluye un rango que se superpone con el período pedido', () => {
+  const bd = {
+    eventos: [
+      { id: 'e1', fecha: '2026-08-31', fecha_hasta: '2026-09-02', activo: true },
+      { id: 'e2', fecha: '2026-08-20', fecha_hasta: '2026-08-21', activo: true },
+    ],
+    requerimientos_evento: [],
+  };
+  assert.deepEqual(eventos(bd, { desde: '2026-09-01', hasta: '2026-09-30' }).map((evento) => evento.id), ['e1']);
 });
 
 /* ── Filtros combinables ──────────────────────────────────────────── */

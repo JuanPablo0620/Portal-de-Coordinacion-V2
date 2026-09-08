@@ -569,6 +569,25 @@ test('confirmar requerimientos sube el porcentaje y apaga la alerta del evento',
   assert.equal(calcularAlertas(bd, HOY).filter((a) => a.tipo === TIPOS_ALERTA.EVENTO_INCOMPLETO).length, 0);
 });
 
+test('un evento conserva su rango, admite repetir el nombre y se elimina por baja lógica', async () => {
+  await limpio();
+  const primero = await repo.crearEvento({
+    nombre: 'Feria barrial', fecha: '2026-09-12', fecha_hasta: '2026-09-13', estado: 'previsto',
+  });
+  const repetido = await repo.crearEvento({
+    nombre: 'Feria barrial', fecha: '2026-10-10', estado: 'previsto',
+  });
+
+  let bd = await repo.obtenerBD();
+  assert.equal(bd.eventos.find((evento) => evento.id === primero.id).fecha_hasta, '2026-09-13');
+  assert.equal(activos(bd.eventos).filter((evento) => evento.nombre === 'Feria barrial').length, 2);
+
+  await repo.eliminarEvento(primero.id);
+  bd = await repo.obtenerBD();
+  assert.equal(bd.eventos.find((evento) => evento.id === primero.id).activo, false);
+  assert.deepEqual(activos(bd.eventos).map((evento) => evento.id), [repetido.id]);
+});
+
 /* ── Flujo del módulo 4: planificación ──────────────────────────────── */
 
 test('guardar dos veces la planificación del mismo proyecto y año la actualiza, no la duplica', async () => {

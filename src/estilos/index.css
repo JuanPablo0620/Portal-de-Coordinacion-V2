@@ -25,6 +25,7 @@
   --color-acento-suave: #e8f0f9;
   --color-acento-medio: #b9d2ec;
   --color-acento-fuerte: #164a82;
+  --color-limite-mapa: #0f3d6e;
 
   /* Semáforo diferencial — 4 niveles distinguibles de un vistazo.
      Los niveles claros llevan texto oscuro, nunca blanco.
@@ -255,12 +256,12 @@ body {
   isolation: isolate;
   position: relative;
   z-index: 0;
-  background: var(--color-paper);
+  background: var(--color-card);
 }
 
 .mapa-leaflet .leaflet-container {
   font: inherit;
-  background: var(--color-paper);
+  background: var(--color-card);
 }
 
 /* En modo dibujo el cursor dice que el mapa espera un clic. */
@@ -277,6 +278,15 @@ body {
 
 .corte-forma {
   cursor: pointer;
+}
+
+/* Delimitación oficial del partido: orienta el mapa sin competir con los
+   cortes, que conservan el semáforo como señal principal. */
+.corte-limite-partido {
+  stroke: var(--color-limite-mapa);
+  stroke-opacity: 0.82;
+  fill: none;
+  pointer-events: none;
 }
 
 .corte-vencido {

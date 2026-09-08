@@ -980,6 +980,11 @@ export async function actualizarEvento(id, cambios) {
   });
 }
 
+/** Los eventos conservan su trazabilidad: eliminar es una baja lógica. */
+export async function eliminarEvento(id) {
+  return actualizarEvento(id, { activo: false });
+}
+
 export async function crearRequerimiento(datos) {
   if (!eventosRemotos.activo()) {
     return crear('requerimientos_evento', { estado: 'solicitado', ...datos });

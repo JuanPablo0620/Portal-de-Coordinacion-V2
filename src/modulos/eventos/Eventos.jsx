@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, ClipboardCheck, List, Pencil, Plus } from 'lucide-react';
+import { CalendarDays, ClipboardCheck, List, Pencil, Plus, Trash2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
-import { Aviso, BarraAvance, Boton, Chip, Metrica, Pestanias, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
+import { Aviso, Boton, Chip, Metrica, Pestanias, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
+import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { Calendario, useMesVisible } from '../../componentes/Calendario.jsx';
 import { CampoSelect } from '../../componentes/Campo.jsx';
@@ -13,7 +14,7 @@ import { ESTADOS_EVENTO } from '../../datos/catalogos.js';
 import { diasHasta, eventos as selEventos, hoyISO, itemsCalendario, requerimientosDe } from '../../datos/selectores.js';
 import { fecha as fFecha, textoVencimiento } from '../../utilidades/formato.js';
 import { acciones, useBD } from '../../estado/tienda.js';
-import { useOpciones } from '../../utilidades/catalogos.js';
+import { conSecretariaGeneral, useOpciones } from '../../utilidades/catalogos.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
 const DEFAULTS = { tab: 'calendario', area: '', tipo: '', estado: '', evento: '' };
@@ -26,7 +27,9 @@ export default function Eventos() {
   const hoy = hoyISO();
   const [filtros, setFiltros] = useFiltrosUrl(DEFAULTS);
   const [formulario, setFormulario] = useState(null);
+  const [aBorrar, setABorrar] = useState(null);
   const [errorRemoto, setErrorRemoto] = useState(null);
+  const [errorAccion, setErrorAccion] = useState('');
 
   // Eventos es la primera colección que vive en Supabase y no en el navegador,
   // así que otra persona puede haber cargado algo desde que abriste el portal.
@@ -55,6 +58,17 @@ export default function Eventos() {
     { valor: 'checklist', titulo: 'Checklist', icono: ClipboardCheck, cantidad: alertasEvento.length || undefined },
   ];
 
+  async function eliminar() {
+    if (!aBorrar) return;
+    setErrorAccion('');
+    try {
+      await acciones.eliminarEvento(aBorrar.id);
+      setFiltros({ evento: '' });
+    } catch (error) {
+      setErrorAccion(error?.message ?? 'No se pudo eliminar el evento.');
+    }
+  }
+
   return (
     <>
       <EncabezadoPagina
@@ -77,6 +91,7 @@ export default function Eventos() {
             guarde. Probá recargar la página. Si sigue, avisale a Control de Gestión. ({errorRemoto})
           </Aviso>
         )}
+        {errorAccion && <Aviso tono="error">{errorAccion}</Aviso>}
 
         <Pestanias opciones={pestanias} valor={filtros.tab} alCambiar={(v) => setFiltros({ tab: v })} />
 
@@ -94,11 +109,27 @@ export default function Eventos() {
           <PanelLista bd={bd} hoy={hoy} filtros={filtros} setFiltros={setFiltros} alEditar={setFormulario} />
         )}
         {filtros.tab === 'checklist' && (
-          <PanelChecklist bd={bd} hoy={hoy} filtros={filtros} setFiltros={setFiltros} alEditar={setFormulario} />
+          <PanelChecklist
+            bd={bd}
+            hoy={hoy}
+            filtros={filtros}
+            setFiltros={setFiltros}
+            alEditar={setFormulario}
+            alBorrar={setABorrar}
+          />
         )}
       </Pagina>
 
       {formulario && <FormularioEvento abierto alCerrar={() => setFormulario(null)} evento={formulario.id ? formulario : null} />}
+      <ModalConfirmacion
+        abierto={Boolean(aBorrar)}
+        alCerrar={() => setABorrar(null)}
+        alConfirmar={eliminar}
+        titulo="Eliminar evento"
+        mensaje={`¿Querés eliminar «${aBorrar?.nombre ?? ''}»? Dejará de aparecer en el calendario y en los listados.`}
+        textoConfirmar="Eliminar"
+        variante="peligro"
+      />
     </>
   );
 }
@@ -147,9 +178,13 @@ function PanelCalendario({ bd, hoy, alCargar }) {
                   <p className="truncate text-[11px] text-tenue">
                     {[e.hora, e.lugar].filter(Boolean).join(' · ') || e.area_organizadora}
                   </p>
-                  <div className="mt-1">
-                    <BarraAvance valor={e.requerimientos.porcentaje} compacta />
-                  </div>
+                  {e.requerimientos.total > 0 && (
+                    <p className="mt-1 text-[11px] text-tenue">
+                      {e.requerimientos.pendientes
+                        ? `${e.requerimientos.pendientes} requerimiento(s) pendiente(s)`
+                        : 'Requerimientos confirmados'}
+                    </p>
+                  )}
                 </div>
                 <Semaforo nivel={nivelPorDias(diasHasta(e.fecha, hoy))} soloPunto texto={textoVencimiento(diasHasta(e.fecha, hoy))} />
               </li>
@@ -165,7 +200,8 @@ function PanelCalendario({ bd, hoy, alCargar }) {
 
 function PanelLista({ bd, hoy, filtros, setFiltros, alEditar }) {
   const navegar = useNavigate();
-  const opcionesArea = useOpciones('areas');
+  const opcionesAreaBase = useOpciones('areas');
+  const opcionesArea = useMemo(() => conSecretariaGeneral(opcionesAreaBase), [opcionesAreaBase]);
   const opcionesTipo = useOpciones('tipos_evento');
 
   const filas = useMemo(
@@ -194,7 +230,7 @@ function PanelLista({ bd, hoy, filtros, setFiltros, alEditar }) {
           filas={filas}
           ordenInicial={{ clave: 'fecha', direccion: 'asc' }}
           columnas={[
-            { clave: 'fecha', titulo: 'Fecha', ancho: 105, render: (f) => fFecha(f.fecha), formatoCSV: fFecha },
+            { clave: 'fecha', titulo: 'Fecha', ancho: 165, render: (f) => textoFechaEvento(f), formatoCSV: fFecha },
             { clave: 'hora', titulo: 'Hora', ancho: 65 },
             { clave: 'nombre', titulo: 'Evento' },
             { clave: 'lugar', titulo: 'Lugar', ancho: 200 },
@@ -205,15 +241,12 @@ function PanelLista({ bd, hoy, filtros, setFiltros, alEditar }) {
               clave: 'requerimientos',
               titulo: 'Requerimientos',
               ancho: 160,
-              valorOrden: (f) => f.requerimientos.porcentaje,
+              valorOrden: (f) => f.requerimientos.pendientes,
               render: (f) =>
                 f.requerimientos.total ? (
-                  <div>
-                    <BarraAvance valor={f.requerimientos.porcentaje} />
-                    <p className="tabular mt-0.5 text-[11px] text-tenue">
-                      {f.requerimientos.confirmados} de {f.requerimientos.total}
-                    </p>
-                  </div>
+                  <span className="tabular text-sm text-gris">
+                    {f.requerimientos.confirmados} de {f.requerimientos.total} confirmados
+                  </span>
                 ) : (
                   <span className="text-tenue">sin cargar</span>
                 ),
@@ -262,9 +295,9 @@ function PanelLista({ bd, hoy, filtros, setFiltros, alEditar }) {
 
 /* ── Checklist ──────────────────────────────────────────────────────── */
 
-function PanelChecklist({ bd, hoy, filtros, setFiltros, alEditar }) {
+function PanelChecklist({ bd, hoy, filtros, setFiltros, alEditar, alBorrar }) {
   const eventos = useMemo(
-    () => (bd ? selEventos(bd, {}).filter((e) => e.estado !== 'realizado' && e.estado !== 'suspendido') : []),
+    () => (bd ? selEventos(bd, {}) : []),
     [bd],
   );
 
@@ -281,7 +314,7 @@ function PanelChecklist({ bd, hoy, filtros, setFiltros, alEditar }) {
         <Vacio
           icono={ClipboardCheck}
           titulo="Sin eventos pendientes"
-          descripcion="El checklist muestra los eventos previstos y confirmados. Cargá uno para empezar."
+          descripcion="Cargá un evento para consultar su información y sus requerimientos."
           accion={{ texto: 'Cargar evento', icono: Plus, alHacerClic: () => alEditar({}) }}
         />
       </Tarjeta>
@@ -291,8 +324,8 @@ function PanelChecklist({ bd, hoy, filtros, setFiltros, alEditar }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Metrica valor={eventos.length} etiqueta="Eventos pendientes" />
-        <Metrica valor={eventos.filter((e) => e.requerimientos.porcentaje === 100 && e.requerimientos.total).length} etiqueta="Con todo confirmado" />
+        <Metrica valor={eventos.length} etiqueta="Eventos" />
+        <Metrica valor={eventos.filter((e) => e.requerimientos.total > 0 && e.requerimientos.pendientes === 0).length} etiqueta="Con todo confirmado" />
         <Metrica valor={eventos.reduce((s, e) => s + e.requerimientos.pendientes, 0)} etiqueta="Requerimientos sin confirmar" />
         <Metrica
           valor={conAlerta.length}
@@ -318,11 +351,13 @@ function PanelChecklist({ bd, hoy, filtros, setFiltros, alEditar }) {
                   >
                     <p className="truncate text-sm leading-tight text-tinta">{e.nombre}</p>
                     <p className="text-[11px] text-tenue">
-                      {fFecha(e.fecha)} · {textoVencimiento(dias)}
+                      {textoFechaEvento(e)} · {textoVencimiento(dias)}
                     </p>
-                    <div className="mt-1">
-                      <BarraAvance valor={e.requerimientos.porcentaje} compacta />
-                    </div>
+                    {e.requerimientos.total > 0 && (
+                      <p className="mt-1 text-[11px] text-tenue">
+                        {e.requerimientos.confirmados}/{e.requerimientos.total} requerimientos confirmados
+                      </p>
+                    )}
                   </button>
                 </li>
               );
@@ -330,13 +365,13 @@ function PanelChecklist({ bd, hoy, filtros, setFiltros, alEditar }) {
           </ul>
         </Tarjeta>
 
-        {elegido && <DetalleChecklist evento={elegido} bd={bd} hoy={hoy} alEditar={alEditar} />}
+        {elegido && <DetalleChecklist evento={elegido} bd={bd} hoy={hoy} alEditar={alEditar} alBorrar={alBorrar} />}
       </div>
     </div>
   );
 }
 
-function DetalleChecklist({ evento, bd, hoy, alEditar }) {
+function DetalleChecklist({ evento, bd, hoy, alEditar, alBorrar }) {
   const requerimientos = useMemo(() => requerimientosDe(bd, evento.id), [bd, evento.id]);
   const dias = diasHasta(evento.fecha, hoy);
   const enAlerta = dias >= 0 && dias <= UMBRALES.DIAS_EVENTO && evento.requerimientos.pendientes > 0;
@@ -347,11 +382,16 @@ function DetalleChecklist({ evento, bd, hoy, alEditar }) {
     <div className="flex flex-col gap-4">
       <Tarjeta
         titulo={evento.nombre}
-        descripcion={`${fFecha(evento.fecha)}${evento.hora ? ` · ${evento.hora}` : ''}${evento.lugar ? ` · ${evento.lugar}` : ''}`}
+        descripcion={`${textoFechaEvento(evento)}${evento.hora ? ` · ${evento.hora}` : ''}${evento.lugar ? ` · ${evento.lugar}` : ''}`}
         acciones={
-          <Boton tamanio="sm" icono={Pencil} onClick={() => alEditar(evento)}>
-            Editar
-          </Boton>
+          <div className="flex gap-2">
+            <Boton tamanio="sm" icono={Pencil} onClick={() => alEditar(evento)}>
+              Editar
+            </Boton>
+            <Boton tamanio="sm" variante="peligro" icono={Trash2} onClick={() => alBorrar(evento)}>
+              Eliminar
+            </Boton>
+          </div>
         }
       >
         {enAlerta && (
@@ -372,9 +412,6 @@ function DetalleChecklist({ evento, bd, hoy, alEditar }) {
         )}
 
         <div className="mb-3 flex flex-wrap items-center gap-3">
-          <div className="min-w-40 flex-1">
-            <BarraAvance valor={evento.requerimientos.porcentaje} />
-          </div>
           <Chip tono="neutro">{porEstado('solicitado')} solicitados</Chip>
           <Chip tono="proximo">{porEstado('confirmado')} confirmados</Chip>
           <Chip tono="enregla">{porEstado('entregado')} entregados</Chip>
@@ -388,3 +425,10 @@ function DetalleChecklist({ evento, bd, hoy, alEditar }) {
 }
 
 const MES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+function textoFechaEvento(evento) {
+  if (evento.fecha_hasta && evento.fecha_hasta !== evento.fecha) {
+    return `${fFecha(evento.fecha)} al ${fFecha(evento.fecha_hasta)}`;
+  }
+  return fFecha(evento.fecha);
+}

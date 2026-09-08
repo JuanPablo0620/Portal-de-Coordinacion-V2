@@ -17,6 +17,13 @@ export function useOpciones(nombreCatalogo) {
   }, [catalogos, nombreCatalogo]);
 }
 
+/** Área que sólo corresponde al rol organizador de un evento. Mientras el
+ * catálogo remoto se actualiza, se agrega sin convertirla en área de proyecto. */
+export function conSecretariaGeneral(opciones) {
+  if (opciones.some((opcion) => opcion.valor === 'Secretaría General')) return opciones;
+  return [...opciones, { valor: 'Secretaría General', titulo: 'Secretaría General' }];
+}
+
 /** Ítems crudos de un catálogo (incluye `prefijo`, `es_obra`, etc.). */
 export function useItems(nombreCatalogo) {
   const catalogos = useCatalogos();
@@ -25,4 +32,3 @@ export function useItems(nombreCatalogo) {
     [catalogos, nombreCatalogo],
   );
 }
-

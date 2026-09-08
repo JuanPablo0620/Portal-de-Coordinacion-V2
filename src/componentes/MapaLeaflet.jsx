@@ -38,7 +38,7 @@ const CENTRO_PARTIDO = [-34.6, -58.565];
 const ZOOM_PARTIDO = 13;
 
 export const CAPAS_BASE = Object.freeze([
-  { valor: 'osm', titulo: 'Calles' },
+  { valor: 'osm', titulo: 'Mapa claro' },
   { valor: 'municipal', titulo: 'Callejero municipal' },
 ]);
 
@@ -54,9 +54,10 @@ function crearCapaBase(L, cual) {
       attribution: 'Geoportal Municipalidad de Tres de Febrero',
     });
   }
-  return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap',
+  return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd',
+    maxZoom: 20,
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
   });
 }
 
@@ -114,9 +115,9 @@ export function MapaLeaflet({
         center: CENTRO_PARTIDO,
         zoom: ZOOM_PARTIDO,
         zoomControl: true,
-        // El scroll de la página no debería cambiar el zoom del mapa al pasar
-        // por encima: se hace zoom con los botones, con pinza, o con ctrl+rueda.
-        scrollWheelZoom: false,
+        // El mapa es la superficie principal del módulo: la rueda acerca y
+        // aleja directamente cuando el cursor está sobre él.
+        scrollWheelZoom: true,
         attributionControl: true,
       });
       L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(instancia);

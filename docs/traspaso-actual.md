@@ -19,7 +19,7 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 08/09/2026 · JP
+**Última actualización:** 08/09/2026 · Codex, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
@@ -29,37 +29,32 @@ que el otro no puede deducir leyendo el repo.
 
 | Qué | Estado |
 |---|---|
-| `main` local | `eeea072`, sincronizado con `fork/main` |
-| Producción | `portal-de-coordinacion-v2.vercel.app`, con login |
-| `0001_esquema.sql` | Aplicado |
-| `0002_auth.sql` | Aplicado — 9 cuentas, 9 perfiles, registro público desactivado |
-| `0003_rls.sql` | **Escrito, NO aplicado** ← el paso que desbloquea todo |
-| Datos en Supabase | 87 proyectos · 130 compromisos · 61 programas · 3 mesas |
-| Datos del portal | Siguen en `localStorage`, salvo la pantalla Vigentes |
-| `npm run verificar` | Pasaba completa al 07/09 |
+| `main` | Implementación de Eventos y Mapa lista para publicar en `fork/main` |
+| Producción | `portal-de-coordinacion-v2.vercel.app`, con login y despliegue automático desde `fork/main` |
+| Migraciones `0001` a `0009` | El front vigente depende de ellas; su historial remoto no se re-auditó en esta sesión |
+| Migración `0011` | **Escrita, todavía no aplicada**: agrega `eventos.fecha_hasta` y normaliza los rangos temporales |
+| Secretaría General | Agregada y verificada en el catálogo real de Supabase por API REST |
+| Datos remotos del portal | Proyectos, seguimientos, compromisos, eventos y requerimientos de evento leen y escriben en Supabase |
+| `npm run verificar` | Pasa con 362 tests, build, humo y accesibilidad |
 
-El portal tiene **identidad real pero todavía no seguridad de datos**: se sabe
-quién carga cada cosa, pero lo que se ve en pantalla vive en el navegador de cada
-uno. La seguridad es la de la base, y es `0003_rls.sql`.
+Eventos y Mapa ya implementan los pedidos de JP del 08/09. Como la red municipal
+bloquea 5432 y 6543 y no había sesión de navegador disponible para el SQL Editor,
+`0011` no pudo ejecutarse. El front tiene compatibilidad temporal: hasta aplicar
+la migración, guarda `fecha_hasta` como una marca interna de `descripcion`, la
+oculta al mostrar el detalle y la propia `0010` migra esas marcas a la columna.
 
 ## 2. Lo próximo, en orden de lo que más desbloquea
 
-1. **Aplicar `supabase/migrations/0003_rls.sql`.** La condición previa ya se
-   cumplió (el login está en producción). El procedimiento paso a paso, con las
-   verificaciones de antes y después, está en `traspaso-07-09-autenticacion.md`
-   §10. Es lo primero que hay que hacer.
-2. **Escritura desde el portal.** Con `0003` aplicado la base ya acepta que un
-   `admin` escriba, pero el front sigue guardando en `localStorage`. Es el trabajo
-   grande: migrar `repositorio.js` de síncrono a async y revisar sus ~40
-   consumidores. Conviene que lo arranquen coordinados, no en paralelo.
-3. **Actualizar el `README.md`.** Está desactualizado: dice "sin backend, sin base
-   de datos real" y "hoy no hay login ni roles". Las dos cosas dejaron de ser
-   ciertas entre el 04/09 y el 07/09.
-4. **Implementar los ajustes de Eventos y Mapa pedidos por JP el 08/09.** Quedaron
-   especificados con criterios de terminado en [`pendientes-interfaz.md`](pendientes-interfaz.md):
-   eventos con varias fechas, ficha desde el calendario, Secretaría General,
-   eliminación de porcentajes y baja de eventos; mapa claro, límite del partido,
-   encuadre territorial y zoom con la rueda.
+1. **Aplicar `supabase/migrations/0011_eventos_rango_y_secretaria_general.sql`**
+   desde el SQL Editor de Supabase. Después, verificar por REST que
+   `eventos.fecha_hasta` existe; la migración es re-ejecutable y convierte las
+   marcas temporales que se hayan creado antes.
+2. **Probar el despliegue con una sesión real:** crear un evento de sábado a
+   domingo, abrir ambos días desde el calendario, editarlo y comprobar la
+   confirmación de eliminación; en Mapa, probar rueda, límite y encuadre.
+3. **Actualizar `README.md` y la sección de persistencia de `CLAUDE.md`.** Ambos
+   todavía describen el estado previo a las migraciones de Proyectos,
+   Seguimientos, Compromisos y Eventos.
 
 ## 3. Decisiones pendientes (necesitan que alguien defina, no que alguien programe)
 
@@ -93,6 +88,9 @@ uno. La seguridad es la de la base, y es `0003_rls.sql`.
 7. **El remoto `origin` (`Sr4312/Coordinacion3F2.0`) quedó abandonado** en el commit
    del 19/08. O se lo actualiza, o se lo saca de la copia local para que nadie
    pushee ahí por reflejo. Ver `CLAUDE.md`.
+8. **Compatibilidad temporal de rangos de evento:** se puede retirar la marca
+   `[[portal_fecha_hasta:...]]` de `supabaseEventos.js` una vez aplicada `0011`
+   y confirmado que no quedan clientes con el build anterior.
 
 ---
 

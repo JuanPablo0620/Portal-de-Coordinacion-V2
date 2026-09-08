@@ -2,13 +2,13 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../componentes/Modal.jsx';
-import { Aviso, BarraAvance, Boton, Chip } from '../../componentes/Basicos.jsx';
+import { Aviso, Boton, Chip } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoFecha, CampoHora, CampoNumero, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { ESTADOS_EVENTO, ESTADOS_REQUERIMIENTO } from '../../datos/catalogos.js';
 import { cortesDeEvento, ubicacionDe, vigenciaDe } from '../../datos/cortes.js';
 import { hoyISO, requerimientosDe, resumenRequerimientos } from '../../datos/selectores.js';
-import { useOpciones } from '../../utilidades/catalogos.js';
+import { conSecretariaGeneral, useOpciones } from '../../utilidades/catalogos.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 
 /** Nombre del ítem de catálogo que marca «este evento necesita corte». */
@@ -18,6 +18,7 @@ const VACIO = {
   nombre: '',
   detalle: '',
   fecha: '',
+  fecha_hasta: '',
   hora: '',
   lugar: '',
   area_organizadora: '',
@@ -35,7 +36,8 @@ export function FormularioEvento({ abierto, alCerrar, evento }) {
   const [guardando, setGuardando] = useState(false);
   const [idEvento, setIdEvento] = useState(evento?.id ?? null);
 
-  const opcionesArea = useOpciones('areas');
+  const opcionesAreaBase = useOpciones('areas');
+  const opcionesArea = useMemo(() => conSecretariaGeneral(opcionesAreaBase), [opcionesAreaBase]);
   const opcionesTipo = useOpciones('tipos_evento');
 
   const cambiar = (campo) => (e) => setDatos((d) => ({ ...d, [campo]: e.target.value }));
@@ -51,11 +53,18 @@ export function FormularioEvento({ abierto, alCerrar, evento }) {
   async function guardar() {
     if (!datos.nombre.trim()) return setError('El nombre es obligatorio.');
     if (!datos.fecha) return setError('La fecha es obligatoria.');
+    if (datos.fecha_hasta && datos.fecha_hasta < datos.fecha) {
+      return setError('La fecha de finalización no puede ser anterior a la fecha de inicio.');
+    }
     if (guardando) return;
 
     setError('');
     setGuardando(true);
-    const payload = { ...datos, id_proyecto: datos.id_proyecto || null };
+    const payload = {
+      ...datos,
+      fecha_hasta: datos.fecha_hasta && datos.fecha_hasta !== datos.fecha ? datos.fecha_hasta : null,
+      id_proyecto: datos.id_proyecto || null,
+    };
     try {
       if (esEdicion) {
         await acciones.actualizarEvento(evento.id, payload);
@@ -114,8 +123,16 @@ export function FormularioEvento({ abierto, alCerrar, evento }) {
           disabled={Boolean(idEvento) && !esEdicion}
         />
 
-        <GrillaCampos columnas={3}>
-          <CampoFecha etiqueta="Fecha" requerido value={datos.fecha} onChange={cambiar('fecha')} disabled={Boolean(idEvento) && !esEdicion} />
+        <GrillaCampos columnas={4}>
+          <CampoFecha etiqueta="Desde" requerido value={datos.fecha} onChange={cambiar('fecha')} disabled={Boolean(idEvento) && !esEdicion} />
+          <CampoFecha
+            etiqueta="Hasta"
+            ayuda="opcional"
+            min={datos.fecha || undefined}
+            value={datos.fecha_hasta}
+            onChange={cambiar('fecha_hasta')}
+            disabled={Boolean(idEvento) && !esEdicion}
+          />
           <CampoHora etiqueta="Hora" value={datos.hora} onChange={cambiar('hora')} disabled={Boolean(idEvento) && !esEdicion} />
           <CampoSelect etiqueta="Estado" opciones={ESTADOS_EVENTO} value={datos.estado} onChange={cambiar('estado')} placeholder="" disabled={Boolean(idEvento) && !esEdicion} />
         </GrillaCampos>
@@ -253,8 +270,6 @@ export function SeccionRequerimientos({ idEvento, bd }) {
       </legend>
       <div className="flex flex-col gap-3 p-3">
         {error && <Aviso tono="error">{error}</Aviso>}
-        {resumen?.total > 0 && <BarraAvance valor={resumen.porcentaje} />}
-
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_90px_1fr_auto]">
           <CampoSelect
             etiqueta="Ítem"

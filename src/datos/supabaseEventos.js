@@ -79,6 +79,32 @@ const soloHoraMinuto = (hora) => (hora ? hora.slice(0, 5) : '');
  */
 const oNulo = (v) => (v === '' || v === undefined ? null : v);
 
+/** Compatibilidad temporal para desplegar el rango antes de poder ejecutar la
+ * migración desde la red municipal, que bloquea los puertos de PostgreSQL. La
+ * migración 0011 normaliza estas marcas y las elimina de `descripcion`. */
+const MARCA_FECHA_HASTA = /(?:\r?\n){0,2}\[\[portal_fecha_hasta:(\d{4}-\d{2}-\d{2})\]\]\s*$/;
+let columnaFechaHasta = null;
+
+async function detectarColumnaFechaHasta() {
+  if (columnaFechaHasta !== null) return;
+  const { error } = await supabase.from('eventos').select('fecha_hasta').limit(1);
+  if (error?.code === '42703') {
+    columnaFechaHasta = false;
+    return;
+  }
+  if (error) throw error;
+  columnaFechaHasta = true;
+}
+
+function descripcionLocal(fila) {
+  const descripcion = fila.descripcion ?? '';
+  const marca = descripcion.match(MARCA_FECHA_HASTA);
+  return {
+    detalle: descripcion.replace(MARCA_FECHA_HASTA, '').trimEnd(),
+    fechaHasta: fila.fecha_hasta ?? marca?.[1] ?? '',
+  };
+}
+
 /**
  * Nombre de área para el portal: el formal, porque es el que ofrecen los
  * desplegables. Si por algo falta, cae al corto en vez de dejar el campo vacío
@@ -88,14 +114,16 @@ const nombreDeArea = (area) => area?.nombre_formal ?? area?.nombre ?? '';
 
 /** Fila de la base → objeto con la forma que espera el portal. */
 function aFormaLocal(fila) {
+  const { detalle, fechaHasta } = descripcionLocal(fila);
   return {
     id: fila.id,
     nombre: fila.nombre,
     // En la base la columna se llama `descripcion` y viene de 0001; en el
     // portal el campo se llama «Detalle». Se traduce, no se renombra ninguna
     // de las dos puntas.
-    detalle: fila.descripcion ?? '',
+    detalle,
     fecha: fila.fecha ?? '',
+    fecha_hasta: fechaHasta,
     hora: soloHoraMinuto(fila.hora),
     lugar: fila.lugar ?? '',
     area_organizadora: nombreDeArea(fila.area),
@@ -119,8 +147,17 @@ async function aFormaBase(datos) {
   // front agregue mañana no se cuela a la base y falla con «column not found»
   // en el momento menos oportuno.
   if ('nombre' in datos) fila.nombre = datos.nombre;
-  if ('detalle' in datos) fila.descripcion = oNulo(datos.detalle);
+  if ('detalle' in datos || 'fecha_hasta' in datos) {
+    const detalle = datos.detalle ?? '';
+    const fechaHasta = oNulo(datos.fecha_hasta);
+    fila.descripcion = oNulo(
+      columnaFechaHasta === false && fechaHasta
+        ? `${detalle.trimEnd()}\n\n[[portal_fecha_hasta:${fechaHasta}]]`
+        : detalle,
+    );
+  }
   if ('fecha' in datos) fila.fecha = oNulo(datos.fecha);
+  if ('fecha_hasta' in datos && columnaFechaHasta !== false) fila.fecha_hasta = oNulo(datos.fecha_hasta);
   if ('hora' in datos) fila.hora = oNulo(datos.hora);
   if ('lugar' in datos) fila.lugar = oNulo(datos.lugar);
   if ('tipo' in datos) fila.tipo = oNulo(datos.tipo);
@@ -147,9 +184,13 @@ async function aFormaBase(datos) {
 
 /* ── Lectura ────────────────────────────────────────────────────────── */
 
-const CAMPOS_EVENTO =
+const CAMPOS_EVENTO_BASE =
   'id, nombre, descripcion, fecha, hora, lugar, tipo, estado, activo, created_at, ' +
   'proyecto_ref_local, area:areas(nombre, nombre_formal), autor:perfiles(nombre)';
+const CAMPOS_EVENTO =
+  'id, nombre, descripcion, fecha, fecha_hasta, hora, lugar, tipo, estado, activo, created_at, ' +
+  'proyecto_ref_local, area:areas(nombre, nombre_formal), autor:perfiles(nombre)';
+const camposEventoActuales = () => (columnaFechaHasta === false ? CAMPOS_EVENTO_BASE : CAMPOS_EVENTO);
 
 const CAMPOS_REQUERIMIENTO =
   'id, evento_id, cantidad, estado, activo, item:items_requerimiento(nombre), area:areas(nombre, nombre_formal)';
@@ -162,10 +203,18 @@ const CAMPOS_REQUERIMIENTO =
  * requerimientos durante un instante.
  */
 export async function cargar() {
-  const [eventos, requerimientos] = await Promise.all([
-    supabase.from('eventos').select(CAMPOS_EVENTO).order('fecha', { ascending: false }),
+  const consultoConRango = columnaFechaHasta !== false;
+  const [respuestaEventos, requerimientos] = await Promise.all([
+    supabase.from('eventos').select(camposEventoActuales()).order('fecha', { ascending: false }),
     supabase.from('requerimientos_evento').select(CAMPOS_REQUERIMIENTO),
   ]);
+  let eventos = respuestaEventos;
+  if (eventos.error?.code === '42703') {
+    columnaFechaHasta = false;
+    eventos = await supabase.from('eventos').select(CAMPOS_EVENTO_BASE).order('fecha', { ascending: false });
+  } else if (!eventos.error && consultoConRango) {
+    columnaFechaHasta = true;
+  }
   if (eventos.error) throw eventos.error;
   if (requerimientos.error) throw requerimientos.error;
 
@@ -186,6 +235,7 @@ export async function cargar() {
 /* ── Escritura ──────────────────────────────────────────────────────── */
 
 export async function crearEvento(datos) {
+  await detectarColumnaFechaHasta();
   const fila = await aFormaBase(datos);
 
   // Quién lo cargó, de verdad. Hasta que hubo login esto era el texto libre de
@@ -197,19 +247,20 @@ export async function crearEvento(datos) {
   const { data, error } = await supabase
     .from('eventos')
     .insert(fila)
-    .select(CAMPOS_EVENTO)
+    .select(camposEventoActuales())
     .single();
   if (error) throw error;
   return aFormaLocal(data);
 }
 
 export async function actualizarEvento(id, cambios) {
+  await detectarColumnaFechaHasta();
   const fila = await aFormaBase(cambios);
   const { data, error } = await supabase
     .from('eventos')
     .update(fila)
     .eq('id', id)
-    .select(CAMPOS_EVENTO)
+    .select(camposEventoActuales())
     .single();
   if (error) throw error;
   return aFormaLocal(data);

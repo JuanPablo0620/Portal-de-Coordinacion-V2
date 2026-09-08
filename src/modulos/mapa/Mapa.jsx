@@ -65,7 +65,7 @@ import {
   verticesDe,
   vigenciaDe,
 } from '../../datos/cortes.js';
-import { contextoDe, cuadrasEn, errorGeoportal } from '../../datos/geoportal.js';
+import { contextoDe, cuadrasEn, errorGeoportal, limitePartido } from '../../datos/geoportal.js';
 import { hoyISO } from '../../datos/tiempo.js';
 import { fecha as fFecha } from '../../utilidades/formato.js';
 import { acciones, useBD } from '../../estado/tienda.js';
@@ -88,6 +88,17 @@ export default function Mapa() {
   const [filtros, setFiltros] = useFiltrosUrl(DEFAULTS);
   const [formulario, setFormulario] = useState(null);
   const [aBorrar, setABorrar] = useState(null);
+  const [limite, setLimite] = useState([]);
+
+  useEffect(() => {
+    let vigente = true;
+    limitePartido().then((contornos) => {
+      if (vigente) setLimite(contornos);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, []);
 
   /** Paso 1 de la carga. `null` = no se está eligiendo nada. */
   const [seleccion, setSeleccion] = useState(null);
@@ -177,7 +188,19 @@ export default function Mapa() {
   /* ── Formas del mapa ──────────────────────────────────────────────── */
 
   const formas = useMemo(() => {
-    const lista = [];
+    const lista = limite.length
+      ? [
+          {
+            id: null,
+            tipo: 'linea',
+            puntos: limite,
+            clase: 'corte-limite-partido',
+            grosor: 3,
+            mostrarPuntas: false,
+            interactiva: false,
+          },
+        ]
+      : [];
 
     // Los cortes ya cargados se siguen viendo mientras se elige: sirve para no
     // cargar dos veces lo mismo y para ver qué hay alrededor.
@@ -219,7 +242,7 @@ export default function Mapa() {
       });
     }
     return lista;
-  }, [visibles, hoy, seleccion, cuadras, elegidas, listaElegidas]);
+  }, [limite, visibles, hoy, seleccion, cuadras, elegidas, listaElegidas]);
 
   function alClicEnForma(id) {
     if (String(id).startsWith('cuadra:')) {
@@ -232,9 +255,8 @@ export default function Mapa() {
   const encuadre = useMemo(() => {
     if (seleccion) return null; // Mientras se elige, el mapa lo maneja el usuario.
     if (seleccionado) return verticesDe(seleccionado);
-    const todos = visibles.flatMap(verticesDe);
-    return todos.length ? todos : null;
-  }, [seleccion, seleccionado, visibles]);
+    return limite.flat();
+  }, [seleccion, seleccionado, limite]);
 
   return (
     <>
