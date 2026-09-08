@@ -15,6 +15,7 @@ import { nuevoId, generarIdProyecto } from './ids.js';
 import { hoyISO } from './tiempo.js';
 import * as eventosRemotos from './supabaseEventos.js';
 import * as proyectosRemotos from './supabaseProyectos.js';
+import * as seguimientosRemotos from './supabaseSeguimientos.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -93,7 +94,7 @@ let errorRemoto = null;
 export const estadoRemoto = () => ({ error: errorRemoto });
 
 async function traerRemotos() {
-  if (!eventosRemotos.activo() && !proyectosRemotos.activo()) return;
+  if (!eventosRemotos.activo() && !proyectosRemotos.activo() && !seguimientosRemotos.activo()) return;
   try {
     if (eventosRemotos.activo()) {
       const remotoEventos = await eventosRemotos.cargar();
@@ -102,6 +103,9 @@ async function traerRemotos() {
     }
     if (proyectosRemotos.activo()) {
       bdActual.proyectos = await proyectosRemotos.cargar();
+    }
+    if (seguimientosRemotos.activo()) {
+      bdActual.seguimientos = await seguimientosRemotos.cargar();
     }
     errorRemoto = null;
   } catch (error) {
@@ -130,6 +134,7 @@ export async function refrescar() {
   await obtenerBD();
   eventosRemotos.olvidarCatalogos();
   proyectosRemotos.olvidarCatalogos();
+  seguimientosRemotos.olvidarCatalogos();
   await traerRemotos();
   notificar();
   return bdActual;
@@ -629,10 +634,26 @@ export async function bajaProyectoPosicionamiento(id) {
 export async function crearSeguimiento(datos) {
   // Un seguimiento puede abarcar varios proyectos; el asiento se ancla al
   // primero para que el historial del proyecto lo capture.
+  if (seguimientosRemotos.activo()) {
+    return escribirRemoto(
+      'seguimientos',
+      () => seguimientosRemotos.crearSeguimiento(datos),
+      { accion: 'alta', id_proyecto: datos.ids_proyecto?.[0] ?? null },
+    );
+  }
   return crear('seguimientos', datos, { id_proyecto: datos.ids_proyecto?.[0] ?? null });
 }
 
 export async function actualizarSeguimiento(id, cambios) {
+  if (seguimientosRemotos.activo()) {
+    const bd = await obtenerBD();
+    const previo = bd.seguimientos.find((s) => s.id === id);
+    return escribirRemoto(
+      'seguimientos',
+      () => seguimientosRemotos.actualizarSeguimiento(id, cambios),
+      { accion: 'edicion', id, previo, id_proyecto: previo?.ids_proyecto?.[0] ?? null },
+    );
+  }
   return actualizar('seguimientos', id, cambios);
 }
 
