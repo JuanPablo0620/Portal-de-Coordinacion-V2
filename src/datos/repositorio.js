@@ -373,8 +373,19 @@ export async function actualizarProyecto(id, cambios, opciones = {}) {
   );
 }
 
+/**
+ * Baja lógica de un proyecto: se cargó mal, está duplicado, no debería estar.
+ *
+ * Pasa por `actualizarProyecto` y no por `actualizar` directo para que tome el
+ * camino a Supabase. Antes escribía solo en la copia local: el proyecto
+ * desaparecía de la pantalla de quien lo dio de baja y seguía ahí para todos
+ * los demás, hasta que esa persona recargaba y volvía a aparecerle.
+ *
+ * Distinto de finalizarlo. Finalizar es un logro de gestión y cuenta en los
+ * informes; esto es sacar del medio algo que no debería figurar.
+ */
 export async function bajaProyecto(id) {
-  return actualizar('proyectos', id, { activo: false }, { id_proyecto: id });
+  return actualizarProyecto(id, { activo: false });
 }
 
 /* ── Datos reales de Posicionamiento (no sintéticos) ──────────────────── */

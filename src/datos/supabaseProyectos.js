@@ -154,7 +154,7 @@ const oNumero = (v) => (v === '' || v === null || v === undefined ? null : Numbe
 const CAMPOS_PROYECTO = [
   'id, id_legible, nombre, estado_general, responsable, prioridad',
   'fecha_inicio, fecha_fin_proyectada, causa_atraso, es_obra',
-  'monto_planificado, monto_ejecutado, zona, latitud, longitud, observaciones',
+  'monto_planificado, monto_ejecutado, zona, latitud, longitud, observaciones, activo',
   'es_estrategico, descripcion_estrategica, estrategico_nota, estrategico_marcado_en',
   'compromiso_publico, origen_estrategico',
   'created_at',
@@ -237,7 +237,9 @@ function aFormaLocal(fila, observaciones) {
     compromiso_publico: fila.compromiso_publico ?? '',
     origen_estrategico: fila.origen_estrategico ?? '',
     fecha_marcado_estrategico: fila.estrategico_marcado_en ?? '',
-    activo: true,
+    // Se lee de la base. Estaba fijo en true, asi que dar de baja un proyecto
+    // no tenia efecto: la lectura pisaba el cambio. Ver 0020_proyectos_activo.
+    activo: fila.activo ?? true,
     creado_por: fila.autor?.nombre ?? '',
     creado_en: fila.created_at,
   };
@@ -284,6 +286,7 @@ async function aFilaProyecto(datos, cat) {
   if ('latitud' in datos) fila.latitud = oNumero(datos.latitud);
   if ('longitud' in datos) fila.longitud = oNumero(datos.longitud);
   if ('observaciones' in datos) fila.observaciones = oNulo(datos.observaciones);
+  if ('activo' in datos) fila.activo = Boolean(datos.activo);
 
   if ('eje' in datos) fila.eje_id = resolver(cat.ejes, datos.eje, 'ejes');
   if ('tipo' in datos) fila.tipo_id = resolver(cat.tipos, datos.tipo, 'tipos de proyecto');
