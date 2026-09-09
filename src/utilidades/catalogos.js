@@ -17,6 +17,21 @@ export function useOpciones(nombreCatalogo) {
   }, [catalogos, nombreCatalogo]);
 }
 
+/**
+ * Programas de una secretaría, para los selectores que dependen del área.
+ *
+ * Cada programa pertenece a UNA secretaría —está en el glosario de la
+ * Dirección— así que ofrecer los sesenta y uno cuando ya se eligió el área es
+ * ofrecer sesenta opciones que van a dar vacío o, peor, colgar el proyecto de
+ * la secretaría equivocada.
+ *
+ * Sin área elegida se devuelven todos: es el estado «Todas» del filtro.
+ */
+export function useOpcionesPrograma(area) {
+  const todos = useOpciones('programas');
+  return useMemo(() => (area ? todos.filter((o) => o.area === area) : todos), [todos, area]);
+}
+
 /** Área que sólo corresponde al rol organizador de un evento. Mientras el
  * catálogo remoto se actualiza, se agrega sin convertirla en área de proyecto. */
 export function conSecretariaGeneral(opciones) {

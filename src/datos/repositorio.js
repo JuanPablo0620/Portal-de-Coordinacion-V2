@@ -117,6 +117,14 @@ const CARGAS_REMOTAS = [
   }],
   ['los proyectos', proyectosRemotos, async () => {
     bdActual.proyectos = await proyectosRemotos.cargar();
+    // Los programas REALES, con su secretaria. Pisan la semilla de la maqueta,
+    // que tiene nombres genericos que ningun proyecto usa y no sabe de que area
+    // es cada uno -- por eso el desplegable de Programa mostraba opciones que
+    // no eran y no podia filtrarse por secretaria.
+    bdActual.catalogos = {
+      ...bdActual.catalogos,
+      programas: await proyectosRemotos.cargarProgramas(),
+    };
   }],
   ['los seguimientos', seguimientosRemotos, async () => {
     bdActual.seguimientos = await seguimientosRemotos.cargar();

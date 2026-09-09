@@ -504,3 +504,35 @@ export async function quitarEstrategico(idLegible, contexto = {}) {
   const { data } = await supabase.from('proyectos').select(CAMPOS_PROYECTO).eq('id', uuid).single();
   return aFormaLocal(data, await observacionesDe(uuid));
 }
+
+/**
+ * Los programas reales, con la secretaria a la que pertenece cada uno.
+ *
+ * El portal traia los programas de `bd.catalogos.programas`, que es la semilla
+ * de la maqueta: nombres genericos —«Infraestructura urbana», «Habitat y
+ * vivienda»— que ningun proyecto real usa, y sin area. Por eso el desplegable
+ * de Programa mostraba opciones que no eran y no podia filtrarse por
+ * secretaria: el catalogo local no sabe de que area es cada programa.
+ *
+ * Estos son los 61 que existen de verdad, los mismos de los que cuelgan los 87
+ * proyectos. Se devuelven con la forma de un item de catalogo para que
+ * `useOpciones()` los consuma sin cambios, mas el `area` que hace posible
+ * filtrarlos.
+ */
+export async function cargarProgramas() {
+  const { data, error } = await supabase
+    .from('programas')
+    .select('id, nombre, activo, area:areas(nombre, nombre_formal)')
+    .eq('activo', true)
+    .order('nombre');
+  if (error) throw error;
+
+  return data.map((p) => ({
+    id: p.id,
+    nombre: p.nombre,
+    // El area va con su denominacion formal, que es la que ofrecen los
+    // desplegables del portal (ver 0005_areas_nombre_formal.sql).
+    area: p.area?.nombre_formal ?? p.area?.nombre ?? '',
+    activo: p.activo,
+  }));
+}

@@ -14,7 +14,7 @@ import { ESTADOS_PROYECTO, PRIORIDADES } from '../../datos/catalogos.js';
 import { generarIdProyecto } from '../../datos/ids.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { acciones, useBD } from '../../estado/tienda.js';
-import { useItems, useOpciones } from '../../utilidades/catalogos.js';
+import { useItems, useOpciones, useOpcionesPrograma } from '../../utilidades/catalogos.js';
 
 const VACIO = {
   proyecto: '',
@@ -57,7 +57,9 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
   const areas = useItems('areas');
   const tipos = useItems('tipos');
   const opcionesArea = useOpciones('areas');
-  const opcionesPrograma = useOpciones('programas');
+  // Depende del area elegida: un programa pertenece a una sola secretaria, y
+  // colgar el proyecto de la equivocada lo saca del informe de su area.
+  const opcionesPrograma = useOpcionesPrograma(datos.area);
   const opcionesEje = useOpciones('ejes');
   const opcionesTipo = useOpciones('tipos');
   const opcionesUnidad = useOpciones('unidades');
@@ -66,6 +68,11 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
     const valor = e?.target?.type === 'checkbox' ? e.target.checked : e?.target?.value ?? e;
     setDatos((d) => {
       const nuevo = { ...d, [campo]: valor };
+      // Cambiar de secretaría invalida el programa: cada programa pertenece a
+      // una sola. Sin esto quedaba elegido uno de la secretaría anterior, el
+      // desplegable mostraba un valor que ya no está entre sus opciones, y al
+      // guardar la base lo rechazaba con un error que no explica nada.
+      if (campo === 'area' && d.programa) nuevo.programa = '';
       // El tipo de proyecto define si es obra: se autocompleta, pero queda editable.
       if (campo === 'tipo') {
         const item = tipos.find((t) => t.nombre === valor);
