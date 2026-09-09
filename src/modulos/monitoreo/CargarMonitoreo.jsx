@@ -551,7 +551,15 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
   const [borradorCompromiso, setBorradorCompromiso] = useState(null);
   const [creandoCompromiso, setCreandoCompromiso] = useState(false);
   const [nuevoCompromiso, setNuevoCompromiso] = useState(null);
-  const [errorAccion, setErrorAccion] = useState('');
+  /**
+   * Error de la ultima accion, ATADO al proyecto donde ocurrio.
+   *
+   * Era un string suelto que se le pasaba a todas las tarjetas, asi que un
+   * fallo en un proyecto pintaba el mismo cartel rojo en los otros tres de la
+   * secretaria. Parecia que se habia roto todo cuando en realidad habia fallado
+   * uno. Ahora es { idProyecto, mensaje } y cada tarjeta muestra solo el suyo.
+   */
+  const [errorAccion, setErrorAccion] = useState(null);
   const [guardando, setGuardando] = useState(false);
 
   function alternarProyecto(p) {
@@ -569,7 +577,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
   }
 
   async function guardarProyecto(p) {
-    setErrorAccion('');
+    setErrorAccion(null);
     setGuardando(true);
     try {
       await acciones.actualizarProyecto(
@@ -583,7 +591,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
       setAbiertoProyecto(null);
       setBorradorProyecto(null);
     } catch (error) {
-      setErrorAccion(`No se pudo guardar el proyecto: ${error.message}`);
+      setErrorAccion({ idProyecto: p.id_proyecto, mensaje: `No se pudo guardar el proyecto: ${error.message}` });
     } finally {
       setGuardando(false);
     }
@@ -599,10 +607,29 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
     }
   }
 
-  async function guardarCompromiso(c) {
-    await acciones.actualizarEstadoCompromiso(c.id, borradorCompromiso);
-    setAbiertoCompromiso(null);
-    setBorradorCompromiso(null);
+  /**
+   * Guardar los cambios de un compromiso ya cargado.
+   *
+   * Sin el try/catch el boton no hacia NADA cuando fallaba: la promesa se
+   * rompia en silencio, no se cerraba el formulario y no aparecia ningun
+   * mensaje. Es el mismo agujero que tenian los formularios de eventos antes de
+   * que los datos vivieran en Supabase, donde guardar no fallaba nunca.
+   */
+  async function guardarCompromiso(c, p) {
+    setErrorAccion(null);
+    setGuardando(true);
+    try {
+      await acciones.actualizarEstadoCompromiso(c.id, borradorCompromiso);
+      setAbiertoCompromiso(null);
+      setBorradorCompromiso(null);
+    } catch (error) {
+      setErrorAccion({
+        idProyecto: p?.id_proyecto ?? null,
+        mensaje: `No se pudo guardar el compromiso: ${error.message}`,
+      });
+    } finally {
+      setGuardando(false);
+    }
   }
 
   function abrirNuevoCompromiso() {
@@ -611,7 +638,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
   }
 
   async function guardarNuevoCompromiso(p) {
-    setErrorAccion('');
+    setErrorAccion(null);
     setGuardando(true);
     try {
       await acciones.crearCompromisoDirecto({
@@ -625,7 +652,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
       setCreandoCompromiso(false);
       setNuevoCompromiso(null);
     } catch (error) {
-      setErrorAccion(`No se pudo crear el compromiso: ${error.message}`);
+      setErrorAccion({ idProyecto: p.id_proyecto, mensaje: `No se pudo crear el compromiso: ${error.message}` });
     } finally {
       setGuardando(false);
     }
@@ -672,7 +699,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
               alAlternarCompromiso={alternarCompromiso}
               borradorCompromiso={borradorCompromiso}
               alCambiarBorradorCompromiso={(parcial) => setBorradorCompromiso((b) => ({ ...b, ...parcial }))}
-              alGuardarCompromiso={guardarCompromiso}
+              alGuardarCompromiso={(c) => guardarCompromiso(c, p)}
               creandoCompromiso={creandoCompromiso}
               alAbrirNuevoCompromiso={abrirNuevoCompromiso}
               alCerrarNuevoCompromiso={() => {
@@ -753,7 +780,9 @@ function TarjetaProyectoVentana({
         onClick={alAlternar}
         className="flex w-full flex-wrap items-center gap-2.5 p-3 text-left"
       >
-      {errorAccion && <Aviso tono="error">{errorAccion}</Aviso>}
+      {errorAccion?.idProyecto === proyecto.id_proyecto && (
+        <Aviso tono="error">{errorAccion.mensaje}</Aviso>
+      )}
         <span className="text-sm font-semibold text-tinta">
           {proyecto.proyecto} <span className="text-xs font-normal text-acento">· {proyecto.id_proyecto}</span>
         </span>
