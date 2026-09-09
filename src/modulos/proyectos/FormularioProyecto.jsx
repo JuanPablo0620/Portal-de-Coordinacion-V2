@@ -10,7 +10,7 @@ import {
   CampoTexto,
   GrillaCampos,
 } from '../../componentes/Campo.jsx';
-import { ESTADOS_PROYECTO, PRIORIDADES } from '../../datos/catalogos.js';
+import { ESTADOS_PROYECTO, LOCALIDADES_TRES_DE_FEBRERO, PRIORIDADES } from '../../datos/catalogos.js';
 import { generarIdProyecto } from '../../datos/ids.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { acciones, useBD } from '../../estado/tienda.js';
@@ -72,7 +72,7 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
       // una sola. Sin esto quedaba elegido uno de la secretaría anterior, el
       // desplegable mostraba un valor que ya no está entre sus opciones, y al
       // guardar la base lo rechazaba con un error que no explica nada.
-      if (campo === 'area' && d.programa) nuevo.programa = '';
+      if (campo === 'area' && valor !== d.area) nuevo.programa = '';
       // El tipo de proyecto define si es obra: se autocompleta, pero queda editable.
       if (campo === 'tipo') {
         const item = tipos.find((t) => t.nombre === valor);
@@ -197,7 +197,14 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
 
         <GrillaCampos columnas={3}>
           <CampoSelect etiqueta="Área" requerido opciones={opcionesArea} value={datos.area} onChange={cambiar('area')} error={errores.area} />
-          <CampoSelect etiqueta="Programa" opciones={opcionesPrograma} value={datos.programa} onChange={cambiar('programa')} />
+          <CampoSelect
+            etiqueta="Programa"
+            ayuda={datos.area ? `solo los de ${datos.area}` : 'elegí primero un área'}
+            opciones={opcionesPrograma}
+            value={datos.programa}
+            onChange={cambiar('programa')}
+            disabled={!datos.area}
+          />
           <CampoSelect etiqueta="Eje estratégico" opciones={opcionesEje} value={datos.eje} onChange={cambiar('eje')} />
           {!modoObra && (
             <CampoSelect etiqueta="Tipo" requerido opciones={opcionesTipo} value={datos.tipo} onChange={cambiar('tipo')} error={errores.tipo} />
@@ -247,11 +254,11 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
         <fieldset className="rounded-chip border border-borde p-3">
           <legend className="px-1 text-xs font-semibold text-gris">Ubicación</legend>
           <GrillaCampos columnas={3}>
-            <CampoTexto
-              etiqueta="Zona o barrio"
+            <CampoSelect
+              etiqueta="Localidad"
               value={datos.zona}
               onChange={cambiar('zona')}
-              placeholder="Ej.: Villa Esperanza"
+              opciones={LOCALIDADES_TRES_DE_FEBRERO}
             />
             <CampoNumero
               etiqueta="Latitud"

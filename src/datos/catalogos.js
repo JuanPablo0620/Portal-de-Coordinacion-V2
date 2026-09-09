@@ -27,6 +27,26 @@ export const ESTADOS_ACTIVOS = Object.freeze(['planificado', 'en ejecución', 'd
 
 export const PRIORIDADES = Object.freeze(['alta', 'media', 'baja']);
 
+/** Localidades y barrios que aparecen en los datos de gestión del partido. */
+export const LOCALIDADES_TRES_DE_FEBRERO = Object.freeze([
+  'Caseros',
+  'Churruca',
+  'Ciudadela',
+  'Ciudad Jardín',
+  'Ejército de los Andes',
+  'El Libertador',
+  'José Ingenieros',
+  'Loma Hermosa',
+  'Martín Coronado',
+  'Once de Septiembre',
+  'Pablo Podestá',
+  'Remedios de Escalada',
+  'Sáenz Peña',
+  'Santos Lugares',
+  'Villa Bosch',
+  'Villa Raffo',
+]);
+
 export const CRITICIDADES = Object.freeze(['alta', 'media', 'baja']);
 
 /**
