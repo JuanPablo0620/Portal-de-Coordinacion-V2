@@ -54,10 +54,24 @@ function crearCapaBase(L, cual) {
       attribution: 'Geoportal Municipalidad de Tres de Febrero',
     });
   }
-  return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    subdomains: 'abcd',
-    maxZoom: 20,
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  /*
+   * Teselas de OpenStreetMap, no de CARTO.
+   *
+   * CARTO pasó a exigir clave para sus mapas base: sus teselas siguen
+   * respondiendo HTTP 200, pero devuelven la imagen con «API KEY REQUIRED»
+   * estampada encima. Por eso el mapa se veía "roto" sin dar ningún error —
+   * técnicamente cargaba bien, solo que la imagen decía otra cosa.
+   *
+   * OSM no pide clave. Su política de uso pide atribución visible y volumen
+   * razonable; nueve personas de Coordinación entran holgadas.
+   *
+   * Si algún día OSM también cambiara, el reemplazo ya está acá al lado: la
+   * capa «Callejero municipal» sale del geoportal del propio municipio y no
+   * depende de ningún tercero.
+   */
+  return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; colaboradores de OpenStreetMap',
   });
 }
 
