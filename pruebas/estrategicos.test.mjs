@@ -56,9 +56,7 @@ test('marcar estratégico no duplica el proyecto: lo marca en la base maestra', 
   await limpio();
   const p = await repo.crearProyecto(PROYECTO);
   await repo.marcarEstrategico(p.id_proyecto, {
-    prioridad_estrategica: 'alta',
-    motivo_estrategico: 'Alto impacto vecinal',
-    responsable_politico: 'M. López',
+    descripcion_estrategica: 'Alto impacto vecinal',
   });
 
   const bd = await repo.obtenerBD();
@@ -66,21 +64,21 @@ test('marcar estratégico no duplica el proyecto: lo marca en la base maestra', 
 
   const cartera = proyectosEstrategicos(bd, {}, HOY);
   assert.equal(cartera.length, 1);
-  assert.equal(cartera[0].motivo_estrategico, 'Alto impacto vecinal');
+  assert.equal(cartera[0].descripcion_estrategica, 'Alto impacto vecinal');
   assert.equal(cartera[0].origen_estrategico, 'base');
 });
 
 test('sacarlo de la cartera conserva por qué estuvo', async () => {
   await limpio();
   const p = await repo.crearProyecto(PROYECTO);
-  await repo.marcarEstrategico(p.id_proyecto, { motivo_estrategico: 'Riesgo alto si se atrasa' });
+  await repo.marcarEstrategico(p.id_proyecto, { descripcion_estrategica: 'Riesgo alto si se atrasa' });
   await repo.quitarEstrategico(p.id_proyecto);
 
   const bd = await repo.obtenerBD();
   assert.equal(proyectosEstrategicos(bd, {}, HOY).length, 0, 'deja de contar en la cartera');
   const guardado = bd.proyectos[0];
   assert.equal(guardado.estrategico, false);
-  assert.equal(guardado.motivo_estrategico, 'Riesgo alto si se atrasa', 'el motivo no se borra');
+  assert.equal(guardado.descripcion_estrategica, 'Riesgo alto si se atrasa', 'la descripción no se borra');
 });
 
 /* ── El semáforo propio ───────────────────────────────────────────── */
@@ -110,7 +108,7 @@ test('un estratégico callado alerta a los 20 días; el mismo proyecto sin decla
   const soloEstrategica = (lista) => lista.filter((a) => a.tipo === TIPOS_ALERTA.ESTRATEGICO_SIN_NOVEDAD);
   assert.equal(soloEstrategica(calcularAlertas(bd, HOY)).length, 0, 'todavía no es estratégico');
 
-  await repo.marcarEstrategico(p.id_proyecto, { motivo_estrategico: 'Compromiso público de gestión' });
+  await repo.marcarEstrategico(p.id_proyecto, { descripcion_estrategica: 'Compromiso público de gestión' });
   await silenciar(p.id_proyecto, 20);
   bd = await repo.obtenerBD();
   assert.equal(soloEstrategica(calcularAlertas(bd, HOY)).length, 1);
@@ -119,7 +117,7 @@ test('un estratégico callado alerta a los 20 días; el mismo proyecto sin decla
 test('pasados los 30 días alerta la regla general y no las dos a la vez', async () => {
   await limpio();
   const p = await repo.crearProyecto(PROYECTO);
-  await repo.marcarEstrategico(p.id_proyecto, { motivo_estrategico: 'Alto impacto vecinal' });
+  await repo.marcarEstrategico(p.id_proyecto, { descripcion_estrategica: 'Alto impacto vecinal' });
   await silenciar(p.id_proyecto, 60);
 
   const bd = await repo.obtenerBD();
@@ -149,8 +147,7 @@ test('promover desde un tema de monitoreo deja el rastro del origen', async () =
     origen_tipo: 'monitoreo',
     id_origen: tema.id,
     id_proyecto: p.id_proyecto,
-    motivo_estrategico: 'Riesgo alto si se atrasa',
-    prioridad_estrategica: 'alta',
+    descripcion_estrategica: 'Riesgo alto si se atrasa',
   });
 
   const bd = await repo.obtenerBD();
@@ -173,7 +170,7 @@ test('si el tema no tiene proyecto, la promoción da de alta uno en la base maes
     origen_tipo: 'monitoreo',
     id_origen: tema.id,
     proyecto: { ...PROYECTO, proyecto: 'Plan integral del sector' },
-    motivo_estrategico: 'Innovación institucional',
+    descripcion_estrategica: 'Innovación institucional',
   });
 
   const bd = await repo.obtenerBD();
@@ -227,7 +224,7 @@ test('los candidatos se agrupan por proyecto y suman señales', async () => {
   assert.deepEqual([...candidatos[0].origenes].sort(), ['monitoreo', 'seguimiento']);
 
   // Una vez promovido deja de proponerse: no se promueve dos veces lo mismo.
-  await repo.marcarEstrategico(p.id_proyecto, { motivo_estrategico: 'Alto impacto vecinal' });
+  await repo.marcarEstrategico(p.id_proyecto, { descripcion_estrategica: 'Alto impacto vecinal' });
   bd = await repo.obtenerBD();
   assert.equal(candidatosEstrategicos(bd, {}, HOY).length, 0);
 });
@@ -255,7 +252,7 @@ test('el resumen no cuenta como silencio a los proyectos ya finalizados', async 
   const activo = await repo.crearProyecto(PROYECTO);
   const terminado = await repo.crearProyecto({ ...PROYECTO, proyecto: 'Obra terminada', estado: 'finalizado' });
   for (const p of [activo, terminado]) {
-    await repo.marcarEstrategico(p.id_proyecto, { motivo_estrategico: 'Alto impacto vecinal' });
+    await repo.marcarEstrategico(p.id_proyecto, { descripcion_estrategica: 'Alto impacto vecinal' });
     await silenciar(p.id_proyecto, 40);
   }
 

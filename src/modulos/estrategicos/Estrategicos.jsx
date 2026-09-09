@@ -45,7 +45,7 @@ import { GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../../componentes/
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { FormularioEstrategico } from './FormularioEstrategico.jsx';
 import { FormularioNovedad } from './FormularioNovedad.jsx';
-import { PRIORIDADES, UMBRALES } from '../../datos/catalogos.js';
+import { UMBRALES } from '../../datos/catalogos.js';
 import {
   candidatosEstrategicos,
   hoyISO,
@@ -60,15 +60,13 @@ import { acciones as repo, useBD } from '../../estado/tienda.js';
 const DEFAULTS = {
   tab: 'tablero',
   area: '',
-  prioridad_estrategica: '',
-  motivo_estrategico: '',
   estado: '',
   origen_tipo: '',
   proyecto: '',
 };
 
 /** Lo que limpia el botón: filtros, nunca la pestaña ni el proyecto abierto. */
-const CLAVES_FILTRO = ['area', 'prioridad_estrategica', 'motivo_estrategico', 'estado', 'origen_tipo'];
+const CLAVES_FILTRO = ['area', 'estado', 'origen_tipo'];
 
 const ETIQUETA_ORIGEN = { base: 'Base maestra', monitoreo: 'Monitoreo', seguimiento: 'Seguimiento' };
 
@@ -83,8 +81,6 @@ export default function Estrategicos() {
   const criterios = useMemo(
     () => ({
       area: filtros.area,
-      prioridad_estrategica: filtros.prioridad_estrategica,
-      motivo_estrategico: filtros.motivo_estrategico,
       estado: filtros.estado,
     }),
     [filtros],
@@ -180,11 +176,6 @@ function Tablero({ resumen, cartera, setFiltros }) {
     { clave: 'enregla', titulo: 'En regla' },
   ].map((n) => ({ ...n, cantidad: resumen.por_nivel[n.clave] ?? 0 }));
 
-  const porPrioridad = PRIORIDADES.map((p) => ({
-    nombre: p,
-    cantidad: resumen.por_prioridad[p] ?? 0,
-  }));
-
   const enRiesgo = cartera.filter((p) => ['vencido', 'proximo'].includes(p.nivel_estrategico)).slice(0, 8);
 
   return (
@@ -248,35 +239,29 @@ function Tablero({ resumen, cartera, setFiltros }) {
         )}
       </Tarjeta>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Tarjeta titulo="Estado de la cartera" descripcion="Con el semáforo propio de lo estratégico.">
-          <GraficoBarras
-            datos={porNivel}
-            clave="clave"
-            horizontal
-            anchoEtiqueta={90}
-            alto={220}
-            series={[
-              {
-                clave: 'cantidad',
-                titulo: 'Proyectos',
-                colorPorItem: (d) => `var(--color-${d.clave})`,
-              },
-            ]}
-          />
-          <ul className="mt-2 flex flex-col gap-0.5">
-            {porNivel.map((n) => (
-              <li key={n.clave} className="text-[11px] text-tenue">
-                <span className="font-medium text-gris">{n.clave}</span> · {n.titulo}
-              </li>
-            ))}
-          </ul>
-        </Tarjeta>
-
-        <Tarjeta titulo="Por prioridad estratégica" descripcion="No todos los estratégicos pesan igual.">
-          <GraficoBarras datos={porPrioridad} alto={200} series={[{ clave: 'cantidad', titulo: 'Proyectos' }]} />
-        </Tarjeta>
-      </div>
+      <Tarjeta titulo="Estado de la cartera" descripcion="Con el semáforo propio de lo estratégico.">
+        <GraficoBarras
+          datos={porNivel}
+          clave="clave"
+          horizontal
+          anchoEtiqueta={90}
+          alto={220}
+          series={[
+            {
+              clave: 'cantidad',
+              titulo: 'Proyectos',
+              colorPorItem: (d) => `var(--color-${d.clave})`,
+            },
+          ]}
+        />
+        <ul className="mt-2 flex flex-col gap-0.5">
+          {porNivel.map((n) => (
+            <li key={n.clave} className="text-[11px] text-tenue">
+              <span className="font-medium text-gris">{n.clave}</span> · {n.titulo}
+            </li>
+          ))}
+        </ul>
+      </Tarjeta>
     </div>
   );
 }
@@ -286,7 +271,6 @@ function Tablero({ resumen, cartera, setFiltros }) {
 function PanelCartera({ cartera, filtros, setFiltros, alEditar, alRegistrarNovedad, alQuitar }) {
   const navegar = useNavigate();
   const opcionesArea = useOpciones('areas');
-  const opcionesMotivo = useOpciones('motivos_estrategicos');
   const elegido = filtros.proyecto ? cartera.find((p) => p.id_proyecto === filtros.proyecto) : null;
 
   return (
@@ -299,20 +283,6 @@ function PanelCartera({ cartera, filtros, setFiltros, alEditar, alRegistrarNoved
       >
         <GrillaFiltros columnas={3}>
           <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
-          <CampoSelect
-            etiqueta="Prioridad estratégica"
-            opciones={PRIORIDADES}
-            value={filtros.prioridad_estrategica}
-            onChange={(e) => setFiltros({ prioridad_estrategica: e.target.value })}
-            placeholder="Todas"
-          />
-          <CampoSelect
-            etiqueta="Motivo"
-            opciones={opcionesMotivo}
-            value={filtros.motivo_estrategico}
-            onChange={(e) => setFiltros({ motivo_estrategico: e.target.value })}
-            placeholder="Todos"
-          />
         </GrillaFiltros>
       </TarjetaFiltros>
 
@@ -336,17 +306,7 @@ function PanelCartera({ cartera, filtros, setFiltros, alEditar, alRegistrarNoved
                 </div>
               ),
             },
-            {
-              clave: 'prioridad_estrategica',
-              titulo: 'Prioridad',
-              ancho: 110,
-              render: (p) => (
-                <Chip tono={p.prioridad_estrategica === 'alta' ? 'vencido' : p.prioridad_estrategica === 'media' ? 'atencion' : 'neutro'}>
-                  {p.prioridad_estrategica || '—'}
-                </Chip>
-              ),
-            },
-            { clave: 'motivo_estrategico', titulo: 'Motivo', ancho: 200 },
+            { clave: 'descripcion_estrategica', titulo: 'Descripción', ancho: 260 },
             {
               clave: 'origen_estrategico',
               titulo: 'Origen',
@@ -420,15 +380,17 @@ function PanelCartera({ cartera, filtros, setFiltros, alEditar, alRegistrarNoved
         >
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Chip tono="acento">prioridad {elegido.prioridad_estrategica || 'sin definir'}</Chip>
-              {elegido.motivo_estrategico && <Chip tono="neutro">{elegido.motivo_estrategico}</Chip>}
               <Chip tono="neutro">{ETIQUETA_ORIGEN[elegido.origen_estrategico] ?? 'Base maestra'}</Chip>
               <EstadoProyecto estado={elegido.estado} />
             </div>
 
+            {elegido.descripcion_estrategica && (
+              <Aviso tono="info" titulo="Descripción del proyecto">
+                {elegido.descripcion_estrategica}
+              </Aviso>
+            )}
+
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
-              <Dato titulo="Responsable político" valor={elegido.responsable_politico || '—'} />
-              <Dato titulo="Fecha comprometida" valor={elegido.fecha_compromiso ? fFecha(elegido.fecha_compromiso) : '—'} />
               <Dato titulo="Declarado el" valor={elegido.fecha_marcado_estrategico ? fFecha(elegido.fecha_marcado_estrategico) : '—'} />
               <Dato titulo="Fin previsto" valor={fFecha(elegido.fecha_fin_prevista)} />
               <Dato titulo="Avance" valor={`${numero(elegido.avance)} / ${numero(elegido.objetivo)} ${elegido.unidad}`} />

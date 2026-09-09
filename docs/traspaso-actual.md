@@ -19,7 +19,7 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 08/09/2026 · Codex, por pedido de JP
+**Última actualización:** 09/09/2026 · Codex, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
@@ -36,6 +36,8 @@ que el otro no puede deducir leyendo el repo.
 | Secretaría General | Agregada y verificada en el catálogo real de Supabase por API REST |
 | Datos remotos del portal | Proyectos, seguimientos, compromisos, eventos y requerimientos de evento leen y escriben en Supabase |
 | `npm run verificar` | Pasa con 362 tests, build, humo y accesibilidad |
+| Cartera estratégica | El formulario usa la prioridad general del proyecto y una descripción libre obligatoria; ya no muestra prioridad estratégica propia, motivo, responsable político ni fecha comprometida |
+| Agenda de seguimiento | Al agendar sólo pide área, fecha y hora; no asocia proyectos ni adelanta participantes o temas |
 
 Eventos y Mapa ya implementan los pedidos de JP del 08/09. Como la red municipal
 bloquea 5432 y 6543 y no había sesión de navegador disponible para el SQL Editor,

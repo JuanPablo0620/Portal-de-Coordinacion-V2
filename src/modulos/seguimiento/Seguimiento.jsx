@@ -28,8 +28,7 @@ import { Alternadores, GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../.
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { Calendario, useMesVisible } from '../../componentes/Calendario.jsx';
 import { Modal } from '../../componentes/Modal.jsx';
-import { CampoArea, CampoFecha, CampoHora, CampoRadios, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
-import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
+import { CampoArea, CampoFecha, CampoHora, CampoRadios, CampoSelect, GrillaCampos } from '../../componentes/Campo.jsx';
 import { CargarSeguimiento } from './CargarSeguimiento.jsx';
 import { HistorialArea } from './HistorialArea.jsx';
 import { COLUMNAS_COMPROMISO, nivelDe } from './columnasCompromiso.jsx';
@@ -505,8 +504,7 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
 function AgendarSeguimiento({ abierto, alCerrar }) {
   const hoy = hoyISO();
   const opcionesArea = useOpciones('areas');
-  const [datos, setDatos] = useState({ area: '', fecha: '', hora: '', participantes: '', temas: '' });
-  const [ids, setIds] = useState([]);
+  const [datos, setDatos] = useState({ area: '', fecha: '', hora: '' });
   const [error, setError] = useState('');
 
   const cambiar = (campo) => (e) => setDatos((d) => ({ ...d, [campo]: e.target.value }));
@@ -518,7 +516,7 @@ function AgendarSeguimiento({ abierto, alCerrar }) {
     }
     await acciones.crearSeguimiento({
       ...datos,
-      ids_proyecto: ids,
+      ids_proyecto: [],
       tipo: 'programado',
       texto_crudo: '',
       resumen: '',
@@ -551,9 +549,6 @@ function AgendarSeguimiento({ abierto, alCerrar }) {
           <CampoFecha etiqueta="Fecha" requerido min={hoy} value={datos.fecha} onChange={cambiar('fecha')} />
           <CampoHora etiqueta="Hora" value={datos.hora} onChange={cambiar('hora')} />
         </GrillaCampos>
-        <SelectorProyecto multiple valor={ids} alCambiar={setIds} etiqueta="Proyectos a tratar" maxAltura={180} />
-        <CampoTexto etiqueta="Participantes previstos" value={datos.participantes} onChange={cambiar('participantes')} placeholder="Nombres separados por coma" />
-        <CampoTexto etiqueta="Temas a tratar" value={datos.temas} onChange={cambiar('temas')} placeholder="Ej.: avance trimestral, cronograma, presupuesto" />
         {error && (
           <p className="flex items-center gap-1.5 text-xs text-vencido-texto">
             <X size={13} /> {error}

@@ -155,13 +155,12 @@ const CAMPOS_PROYECTO = [
   'id, id_legible, nombre, estado_general, responsable, prioridad',
   'fecha_inicio, fecha_fin_proyectada, causa_atraso, es_obra',
   'monto_planificado, monto_ejecutado, zona, latitud, longitud, observaciones',
-  'es_estrategico, prioridad_estrategica, estrategico_nota, estrategico_marcado_en',
-  'responsable_politico, compromiso_publico, fecha_compromiso, origen_estrategico',
+  'es_estrategico, descripcion_estrategica, estrategico_nota, estrategico_marcado_en',
+  'compromiso_publico, origen_estrategico',
   'created_at',
   'programa:programas(nombre, area:areas(nombre, nombre_formal))',
   'eje:ejes(nombre)',
   'tipo:tipos_proyecto(nombre)',
-  'motivo:motivos_estrategicos(nombre)',
   'autor:perfiles!creado_por(nombre)',
 ].join(', ');
 
@@ -234,11 +233,8 @@ function aFormaLocal(fila, observaciones) {
     longitud: fila.longitud ?? '',
     observaciones: fila.observaciones ?? '',
     estrategico: fila.es_estrategico,
-    prioridad_estrategica: fila.prioridad_estrategica ?? '',
-    motivo_estrategico: fila.motivo?.nombre ?? '',
-    responsable_politico: fila.responsable_politico ?? '',
+    descripcion_estrategica: fila.descripcion_estrategica ?? '',
     compromiso_publico: fila.compromiso_publico ?? '',
-    fecha_compromiso: fila.fecha_compromiso ?? '',
     origen_estrategico: fila.origen_estrategico ?? '',
     fecha_marcado_estrategico: fila.estrategico_marcado_en ?? '',
     activo: true,
@@ -476,18 +472,12 @@ async function observacionesDe(uuid) {
  * gabinete toque solo eso y nada más del proyecto.
  */
 export async function marcarEstrategico(idLegible, datos, contexto = {}) {
-  const cat = await catalogos();
   const uuid = contexto.uuid ?? (await uuidDe(idLegible));
 
   const { error } = await supabase.rpc('marcar_estrategico', {
     p_proyecto_id: uuid,
-    p_prioridad: datos.prioridad_estrategica || 'alta',
-    p_motivo_id: datos.motivo_estrategico
-      ? resolver(cat.motivos, datos.motivo_estrategico, 'motivos estratégicos')
-      : null,
-    p_responsable_politico: oNulo(datos.responsable_politico),
+    p_descripcion_estrategica: oNulo(datos.descripcion_estrategica),
     p_compromiso_publico: oNulo(datos.compromiso_publico),
-    p_fecha_compromiso: oNulo(datos.fecha_compromiso),
   });
   if (error) throw error;
 

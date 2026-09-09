@@ -246,19 +246,17 @@ function PanelDatos({ proyecto, serie, temas }) {
         )}
 
         {/* Los datos estratégicos van en la ficha y no sólo en su módulo: quien
-            abre el proyecto tiene que ver por qué es prioritario sin cambiar de
-            pantalla, y quién respondió por él. */}
+            abre el proyecto tiene que ver de qué se trata sin cambiar de pantalla. */}
         {proyecto.estrategico && (
           <div className="mt-3 rounded-chip border border-atencion/40 bg-atencion-suave p-3">
             <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-tinta">
               <Gem size={13} /> Proyecto estratégico
             </p>
+            {proyecto.descripcion_estrategica && (
+              <p className="mb-2 text-sm text-tinta">{proyecto.descripcion_estrategica}</p>
+            )}
             <dl className="grid grid-cols-1 gap-x-6 gap-y-0 sm:grid-cols-2">
               {[
-                ['Prioridad estratégica', proyecto.prioridad_estrategica],
-                ['Motivo', proyecto.motivo_estrategico],
-                ['Responsable político', proyecto.responsable_politico],
-                ['Fecha comprometida', proyecto.fecha_compromiso ? fFecha(proyecto.fecha_compromiso) : ''],
                 ['Origen', ORIGEN_ESTRATEGICO[proyecto.origen_estrategico] ?? 'Base maestra'],
                 ['Declarado el', proyecto.fecha_marcado_estrategico ? fFecha(proyecto.fecha_marcado_estrategico) : ''],
               ].map(([etiqueta, valor]) => (

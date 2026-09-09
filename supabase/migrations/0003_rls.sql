@@ -172,9 +172,8 @@ create policy "escritura area" on public.compromisos
 -- ---------------------------------------------------------------------------
 -- 4. Proyectos estrategicos — por que van funciones y no una politica
 --
--- "Proyectos Estrategicos" no es una tabla: son diez columnas dentro de
--- `proyectos` (es_estrategico, prioridad_estrategica, motivo_estrategico_id,
--- responsable_politico, compromiso_publico, fecha_compromiso,
+-- "Proyectos Estrategicos" no es una tabla: son columnas dentro de
+-- `proyectos` (es_estrategico, descripcion_estrategica, compromiso_publico,
 -- origen_estrategico, estrategico_nota, estrategico_marcado_por/_en). Fue una
 -- decision deliberada de 0001: un proyecto estrategico es EL MISMO proyecto
 -- que siguen Monitoreo y Seguimiento, mirado con otra prioridad; duplicarlo en
@@ -200,14 +199,11 @@ create policy "escritura area" on public.compromisos
 -- vivia en 0002_logica.sql, que nunca se escribio.
 -- ---------------------------------------------------------------------------
 create or replace function public.marcar_estrategico(
-  p_proyecto_id          uuid,
-  p_prioridad            text default 'alta',
-  p_motivo_id            uuid default null,
-  p_nota                 text default null,
-  p_responsable_politico text default null,
-  p_compromiso_publico   text default null,
-  p_fecha_compromiso     date default null,
-  p_origen               public.origen_carga default null
+  p_proyecto_id             uuid,
+  p_descripcion_estrategica text default null,
+  p_nota                    text default null,
+  p_compromiso_publico      text default null,
+  p_origen                  public.origen_carga default null
 )
 returns public.proyectos
 language plpgsql
@@ -223,23 +219,15 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
-  if p_prioridad not in ('alta', 'media') then
-    raise exception 'La prioridad estrategica solo puede ser alta o media'
-      using errcode = 'check_violation';
-  end if;
-
   -- coalesce en todo lo opcional: volver a marcar un proyecto ya estrategico
-  -- para cambiarle la prioridad no tiene que borrarle el motivo ni la nota.
+  -- para actualizarlo no tiene que borrarle la descripcion ni la nota.
   update public.proyectos set
     es_estrategico          = true,
     estrategico_marcado_por = auth.uid(),
     estrategico_marcado_en  = now(),
-    prioridad_estrategica   = p_prioridad,
-    motivo_estrategico_id   = coalesce(p_motivo_id, motivo_estrategico_id),
+    descripcion_estrategica = coalesce(p_descripcion_estrategica, descripcion_estrategica),
     estrategico_nota        = coalesce(p_nota, estrategico_nota),
-    responsable_politico    = coalesce(p_responsable_politico, responsable_politico),
     compromiso_publico      = coalesce(p_compromiso_publico, compromiso_publico),
-    fecha_compromiso        = coalesce(p_fecha_compromiso, fecha_compromiso),
     origen_estrategico      = coalesce(p_origen, origen_estrategico),
     updated_at              = now()
   where id = p_proyecto_id
@@ -290,12 +278,12 @@ end;
 $fn$;
 
 revoke all on function
-  public.marcar_estrategico(uuid, text, uuid, text, text, text, date, public.origen_carga)
+  public.marcar_estrategico(uuid, text, text, text, public.origen_carga)
   from public, anon;
 revoke all on function public.quitar_estrategico(uuid) from public, anon;
 
 grant execute on function
-  public.marcar_estrategico(uuid, text, uuid, text, text, text, date, public.origen_carga)
+  public.marcar_estrategico(uuid, text, text, text, public.origen_carga)
   to authenticated;
 grant execute on function public.quitar_estrategico(uuid) to authenticated;
 

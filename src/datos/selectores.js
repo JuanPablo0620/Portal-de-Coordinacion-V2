@@ -146,8 +146,6 @@ export function proyectos(bd, filtros = {}) {
       (resto.solo_activos ? esProyectoActivo(p) : true) &&
       (resto.solo_prioritarios ? p.prioridad === 'alta' : true) &&
       (resto.solo_estrategicos ? p.estrategico === true : true) &&
-      coincide(resto.prioridad_estrategica, p.prioridad_estrategica) &&
-      coincide(resto.motivo_estrategico, p.motivo_estrategico) &&
       dentroDelRango(p.fecha_carga, resto.desde, resto.hasta) &&
       (!texto || `${p.proyecto} ${p.id_proyecto} ${p.responsable ?? ''}`.toLowerCase().includes(texto.toLowerCase())),
     )
@@ -1227,8 +1225,6 @@ export function proyectosEstrategicos(bd, filtros = {}, hoy = hoyISO()) {
 export function resumenEstrategico(bd, filtros = {}, hoy = hoyISO()) {
   const cartera = proyectosEstrategicos(bd, filtros, hoy);
   const porNivel = {};
-  const porPrioridad = {};
-  const porMotivo = new Map();
   let planificado = 0;
   let ejecutado = 0;
   let objetivo = 0;
@@ -1236,10 +1232,6 @@ export function resumenEstrategico(bd, filtros = {}, hoy = hoyISO()) {
 
   for (const p of cartera) {
     porNivel[p.nivel_estrategico] = (porNivel[p.nivel_estrategico] ?? 0) + 1;
-    const prio = p.prioridad_estrategica || 'sin definir';
-    porPrioridad[prio] = (porPrioridad[prio] ?? 0) + 1;
-    const motivo = p.motivo_estrategico || 'Sin motivo declarado';
-    porMotivo.set(motivo, (porMotivo.get(motivo) ?? 0) + 1);
     planificado += Number(p.monto_planificado) || 0;
     ejecutado += Number(p.monto_ejecutado) || 0;
     objetivo += Number(p.objetivo) || 0;
@@ -1269,10 +1261,6 @@ export function resumenEstrategico(bd, filtros = {}, hoy = hoyISO()) {
     monto_ejecutado: ejecutado,
     ejecucion: planificado ? Math.round((ejecutado / planificado) * 100) : 0,
     por_nivel: porNivel,
-    por_prioridad: porPrioridad,
-    por_motivo: [...porMotivo.entries()]
-      .map(([nombre, cantidad]) => ({ nombre, cantidad }))
-      .sort((a, b) => b.cantidad - a.cantidad),
   };
 }
 

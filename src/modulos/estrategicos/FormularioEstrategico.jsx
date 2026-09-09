@@ -10,11 +10,9 @@
 import { useState } from 'react';
 import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton, Chip } from '../../componentes/Basicos.jsx';
-import { CampoArea, CampoFecha, CampoRadios, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
+import { CampoArea } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
-import { PRIORIDADES } from '../../datos/catalogos.js';
 import { hoyISO } from '../../datos/selectores.js';
-import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones } from '../../estado/tienda.js';
 
 const ETIQUETA_ORIGEN = {
@@ -30,15 +28,11 @@ const ETIQUETA_ORIGEN = {
  */
 export function FormularioEstrategico({ abierto, alCerrar, proyecto, candidato }) {
   const esEdicion = Boolean(proyecto?.estrategico);
-  const opcionesMotivo = useOpciones('motivos_estrategicos');
 
   const [idProyecto, setIdProyecto] = useState(proyecto?.id_proyecto ?? candidato?.id_proyecto ?? '');
   const [datos, setDatos] = useState({
-    prioridad_estrategica: proyecto?.prioridad_estrategica ?? 'alta',
-    motivo_estrategico: proyecto?.motivo_estrategico ?? '',
-    responsable_politico: proyecto?.responsable_politico ?? '',
+    descripcion_estrategica: proyecto?.descripcion_estrategica ?? '',
     compromiso_publico: proyecto?.compromiso_publico ?? candidato?.titulo ?? '',
-    fecha_compromiso: proyecto?.fecha_compromiso ?? '',
   });
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -51,18 +45,14 @@ export function FormularioEstrategico({ abierto, alCerrar, proyecto, candidato }
       setError('Elegí el proyecto que se declara estratégico.');
       return;
     }
-    if (!datos.motivo_estrategico) {
-      setError('Indicá por qué es estratégico: es lo que después justifica la prioridad.');
-      return;
-    }
-    if (datos.fecha_compromiso && datos.fecha_compromiso < hoyISO() && !esEdicion) {
-      setError('La fecha comprometida no puede ser anterior a hoy.');
+    if (!datos.descripcion_estrategica) {
+      setError('Describí el proyecto: es lo que después explica por qué está en la cartera.');
       return;
     }
     setError('');
     setGuardando(true);
     try {
-      const payload = { ...datos, fecha_compromiso: datos.fecha_compromiso || null };
+      const payload = { ...datos };
       if (candidato) {
         await acciones.promoverAEstrategico({
           origen_tipo: candidato.origen_tipo,
@@ -95,7 +85,7 @@ export function FormularioEstrategico({ abierto, alCerrar, proyecto, candidato }
       descripcion={
         esEdicion
           ? 'Los cambios quedan en el historial del proyecto.'
-          : 'El proyecto no se duplica: es el mismo de la base maestra, con prioridad y seguimiento propios.'
+          : 'El proyecto no se duplica: es el mismo de la base maestra, con seguimiento propio.'
       }
       pie={
         <>
@@ -131,37 +121,14 @@ export function FormularioEstrategico({ abierto, alCerrar, proyecto, candidato }
           />
         )}
 
-        <GrillaCampos columnas={2}>
-          <CampoRadios
-            etiqueta="Prioridad estratégica"
-            requerido
-            opciones={PRIORIDADES}
-            valor={datos.prioridad_estrategica}
-            alCambiar={(v) => setDatos((d) => ({ ...d, prioridad_estrategica: v }))}
-          />
-          <CampoSelect
-            etiqueta="Por qué es estratégico"
-            requerido
-            opciones={opcionesMotivo}
-            value={datos.motivo_estrategico}
-            onChange={cambiar('motivo_estrategico')}
-          />
-        </GrillaCampos>
-
-        <GrillaCampos columnas={2}>
-          <CampoTexto
-            etiqueta="Responsable político"
-            ayuda="quién responde por él"
-            value={datos.responsable_politico}
-            onChange={cambiar('responsable_politico')}
-          />
-          <CampoFecha
-            etiqueta="Fecha comprometida"
-            ayuda="opcional"
-            value={datos.fecha_compromiso}
-            onChange={cambiar('fecha_compromiso')}
-          />
-        </GrillaCampos>
+        <CampoArea
+          etiqueta="Descripción del proyecto"
+          requerido
+          filas={3}
+          value={datos.descripcion_estrategica}
+          onChange={cambiar('descripcion_estrategica')}
+          placeholder="En qué consiste y por qué está en la cartera estratégica"
+        />
 
         <CampoArea
           etiqueta="Compromiso público"

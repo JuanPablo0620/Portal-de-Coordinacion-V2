@@ -388,6 +388,72 @@ export async function cargarProyectosPosicionamientoReales() {
   return creados;
 }
 
+/**
+ * Carga los 21 ejes reales de `Ejes_de_Gestion_2026.pdf` (relevado por
+ * Valentín Olavarría, coordinador de gestión, el 08/09/2026) como proyectos
+ * estratégicos.
+ *
+ * Mismo patrón que `cargarProyectosPosicionamientoReales()`: aditivo e
+ * idempotente por nombre dentro del programa "Ejes Estratégicos". Cada eje
+ * entra por el alta normal de la base maestra y se marca estratégico en el
+ * mismo paso — es la vía que reemplaza el "Interés de Roco"/"Puntuales
+ * estratégicos" de v1: acá no hay proyecto previo de otra secretaría al cual
+ * "promover", el propio PDF de Coordinación es la fuente.
+ */
+export async function cargarProyectosEjesEstrategicosReales() {
+  const { PROYECTOS_EJES_ESTRATEGICOS_REAL } = await import('./ejes-estrategicos-real.js');
+  const bd = await obtenerBD();
+
+  const area = await asegurarCatalogo('areas', {
+    id: 'ar_coord',
+    nombre: 'Coordinación',
+    prefijo: 'COR',
+    activo: true,
+  });
+  const programa = await asegurarCatalogo('programas', {
+    id: 'pr_ejes_estrat',
+    nombre: 'Ejes Estratégicos',
+    activo: true,
+  });
+  const eje = await asegurarCatalogo('ejes', { id: 'ej_ejes_estrat', nombre: 'Ejes Estratégicos', activo: true });
+
+  const yaCargados = new Set(
+    (bd.proyectos ?? [])
+      .filter((p) => p.activo !== false && p.programa === 'Ejes Estratégicos')
+      .map((p) => p.proyecto),
+  );
+
+  let creados = 0;
+  for (const real of PROYECTOS_EJES_ESTRATEGICOS_REAL) {
+    if (yaCargados.has(real.nombre)) continue;
+    const proyecto = await crearProyecto({
+      proyecto: real.nombre,
+      area: area.nombre,
+      id_area: area.id,
+      programa: programa.nombre,
+      eje: eje.nombre,
+      // Ninguno de los cinco tipos del catálogo describe un eje transversal
+      // de Coordinación; "Gestión interna" es el más cercano (mismo criterio
+      // que en posicionamiento-real.js).
+      tipo: 'Gestión interna',
+      // Ningún eje trae todavía estado de avance propio de su secretaría:
+      // entra "planificado", el default del catálogo para lo que no tiene
+      // evidencia de ejecución en curso.
+      estado: 'planificado',
+      prioridad: real.prioridad,
+      fecha_carga: hoyISO(),
+    });
+    await marcarEstrategico(proyecto.id_proyecto, {
+      descripcion_estrategica: real.contexto,
+      origen_estrategico: 'base',
+      fecha_marcado_estrategico: hoyISO(),
+    });
+    creados += 1;
+  }
+
+  return creados;
+}
+
 /** Agrega un ítem a un catálogo si no existe ya uno con el mismo nombre. */
 async function asegurarCatalogo(nombreCatalogo, item) {
   const bd = await obtenerBD();
@@ -546,14 +612,15 @@ export async function cargarProyectosValidadosCualitativo() {
   return cargarListaDeSecretarias(SECRETARIAS_VALIDADAS, 'POA');
 }
 
-/** Carga de un saque los datos reales de Posicionamiento y de las siete secretarías. */
+/** Carga de un saque los datos reales de Posicionamiento, Ejes Estratégicos y de las siete secretarías. */
 export async function cargarTodosLosProyectosReales() {
   const creadosPosicionamiento = await cargarProyectosPosicionamientoReales();
+  const creadosEjesEstrategicos = await cargarProyectosEjesEstrategicosReales();
   // Los validados van primero a propósito: traen el eje real, así que si un
   // proyecto está en las dos fuentes conviene que gane esta.
   const resumenValidados = await cargarProyectosValidadosCualitativo();
   const resumenSecretarias = await cargarProyectosRealesSecretarias();
-  const resumen = { Posicionamiento: creadosPosicionamiento };
+  const resumen = { Posicionamiento: creadosPosicionamiento, 'Ejes Estratégicos': creadosEjesEstrategicos };
   for (const [area, n] of [...Object.entries(resumenValidados), ...Object.entries(resumenSecretarias)]) {
     resumen[area] = (resumen[area] ?? 0) + n;
   }
@@ -574,11 +641,8 @@ export async function cargarTodosLosProyectosReales() {
 export async function marcarEstrategico(idProyecto, datos = {}) {
   const cambios = {
     estrategico: true,
-    prioridad_estrategica: datos.prioridad_estrategica ?? 'alta',
-    motivo_estrategico: datos.motivo_estrategico ?? '',
-    responsable_politico: datos.responsable_politico ?? '',
+    descripcion_estrategica: datos.descripcion_estrategica ?? '',
     compromiso_publico: datos.compromiso_publico ?? '',
-    fecha_compromiso: datos.fecha_compromiso || null,
     origen_estrategico: datos.origen_estrategico ?? 'base',
     id_origen_estrategico: datos.id_origen_estrategico ?? null,
     fecha_marcado_estrategico: datos.fecha_marcado_estrategico ?? hoyISO(),

@@ -682,7 +682,7 @@ export function generarDemo(hoy) {
   // Seis proyectos, con los tres orígenes representados: uno declarado desde la
   // base maestra, uno promovido desde un tema de monitoreo y uno desde un
   // seguimiento. En un set de demostración importa que se vean los tres.
-  const motivos = bd.catalogos.motivos_estrategicos.map((m) => m.nombre);
+  const descripciones = bd.catalogos.motivos_estrategicos.map((m) => m.nombre);
   const temasCriticos = bd.temas_monitoreo.filter((t) => t.criticidad === 'alta');
   // Se saltean los que quedaron congelados en -45 días: declararlos estratégicos
   // agrega un asiento más nuevo y les levantaría la última actualización, que es
@@ -695,11 +695,8 @@ export function generarDemo(hoy) {
     const origen = i % 3 === 0 ? 'base' : i % 3 === 1 ? 'monitoreo' : 'seguimiento';
     const cuando = desplazar(hoy, -entre(25, 220));
     p.estrategico = true;
-    p.prioridad_estrategica = i < 3 ? 'alta' : 'media';
-    p.motivo_estrategico = motivos[i % motivos.length];
-    p.responsable_politico = elegir(personas);
+    p.descripcion_estrategica = descripciones[i % descripciones.length];
     p.compromiso_publico = COMPROMISOS_PUBLICOS[i % COMPROMISOS_PUBLICOS.length];
-    p.fecha_compromiso = desplazar(cuando, entre(120, 400));
     p.origen_estrategico = origen;
     p.id_origen_estrategico =
       origen === 'monitoreo'

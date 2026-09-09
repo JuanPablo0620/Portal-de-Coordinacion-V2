@@ -195,11 +195,8 @@ create table public.proyectos (
   estrategico_marcado_por uuid references public.perfiles(id),
   estrategico_marcado_en  timestamptz,
   estrategico_nota        text,
-  prioridad_estrategica   text,               -- alta | media
-  motivo_estrategico_id   uuid references public.motivos_estrategicos(id),
-  responsable_politico    text,
+  descripcion_estrategica text,
   compromiso_publico      text,
-  fecha_compromiso        date,
   origen_estrategico      public.origen_carga,
   creado_por              uuid references public.perfiles(id),
   created_at              timestamptz not null default now(),

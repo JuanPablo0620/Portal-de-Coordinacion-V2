@@ -269,7 +269,7 @@ function estrategicosSinNovedad(bd, hoy) {
       tipo: TIPOS_ALERTA.ESTRATEGICO_SIN_NOVEDAD,
       severidad: 'alta',
       titulo: p.proyecto,
-      detalle: `Estratégico${p.responsable_politico ? ` · ${p.responsable_politico}` : ''}: sin novedades hace ${dias} días`,
+      detalle: `Estratégico: sin novedades hace ${dias} días`,
       area: p.area ?? null,
       id_proyecto: p.id_proyecto,
       responsable: p.responsable ?? null,

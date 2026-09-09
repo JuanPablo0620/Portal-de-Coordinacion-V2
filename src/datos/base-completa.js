@@ -864,11 +864,8 @@ export function generarBaseCompleta(hoy) {
     const firma = elegir(EQUIPO);
 
     p.estrategico = true;
-    p.prioridad_estrategica = chance(0.45) ? 'alta' : chance(0.7) ? 'media' : 'baja';
-    p.motivo_estrategico = elegir(MOTIVOS_ESTRATEGICOS);
-    p.responsable_politico = elegir(PERSONAS);
+    p.descripcion_estrategica = elegir(MOTIVOS_ESTRATEGICOS);
     p.compromiso_publico = elegir(COMPROMISOS_PUBLICOS);
-    p.fecha_compromiso = desplazar(cuando, entre(90, 540));
     p.origen_estrategico = origen;
     p.id_origen_estrategico =
       origen === 'monitoreo'
