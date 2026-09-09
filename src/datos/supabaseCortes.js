@@ -45,14 +45,35 @@ const CAMPOS = [
   'id, motivo, detalle_motivo, estado, alcance',
   'vigencia_desde, vigencia_hasta, hora_desde, hora_hasta',
   'dias_semana, fechas_excluidas, tramos, cuadras, observaciones',
+  'geometria, forma, trazado_aproximado',
   'activo, created_at',
   'evento_id',
   'area:areas(nombre, nombre_formal)',
 ].join(', ');
 
 function aFormaLocal(fila) {
+  /*
+   * `calle`, `localidad`, las esquinas y el sentido se derivan del primer
+   * tramo en vez de guardarse en columnas propias.
+   *
+   * No es un atajo: es de donde salen. Al guardar, `datosDeSeleccion()` copia
+   * esos cinco valores del primer grupo de calles al nivel del corte, para que
+   * las pantallas que muestran «la calle» no tengan que abrir los tramos.
+   * Duplicarlos en la base seria guardar dos veces el mismo dato y abrir la
+   * puerta a que se contradigan.
+   *
+   * Se leen en tres lugares reales: el titulo de un corte puntual, la
+   * localidad del panel lateral y el texto que se copia para difundir.
+   */
+  const principal = (fila.tramos ?? [])[0] ?? {};
+
   return {
     id: fila.id,
+    calle: principal.calle ?? '',
+    esquina_desde: principal.esquina_desde ?? '',
+    esquina_hasta: principal.esquina_hasta ?? '',
+    localidad: principal.localidad ?? '',
+    sentido: principal.sentido ?? '',
     id_evento: fila.evento_id ?? null,
     area_solicitante: fila.area?.nombre_formal ?? fila.area?.nombre ?? '',
     motivo: fila.motivo ?? '',
@@ -67,6 +88,10 @@ function aFormaLocal(fila) {
     fechas_excluidas: fila.fechas_excluidas ?? [],
     tramos: fila.tramos ?? [],
     cuadras: fila.cuadras ?? [],
+    // Lo que el mapa dibuja. Sin esto el corte se guardaba bien y no aparecia.
+    geometria: fila.geometria ?? null,
+    forma: fila.forma ?? "tramo",
+    trazado_aproximado: fila.trazado_aproximado ?? false,
     observaciones: fila.observaciones ?? '',
     activo: fila.activo,
     creado_en: fila.created_at,
@@ -88,6 +113,9 @@ async function aFilaBase(datos, cat) {
   if ('dias_semana' in datos) fila.dias_semana = datos.dias_semana ?? [];
   if ('fechas_excluidas' in datos) fila.fechas_excluidas = datos.fechas_excluidas ?? [];
   if ('cuadras' in datos) fila.cuadras = datos.cuadras ?? [];
+  if ('geometria' in datos) fila.geometria = datos.geometria ?? null;
+  if ('forma' in datos) fila.forma = datos.forma || 'tramo';
+  if ('trazado_aproximado' in datos) fila.trazado_aproximado = Boolean(datos.trazado_aproximado);
   if ('observaciones' in datos) fila.observaciones = oNulo(datos.observaciones);
   if ('activo' in datos) fila.activo = datos.activo;
 
