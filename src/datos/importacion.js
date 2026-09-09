@@ -9,8 +9,8 @@
  *
  *  · La columna «Área» no se reconocía sola, porque el mapeo automático
  *    comparaba con acentos: «área» nunca iba a coincidir con `area`.
- *  · La exportación no incluía `unidad` ni `objetivo`, que son obligatorios,
- *    así que TODAS las filas se rechazaban.
+ *  · La exportación no incluía `unidad` ni `objetivo`, aunque son datos
+ *    opcionales de los proyectos que tienen una métrica definida.
  *  · La columna «Avance» de la tabla es el PORCENTAJE, pero el importador la
  *    mapeaba al campo `avance`, que es la cantidad absoluta. Nadie avisaba: se
  *    importaba «45» donde el proyecto llevaba 1.200 metros.
@@ -31,8 +31,8 @@ export const CAMPOS_PROYECTO = Object.freeze([
   { clave: 'programa', titulo: 'Programa', catalogo: 'programas' },
   { clave: 'eje', titulo: 'Eje', catalogo: 'ejes' },
   { clave: 'tipo', titulo: 'Tipo', requerido: true, catalogo: 'tipos' },
-  { clave: 'unidad', titulo: 'Unidad', requerido: true, catalogo: 'unidades' },
-  { clave: 'objetivo', titulo: 'Objetivo', requerido: true, numerico: true, alias: ['meta'] },
+  { clave: 'unidad', titulo: 'Unidad', catalogo: 'unidades' },
+  { clave: 'objetivo', titulo: 'Objetivo', numerico: true, alias: ['meta'] },
   { clave: 'avance', titulo: 'Avance', numerico: true },
   { clave: 'cantidad', titulo: 'Cantidad', numerico: true },
   { clave: 'estado', titulo: 'Estado', lista: ESTADOS_PROYECTO },
@@ -58,8 +58,8 @@ export const PLANTILLA_PROYECTOS = CAMPOS_PROYECTO.map((c) => c.clave).join(',')
  * Columnas con las que la base maestra se exporta a CSV.
  *
  * Son las del modelo, no las de la pantalla: un archivo pensado para volver a
- * entrar tiene que traer todo lo obligatorio, y la columna de avance tiene que
- * ser la cantidad absoluta —la que el sistema guarda— y no el porcentaje que la
+ * entrar tiene que traer los datos disponibles, y la columna de avance tiene
+ * que ser la cantidad absoluta —la que el sistema guarda— y no el porcentaje que la
  * tabla dibuja en una barra. El id se exporta al principio para poder cruzarlo
  * a mano, aunque la importación no lo use: dar de alta genera ids nuevos.
  */

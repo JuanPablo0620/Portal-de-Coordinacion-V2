@@ -113,7 +113,15 @@ test('una fila a la que le falta un campo obligatorio se rechaza con el motivo',
   const { aceptadas, rechazadas } = validarFilasProyecto(objetos, catalogos, HOY);
   assert.equal(aceptadas.length, 0);
   assert.match(rechazadas[0].motivo, /falta área/);
-  assert.match(rechazadas[0].motivo, /falta unidad/);
+});
+
+test('una fila sin magnitudes se acepta para completar la métrica más adelante', () => {
+  const objetos = [{ proyecto: 'Proyecto cualitativo', area: 'Secretaría de Salud', tipo: 'Gestión interna' }];
+  const { aceptadas, rechazadas } = validarFilasProyecto(objetos, catalogos, HOY);
+  assert.equal(rechazadas.length, 0, rechazadas[0]?.motivo);
+  assert.equal(aceptadas.length, 1);
+  assert.equal(aceptadas[0].objetivo, undefined);
+  assert.equal(aceptadas[0].unidad, undefined);
 });
 
 test('un valor fuera del catálogo se rechaza nombrando el valor', () => {

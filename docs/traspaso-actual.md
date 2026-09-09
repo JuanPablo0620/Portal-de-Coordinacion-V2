@@ -38,6 +38,7 @@ que el otro no puede deducir leyendo el repo.
 | `npm run verificar` | Pasa con 362 tests, build, humo y accesibilidad |
 | Cartera estratégica | El formulario usa la prioridad general del proyecto y una descripción libre obligatoria; ya no muestra prioridad estratégica propia, motivo, responsable político, fecha comprometida ni compromiso público |
 | Agenda de seguimiento | Al agendar sólo pide área, fecha y hora; no asocia proyectos ni adelanta participantes o temas |
+| Magnitudes de proyecto | Cantidad, objetivo, avance y unidad son opcionales en el formulario y la importación; una magnitud ausente no se guarda como cero |
 
 Eventos y Mapa ya implementan los pedidos de JP del 08/09. Como la red municipal
 bloquea 5432 y 6543 y no había sesión de navegador disponible para el SQL Editor,

@@ -40,6 +40,8 @@ const VACIO = {
   observaciones: '',
 };
 
+const numeroONulo = (valor) => (String(valor ?? '') === '' ? null : Number(valor));
+
 export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = false }) {
   const bd = useBD();
   const esEdicion = Boolean(proyecto);
@@ -87,8 +89,6 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
     if (!datos.proyecto.trim()) e.proyecto = 'Requerido';
     if (!datos.area) e.area = 'Requerido';
     if (!datos.tipo) e.tipo = 'Requerido';
-    if (!datos.unidad) e.unidad = 'Requerido';
-    if (!datos.objetivo || Number(datos.objetivo) <= 0) e.objetivo = 'Debe ser mayor a cero';
     if (
       datos.fecha_inicio &&
       datos.fecha_fin_prevista &&
@@ -124,9 +124,11 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
       const area = areas.find((a) => a.nombre === datos.area);
       const payload = {
         ...datos,
-        cantidad: Number(datos.cantidad) || 0,
-        objetivo: Number(datos.objetivo) || 0,
-        avance: Number(datos.avance) || 0,
+        // Una magnitud sin cargar no equivale a cero. Se conserva como null
+        // para que los tableros no presenten un objetivo inexistente como 0.
+        cantidad: numeroONulo(datos.cantidad),
+        objetivo: numeroONulo(datos.objetivo),
+        avance: numeroONulo(datos.avance),
         monto_planificado: Number(datos.monto_planificado) || 0,
         monto_ejecutado: Number(datos.monto_ejecutado) || 0,
         // Vacío es `null`, no cero: cero es una coordenada válida en el golfo
@@ -208,10 +210,11 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
           <legend className="px-1 text-xs font-semibold text-gris">Magnitudes</legend>
           <GrillaCampos columnas={4}>
             <CampoNumero etiqueta="Cantidad" ayuda="del período" value={datos.cantidad} onChange={cambiar('cantidad')} />
-            <CampoNumero etiqueta="Objetivo" requerido value={datos.objetivo} onChange={cambiar('objetivo')} error={errores.objetivo} />
+            <CampoNumero etiqueta="Objetivo" value={datos.objetivo} onChange={cambiar('objetivo')} />
             <CampoNumero etiqueta="Avance" value={datos.avance} onChange={cambiar('avance')} />
-            <CampoSelect etiqueta="Unidad" requerido opciones={opcionesUnidad} value={datos.unidad} onChange={cambiar('unidad')} error={errores.unidad} />
+            <CampoSelect etiqueta="Unidad" opciones={opcionesUnidad} value={datos.unidad} onChange={cambiar('unidad')} />
           </GrillaCampos>
+          <p className="mt-2 text-[11px] text-tenue">Podés cargar las magnitudes más adelante, cuando el proyecto tenga una métrica definida.</p>
           {excedeObjetivo && (
             <div className="mt-2.5">
               <Aviso tono="alerta">
