@@ -35,6 +35,26 @@ const CAMPOS = [
   'area:areas(nombre, nombre_formal), proyecto:proyectos(id_legible)',
 ].join(', ');
 
+// `id_monitoreo_origen` NO se pide acá a propósito, aunque `aFormaLocal` sepa
+// leerlo. Esta consulta trae los compromisos de todo el portal y no está
+// aislada: si la columna todavía no existe —el despliegue puede llegar antes
+// que 0012_origen_monitoreo.sql— la consulta entera falla y se queda sin
+// compromisos media aplicación. El vínculo con el monitoreo lo trae
+// `cargarResumen()` en supabaseMonitoreos.js, que sí corre en su propio
+// try/catch y como mucho deja un bloque vacío.
+
+/**
+ * De dónde nació el compromiso, y en qué columna se guarda.
+ *
+ * `monitoreo` apunta a `id_tema_origen` y no es un error: ese caso es el
+ * compromiso que sale de un TEMA de monitoreo, y lo que se guarda es el id del
+ * tema. Es el camino viejo — los temas ya no se cargan.
+ *
+ * El caso nuevo es el compromiso cargado directamente en la reunión, sin tema.
+ * Ese va a `id_monitoreo_origen` (ver 0012_origen_monitoreo.sql) y se elige con
+ * `id_monitoreo_origen` en los datos, porque `origen_tipo` es un enum de la
+ * base con tres valores y los dos casos comparten el mismo: `monitoreo`.
+ */
 const origenColumna = {
   seguimiento: 'id_seguimiento_origen',
   monitoreo: 'id_tema_origen',
@@ -42,7 +62,12 @@ const origenColumna = {
 };
 
 function aFormaLocal(fila) {
-  const idOrigen = fila.id_seguimiento_origen ?? fila.id_tema_origen ?? fila.id_reunion_origen ?? null;
+  const idOrigen =
+    fila.id_seguimiento_origen ??
+    fila.id_tema_origen ??
+    fila.id_reunion_origen ??
+    fila.id_monitoreo_origen ??
+    null;
   return {
     id: fila.id,
     origen_tipo: fila.origen_tipo ?? '',
@@ -91,7 +116,14 @@ async function aFilaBase(datos, { alta = false } = {}) {
     if (datos.origen_tipo && !origenColumna[datos.origen_tipo]) {
       throw new Error(`El origen «${datos.origen_tipo}» todavía no está migrado a Supabase.`);
     }
-    if (datos.origen_tipo) {
+    // Compromiso cargado a mano en la reunión de monitoreo, sin tema de por
+    // medio. Antes se perdía: `crearCompromisoDirecto` mandaba el id del
+    // monitoreo pero sin `origen_tipo`, así que el `if` de abajo no entraba y
+    // el vínculo se descartaba en silencio.
+    if (datos.id_monitoreo_origen) {
+      fila.origen_tipo = 'monitoreo';
+      fila.id_monitoreo_origen = datos.id_monitoreo_origen;
+    } else if (datos.origen_tipo) {
       if (!datos.id_origen) throw new Error('El compromiso necesita un origen válido.');
       fila.origen_tipo = datos.origen_tipo;
       fila[origenColumna[datos.origen_tipo]] = datos.id_origen;

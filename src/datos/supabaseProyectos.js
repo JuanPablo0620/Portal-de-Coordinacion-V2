@@ -341,7 +341,7 @@ async function uuidDe(idLegible) {
  * completo sería afirmar algo que nadie dijo. Cuando Monitoreo cargue períodos
  * de verdad, este es el lugar donde entran.
  */
-async function registrarObservacion(uuid, cambios, { estadoActual, avanceActual = 0 }, cat) {
+async function registrarObservacion(uuid, cambios, { estadoActual, avanceActual = 0, monitoreoId = null }, cat) {
   const hoy = new Date().toISOString().slice(0, 10);
   const hayNumero = ['cantidad', 'avance', 'objetivo'].some(
     (c) => c in cambios && cambios[c] !== '' && cambios[c] !== null,
@@ -363,6 +363,9 @@ async function registrarObservacion(uuid, cambios, { estadoActual, avanceActual 
       periodo_fin: hayNumero ? hoy : null,
       estado_id: estadoId,
       origen: 'monitoreo',
+      // De que monitoreo salio este avance. Null si se cargo desde la ficha del
+      // proyecto o desde un seguimiento -- ver 0012_origen_monitoreo.sql.
+      monitoreo_id: monitoreoId,
     })
     .select('id')
     .single();

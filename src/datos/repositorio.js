@@ -115,12 +115,37 @@ async function traerRemotos() {
     if (monitoreosRemotos.activo()) {
       bdActual.monitoreos = await monitoreosRemotos.cargar();
       bdActual.temas_monitoreo = bdActual.monitoreos.flatMap((m) => m.temas ?? []);
+      await adjuntarResumenMonitoreos();
     }
     errorRemoto = null;
   } catch (error) {
     errorRemoto = error.message ?? String(error);
     console.error('No se pudieron traer los eventos de Supabase', error);
   }
+}
+
+/**
+ * Le cuelga a cada monitoreo lo que se hizo en él: avances y compromisos.
+ *
+ * Va en su propio try/catch, y no es paranoia: las columnas que necesita las
+ * agrega `0012_origen_monitoreo.sql`, y el despliegue puede llegar antes que la
+ * migración. Si eso pasa, los monitoreos se listan igual y solo faltan los
+ * bloques nuevos — mucho mejor que dejar la pantalla entera sin datos por una
+ * columna que todavía no existe.
+ */
+async function adjuntarResumenMonitoreos() {
+  let resumen;
+  try {
+    resumen = await monitoreosRemotos.cargarResumen();
+  } catch (error) {
+    console.warn('No se pudo traer el resumen de los monitoreos', error);
+    resumen = new Map();
+  }
+  bdActual.monitoreos = bdActual.monitoreos.map((m) => ({
+    ...m,
+    avances: resumen.get(m.id)?.avances ?? [],
+    compromisos_generados: resumen.get(m.id)?.compromisos ?? [],
+  }));
 }
 
 export async function hidratar() {
@@ -267,7 +292,15 @@ export async function crearProyecto(datos) {
   });
 }
 
-export async function actualizarProyecto(id, cambios) {
+/**
+ * `opciones.monitoreoId` deja registrado en qué monitoreo se informó el avance.
+ *
+ * Va como opción y no como campo de `cambios` porque no es un atributo del
+ * proyecto: es de dónde vino el dato. Solo lo manda la pantalla de carga de
+ * monitoreo; desde la ficha del proyecto o desde un seguimiento se guarda sin
+ * monitoreo, que es correcto y no un dato faltante.
+ */
+export async function actualizarProyecto(id, cambios, opciones = {}) {
   if (!proyectosRemotos.activo()) return actualizar('proyectos', id, cambios, { id_proyecto: id });
   const bd = await obtenerBD();
   const previo = bd.proyectos.find((p) => p.id_proyecto === id);
@@ -277,6 +310,7 @@ export async function actualizarProyecto(id, cambios) {
       uuid: previo?.uuid,
       estadoActual: previo?.estado,
       avanceActual: previo?.avance ?? 0,
+      monitoreoId: opciones.monitoreoId ?? null,
     }),
     { accion: 'edicion', id, previo, id_proyecto: id },
   );
@@ -694,11 +728,24 @@ export async function crearCompromiso(datos) {
 }
 
 /** Compromiso cargado directamente desde la tarjeta de un proyecto. */
+/**
+ * Compromiso cargado a mano en la reunión de monitoreo, sin tema de por medio.
+ *
+ * `id_monitoreo_origen` es lo que ata el compromiso a su reunión, y es lo que
+ * permite que la pantalla de monitoreos muestre qué salió de cada una. Antes se
+ * mandaba como `id_origen` sin `origen_tipo` y el traductor lo descartaba en
+ * silencio: el compromiso se creaba bien, pero huérfano.
+ */
 export async function crearCompromisoDirecto(datos) {
   if (compromisosRemotos.activo()) {
     return escribirRemoto(
       'compromisos',
-      () => compromisosRemotos.crearCompromiso({ estado: 'pendiente', fecha_cumplimiento: null, ...datos }),
+      () => compromisosRemotos.crearCompromiso({
+        estado: 'pendiente',
+        fecha_cumplimiento: null,
+        ...datos,
+        id_monitoreo_origen: datos.id_origen ?? null,
+      }),
       { accion: 'alta', id_proyecto: datos.id_proyecto ?? null },
     );
   }

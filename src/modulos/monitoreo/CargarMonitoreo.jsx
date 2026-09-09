@@ -572,10 +572,13 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
     setErrorAccion('');
     setGuardando(true);
     try {
-      await acciones.actualizarProyecto(p.id_proyecto, {
-        ...borradorProyecto,
-        avance: Number(borradorProyecto.avance) || 0,
-      });
+      await acciones.actualizarProyecto(
+        p.id_proyecto,
+        { ...borradorProyecto, avance: Number(borradorProyecto.avance) || 0 },
+        // Deja registrado que este avance se informo en ESTA reunion, que es lo
+        // que despues muestra la pestania de ultimos monitoreos.
+        { monitoreoId: monitoreoId },
+      );
       alActualizarProyecto?.();
       setAbiertoProyecto(null);
       setBorradorProyecto(null);

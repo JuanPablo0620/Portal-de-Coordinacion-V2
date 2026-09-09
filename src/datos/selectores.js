@@ -387,17 +387,59 @@ function agruparTemas(bd) {
   return mapa;
 }
 
+/**
+ * Días entre el monitoreo de un área y el anterior de esa MISMA área.
+ *
+ * El Monitoreo es semanal, así que este número es el que dice si una secretaría
+ * se está quedando sin seguimiento. Se calcula sobre la lista completa y no
+ * sobre la filtrada a propósito: si alguien filtra los últimos 6 meses, el
+ * primer monitoreo de la ventana igual tiene que saber hace cuánto fue el
+ * anterior, aunque ese quede fuera de la vista.
+ */
+function cadenciaPorMonitoreo(lista) {
+  const porArea = new Map();
+  for (const m of lista) {
+    if (!porArea.has(m.area)) porArea.set(m.area, []);
+    porArea.get(m.area).push(m);
+  }
+
+  const dias = new Map();
+  for (const delArea of porArea.values()) {
+    const orden = [...delArea].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+    for (let i = 0; i < orden.length; i += 1) {
+      const previo = orden[i - 1];
+      dias.set(orden[i].id, {
+        dias_desde_anterior: previo ? -diasHasta(previo.fecha, orden[i].fecha) : null,
+        fecha_anterior: previo?.fecha ?? null,
+      });
+    }
+  }
+  return dias;
+}
+
 export function monitoreos(bd, filtros = {}) {
   const porMonitoreo = agruparTemas(bd);
+  const cadencia = cadenciaPorMonitoreo(activos(bd.monitoreos));
+
   return activos(bd.monitoreos)
     .filter((m) => coincide(filtros.area, m.area) && dentroDelRango(m.fecha, filtros.desde, filtros.hasta))
     .map((m) => {
       const temas = porMonitoreo.get(m.id) ?? [];
+      // Los avances y compromisos los cuelga el repositorio al hidratar, desde
+      // Supabase. En la base local no existen: por eso el `?? []`, que deja la
+      // pantalla mostrando cero en vez de romperse.
+      const avances = m.avances ?? [];
+      const compromisos_generados = m.compromisos_generados ?? [];
       return {
         ...m,
         cantidad_temas: temas.length,
+        cantidad_avances: avances.length,
+        cantidad_compromisos: compromisos_generados.length,
         criticidad_maxima: criticidadMaxima(temas),
         temas,
+        avances,
+        compromisos_generados,
+        ...(cadencia.get(m.id) ?? { dias_desde_anterior: null, fecha_anterior: null }),
       };
     })
     .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));

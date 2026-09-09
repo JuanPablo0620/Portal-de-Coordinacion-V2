@@ -24,6 +24,10 @@ export function olvidarCatalogos() { cache = null; }
 const CAMPOS = [
   'id, fecha, cerrado, activo, created_at, updated_at',
   'area:areas(nombre, nombre_formal)',
+  // `crearMonitoreo` ya venía guardando el autor; lo que faltaba era traerlo,
+  // y por eso la columna «Cargado por» mostraba siempre un guión. Se desambigua
+  // por columna porque no es la única referencia posible a `perfiles`.
+  'autor:perfiles!creado_por(nombre)',
   'temas:temas_monitoreo(id, monitoreo_id, proyecto_id, categoria_id, descripcion, criticidad, requiere_accion, responsable, fecha_limite, resuelto, activo, created_at, compromiso_id, categoria:categorias_tema(nombre), proyecto:proyectos(id_legible))',
 ].join(', ');
 
@@ -54,6 +58,7 @@ function monitoreoLocal(m) {
     cerrado: m.cerrado,
     activo: m.activo,
     temas: (m.temas ?? []).map(temaLocal),
+    creado_por: m.autor?.nombre ?? '',
     creado_en: m.created_at,
   };
 }
@@ -62,6 +67,73 @@ export async function cargar() {
   const { data, error } = await supabase.from('monitoreos').select(CAMPOS).order('fecha', { ascending: false });
   if (error) throw error;
   return data.map(monitoreoLocal);
+}
+
+/**
+ * Qué se hizo en cada monitoreo: los avances de proyecto informados y los
+ * compromisos que nacieron ahí.
+ *
+ * Va aparte de `cargar()` y no como un embed porque son otras tablas y otra
+ * cardinalidad, pero sobre todo porque puede fallar sola: las dos columnas que
+ * usa (`actualizaciones.monitoreo_id` y `compromisos.id_monitoreo_origen`) las
+ * agrega 0012_origen_monitoreo.sql. Si el deploy llega antes que la migración,
+ * esto devuelve vacío y la pantalla pierde los bloques nuevos — pero la lista
+ * de monitoreos sigue funcionando, que es lo que importa.
+ *
+ * Devuelve un mapa por id de monitoreo, ya en forma del portal.
+ */
+export async function cargarResumen() {
+  const [avances, compromisos] = await Promise.all([
+    supabase
+      .from('actualizaciones')
+      .select(
+        'id, monitoreo_id, fecha_actualizacion, estado:estados(nombre), ' +
+          'proyecto:proyectos(id_legible, nombre, programa:programas(nombre)), ' +
+          'cuanti:act_cuantitativas(cantidad, objetivo, unidad:unidades(nombre))',
+      )
+      .not('monitoreo_id', 'is', null),
+    supabase
+      .from('compromisos')
+      .select('id, id_monitoreo_origen, descripcion, responsable, fecha_limite, estado, activo')
+      .not('id_monitoreo_origen', 'is', null),
+  ]);
+  if (avances.error) throw avances.error;
+  if (compromisos.error) throw compromisos.error;
+
+  const resumen = new Map();
+  const entrada = (id) => {
+    if (!resumen.has(id)) resumen.set(id, { avances: [], compromisos: [] });
+    return resumen.get(id);
+  };
+
+  for (const a of avances.data) {
+    entrada(a.monitoreo_id).avances.push({
+      id: a.id,
+      id_proyecto: a.proyecto?.id_legible ?? '',
+      proyecto: a.proyecto?.nombre ?? '',
+      programa: a.proyecto?.programa?.nombre ?? '',
+      estado: a.estado?.nombre ? a.estado.nombre.toLowerCase() : '',
+      // Lo informado en ESTE monitoreo, que es el aporte del período. El
+      // acumulado del proyecto se calcula sumando y no corresponde acá.
+      cantidad: a.cuanti ? Number(a.cuanti.cantidad) : null,
+      objetivo: a.cuanti?.objetivo != null ? Number(a.cuanti.objetivo) : null,
+      unidad: a.cuanti?.unidad?.nombre ?? '',
+      fecha: a.fecha_actualizacion,
+    });
+  }
+
+  for (const c of compromisos.data) {
+    if (c.activo === false) continue;
+    entrada(c.id_monitoreo_origen).compromisos.push({
+      id: c.id,
+      descripcion: c.descripcion ?? '',
+      responsable: c.responsable ?? '',
+      fecha_limite: c.fecha_limite ?? null,
+      estado: c.estado,
+    });
+  }
+
+  return resumen;
 }
 
 async function proyectoId(codigo) {
