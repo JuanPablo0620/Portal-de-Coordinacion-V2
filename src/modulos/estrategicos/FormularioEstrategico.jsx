@@ -32,7 +32,6 @@ export function FormularioEstrategico({ abierto, alCerrar, proyecto, candidato }
   const [idProyecto, setIdProyecto] = useState(proyecto?.id_proyecto ?? candidato?.id_proyecto ?? '');
   const [datos, setDatos] = useState({
     descripcion_estrategica: proyecto?.descripcion_estrategica ?? '',
-    compromiso_publico: proyecto?.compromiso_publico ?? candidato?.titulo ?? '',
   });
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -128,14 +127,6 @@ export function FormularioEstrategico({ abierto, alCerrar, proyecto, candidato }
           value={datos.descripcion_estrategica}
           onChange={cambiar('descripcion_estrategica')}
           placeholder="En qué consiste y por qué está en la cartera estratégica"
-        />
-
-        <CampoArea
-          etiqueta="Compromiso público"
-          filas={2}
-          value={datos.compromiso_publico}
-          onChange={cambiar('compromiso_publico')}
-          placeholder="Dónde se comprometió: sesión del Concejo, audiencia vecinal, convenio con el organismo…"
         />
 
         <Aviso tono="alerta">
