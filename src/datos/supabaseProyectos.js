@@ -362,6 +362,17 @@ async function registrarObservacion(uuid, cambios, { estadoActual, avanceActual 
       // De que monitoreo salio este avance. Null si se cargo desde la ficha del
       // proyecto o desde un seguimiento -- ver 0012_origen_monitoreo.sql.
       monitoreo_id: monitoreoId,
+      // El comentario de ESTA observacion.
+      //
+      // El campo «Descripcion / observaciones» del monitoreo iba solo a
+      // `proyectos.observaciones`, que se sobrescribe: el relato de esta semana
+      // borraba el de la anterior. La columna correcta existia desde 0001 y no
+      // la llenaba nadie.
+      //
+      // Se sigue escribiendo tambien en el proyecto, para no cambiar lo que hoy
+      // muestran las pantallas que leen `observaciones`. La copia de mas es
+      // barata; perder el historial de como avanzo un proyecto, no.
+      comentarios: oNulo(cambios.observaciones),
     })
     .select('id')
     .single();

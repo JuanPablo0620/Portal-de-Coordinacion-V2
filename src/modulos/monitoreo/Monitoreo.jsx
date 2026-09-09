@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, BarChart3, Building2, ListChecks, Plus, Radar } from 'lucide-react';
+import { AlertTriangle, BarChart3, Building2, ListChecks, Play, Plus, Radar } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Boton, Chip, Criticidad, Metrica, Pestanias, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { Alternadores, GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../../componentes/Filtros.jsx';
@@ -31,6 +31,13 @@ export default function Monitoreo() {
 
   const alertas = useMemo(() => (bd ? calcularAlertas(bd, hoy) : []), [bd, hoy]);
 
+  // El monitoreo que se viene a retomar, si se llego con «Continuar». Se busca
+  // entre los abiertos: uno ya cerrado no se sigue cargando.
+  const monitoreoARetomar = useMemo(() => {
+    if (!bd || !filtros.retomar) return null;
+    return (bd.monitoreos ?? []).find((m) => m.id === filtros.retomar && !m.cerrado) ?? null;
+  }, [bd, filtros.retomar]);
+
   const pestanias = [
     { valor: 'secretarias', titulo: 'Por secretaría', icono: Building2 },
     { valor: 'ultimos', titulo: 'Últimos monitoreos', icono: ListChecks },
@@ -45,7 +52,7 @@ export default function Monitoreo() {
         titulo="Monitoreo"
         descripcion="Registro estandarizado del día a día, desagregado por secretaría y distinto del seguimiento formal por proyecto."
         acciones={
-          <Boton variante="primario" icono={Plus} onClick={() => setFiltros({ tab: 'cargar' })}>
+          <Boton variante="primario" icono={Plus} onClick={() => setFiltros({ tab: 'cargar', retomar: '' })}>
             Nuevo monitoreo
           </Boton>
         }
@@ -55,7 +62,7 @@ export default function Monitoreo() {
         <Pestanias
           opciones={pestanias}
           valor={filtros.tab}
-          alCambiar={(v) => setFiltros({ tab: v, secretaria: '', monitoreo: '' })}
+          alCambiar={(v) => setFiltros({ tab: v, secretaria: '', monitoreo: '', retomar: '' })}
         />
 
         {/* Primero lo que elige la pestaña, después las alertas.
@@ -78,10 +85,15 @@ export default function Monitoreo() {
             área inicial al montar, y sin esto llegar desde otra secretaría
             reutilizaría el estado del formulario anterior. */}
         {filtros.tab === 'cargar' && (
+          /* `key` fuerza el remonte al cambiar de área o al venir a retomar
+             otro monitoreo: el formulario toma su estado inicial al montar, y
+             sin esto apretar «Continuar» en una fila reutilizaría el estado del
+             monitoreo anterior. */
           <CargarMonitoreo
-            key={filtros.area}
+            key={filtros.retomar || filtros.area}
             areaInicial={filtros.area}
-            alTerminar={() => setFiltros({ tab: 'ultimos' })}
+            monitoreoInicial={monitoreoARetomar}
+            alTerminar={() => setFiltros({ tab: 'ultimos', retomar: '' })}
           />
         )}
 
@@ -151,11 +163,35 @@ function PanelUltimos({ bd, filtros, setFiltros, rango, hoy }) {
             {
               clave: 'cerrado',
               titulo: 'Estado',
-              ancho: 110,
+              ancho: 140,
               valorOrden: (f) => (f.cerrado ? 1 : 0),
               formatoCSV: (v) => (v ? 'cerrado' : 'abierto'),
               render: (f) =>
-                f.cerrado ? <Chip tono="enregla">Cerrado</Chip> : <Chip tono="proximo">Abierto</Chip>,
+                f.cerrado ? (
+                  <Chip tono="enregla">Cerrado</Chip>
+                ) : (
+                  /* Un monitoreo abierto es trabajo sin terminar, así que el
+                     estado no solo se informa: se puede retomar desde acá. Sin
+                     esto la única salida era crear otro para la misma área y el
+                     mismo día, que ensucia la serie y hace mentir la cadencia.
+
+                     `stopPropagation` porque la fila entera es clickeable para
+                     desplegarse: sin eso, apretar «Continuar» abriría el
+                     detalle además de navegar. */
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFiltros({ tab: 'cargar', retomar: f.id });
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-chip border border-proximo
+                      bg-proximo-suave px-2 py-0.5 text-xs font-semibold text-proximo-texto
+                      transition hover:brightness-95"
+                  >
+                    <Play size={11} className="shrink-0" />
+                    Continuar
+                  </button>
+                ),
             },
             {
               clave: 'registrado',

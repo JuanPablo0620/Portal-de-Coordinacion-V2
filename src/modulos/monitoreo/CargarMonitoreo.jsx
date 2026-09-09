@@ -124,13 +124,26 @@ const aPersistir = (tema) => ({
 });
 
 /** `areaInicial` viene de la hoja de una secretaría: llegar con el área ya elegida. */
-export function CargarMonitoreo({ alTerminar, areaInicial = '' }) {
+/**
+ * @param monitoreoInicial  Monitoreo ya creado que se viene a retomar, desde el
+ *   boton «Continuar» de la lista. Con esto la pantalla saltea el paso 1 —crear
+ *   la cabecera— y abre directo la carga, que es lo que quedo a medias.
+ *
+ *   Un monitoreo abierto es trabajo sin terminar: alguien lo empezo, se
+ *   distrajo y quedo ahi. Sin forma de volver a el, la unica salida era crear
+ *   otro para la misma area y el mismo dia, que ensucia la serie y hace que la
+ *   cadencia mienta.
+ */
+export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial = null }) {
   const hoy = hoyISO();
   const opcionesArea = useOpciones('areas');
   const opcionesCategoria = useOpciones('categorias_tema');
 
-  const [cabecera, setCabecera] = useState({ fecha: hoy, area: areaInicial });
-  const [monitoreo, setMonitoreo] = useState(null);
+  const [cabecera, setCabecera] = useState({
+    fecha: monitoreoInicial?.fecha ?? hoy,
+    area: monitoreoInicial?.area ?? areaInicial,
+  });
+  const [monitoreo, setMonitoreo] = useState(monitoreoInicial);
   const [temasCargados, setTemasCargados] = useState([]);
   const [huboActualizacionProyecto, setHuboActualizacionProyecto] = useState(false);
 

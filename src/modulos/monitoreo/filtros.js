@@ -16,6 +16,13 @@ export const DEFAULTS = {
   secretaria: '',
   buscar: '',
   monitoreo: '',
+  /**
+   * Monitoreo abierto que se viene a retomar desde la lista. Va aparte de
+   * `monitoreo` —que es la fila desplegada en «Ultimos monitoreos»— porque son
+   * dos cosas distintas: una es lo que estas mirando, la otra lo que venis a
+   * seguir cargando.
+   */
+  retomar: '',
   solo_deuda: false,
   sin_cobertura: false,
   sin_resolver: false,
