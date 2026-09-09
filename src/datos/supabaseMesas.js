@@ -14,6 +14,10 @@ import { supabase, supabaseConfigurado } from './supabaseClient.js';
 
 export const activo = () => supabaseConfigurado;
 
+// Mantiene la misma superficie que los demás adaptadores remotos. Mesas no
+// cachea catálogos, pero `refrescar()` los invalida a todos en conjunto.
+export function olvidarCatalogos() {}
+
 /**
  * El portal dice «temática» y «otros proyectos»; el enum de la base guarda
  * `tematica` y `otros_proyectos`. Se normaliza en vez de mapear a mano: así
