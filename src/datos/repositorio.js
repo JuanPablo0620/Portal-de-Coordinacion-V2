@@ -18,6 +18,9 @@ import * as proyectosRemotos from './supabaseProyectos.js';
 import * as seguimientosRemotos from './supabaseSeguimientos.js';
 import * as compromisosRemotos from './supabaseCompromisos.js';
 import * as monitoreosRemotos from './supabaseMonitoreos.js';
+import * as posicionamientoRemoto from './supabasePosicionamiento.js';
+import * as mesasRemotas from './supabaseMesas.js';
+import * as cortesRemotos from './supabaseCortes.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -117,6 +120,17 @@ async function traerRemotos() {
       bdActual.temas_monitoreo = bdActual.monitoreos.flatMap((m) => m.temas ?? []);
       await adjuntarResumenMonitoreos();
     }
+    if (posicionamientoRemoto.activo()) {
+      bdActual.proyectos_posicionamiento = await posicionamientoRemoto.cargar();
+    }
+    if (mesasRemotas.activo()) {
+      const remotoMesas = await mesasRemotas.cargar();
+      bdActual.mesas = remotoMesas.mesas;
+      bdActual.reuniones_mesa = remotoMesas.reuniones_mesa;
+    }
+    if (cortesRemotos.activo()) {
+      bdActual.cortes = await cortesRemotos.cargar();
+    }
     errorRemoto = null;
   } catch (error) {
     errorRemoto = error.message ?? String(error);
@@ -171,6 +185,9 @@ export async function refrescar() {
   seguimientosRemotos.olvidarCatalogos();
   compromisosRemotos.olvidarCatalogos();
   monitoreosRemotos.olvidarCatalogos();
+  posicionamientoRemoto.olvidarCatalogos();
+  mesasRemotas.olvidarCatalogos();
+  cortesRemotos.olvidarCatalogos();
   await traerRemotos();
   notificar();
   return bdActual;
@@ -719,19 +736,30 @@ export async function promoverAEstrategico({ origen_tipo, id_origen, id_proyecto
  * El vínculo a un proyecto es opcional y va en un solo sentido.
  */
 export async function crearProyectoPosicionamiento(datos) {
-  return crear(
-    'proyectos_posicionamiento',
-    { estado: 'identificada', ods: [], ids_proyecto: [], ...datos },
-    { id_proyecto: datos.ids_proyecto?.[0] ?? null },
-  );
+  const completo = { estado: 'identificada', ods: [], ids_proyecto: [], ...datos };
+  if (posicionamientoRemoto.activo()) {
+    return escribirRemoto('proyectos_posicionamiento', () => posicionamientoRemoto.crear(completo), {
+      accion: 'alta',
+      id_proyecto: completo.ids_proyecto?.[0] ?? null,
+    });
+  }
+  return crear('proyectos_posicionamiento', completo, {
+    id_proyecto: completo.ids_proyecto?.[0] ?? null,
+  });
 }
 
 export async function actualizarProyectoPosicionamiento(id, cambios) {
   const bd = await obtenerBD();
   const previa = bd.proyectos_posicionamiento.find((a) => a.id === id);
-  return actualizar('proyectos_posicionamiento', id, cambios, {
-    id_proyecto: (cambios.ids_proyecto ?? previa?.ids_proyecto)?.[0] ?? null,
-  });
+  const idProyecto = (cambios.ids_proyecto ?? previa?.ids_proyecto)?.[0] ?? null;
+  if (posicionamientoRemoto.activo()) {
+    return escribirRemoto(
+      'proyectos_posicionamiento',
+      () => posicionamientoRemoto.actualizar(id, cambios),
+      { accion: 'edicion', id, previo: previa, id_proyecto: idProyecto },
+    );
+  }
+  return actualizar('proyectos_posicionamiento', id, cambios, { id_proyecto: idProyecto });
 }
 
 export async function bajaProyectoPosicionamiento(id) {
@@ -1013,14 +1041,30 @@ export async function finalizarMonitoreo(id) {
 /* ── Mesas ──────────────────────────────────────────────────────────── */
 
 export async function crearMesa(datos) {
-  return crear('mesas', { proyectos_vinculados: [], ...datos });
+  const completo = { proyectos_vinculados: [], ...datos };
+  if (mesasRemotas.activo()) {
+    return escribirRemoto('mesas', () => mesasRemotas.crearMesa(completo), { accion: 'alta' });
+  }
+  return crear('mesas', completo);
 }
 
 export async function actualizarMesa(id, cambios) {
-  return actualizar('mesas', id, cambios);
+  if (!mesasRemotas.activo()) return actualizar('mesas', id, cambios);
+  const bd = await obtenerBD();
+  const previa = bd.mesas.find((m) => m.id === id);
+  return escribirRemoto('mesas', () => mesasRemotas.actualizarMesa(id, cambios), {
+    accion: 'edicion',
+    id,
+    previo: previa,
+  });
 }
 
 export async function crearReunionMesa(datos) {
+  if (mesasRemotas.activo()) {
+    return escribirRemoto('reuniones_mesa', () => mesasRemotas.crearReunion(datos), {
+      accion: 'alta',
+    });
+  }
   return crear('reuniones_mesa', datos);
 }
 
@@ -1125,18 +1169,29 @@ export async function actualizarRequerimiento(id, cambios) {
  * mayoría de los cortes los informan las áreas por fuera de un evento propio.
  */
 export async function crearCorte(datos) {
-  return crear('cortes', {
+  const completo = {
     estado: 'previsto',
     alcance: 'total',
     dias_semana: [],
     fechas_excluidas: [],
     ...datos,
     id_evento: datos.id_evento || null,
-  });
+  };
+  if (cortesRemotos.activo()) {
+    return escribirRemoto('cortes', () => cortesRemotos.crear(completo), { accion: 'alta' });
+  }
+  return crear('cortes', completo);
 }
 
 export async function actualizarCorte(id, cambios) {
-  return actualizar('cortes', id, cambios);
+  if (!cortesRemotos.activo()) return actualizar('cortes', id, cambios);
+  const bd = await obtenerBD();
+  const previo = bd.cortes.find((c) => c.id === id);
+  return escribirRemoto('cortes', () => cortesRemotos.actualizar(id, cambios), {
+    accion: 'edicion',
+    id,
+    previo,
+  });
 }
 
 /**
