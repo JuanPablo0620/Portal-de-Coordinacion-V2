@@ -98,44 +98,76 @@ let errorRemoto = null;
 
 export const estadoRemoto = () => ({ error: errorRemoto });
 
+/**
+ * Cada colección que ya vive en Supabase, con el nombre que le diría una
+ * persona. El rótulo no es cosmético: cuando una falla, es lo único que dice
+ * dónde mirar.
+ *
+ * Antes esto era un bloque `try` con ocho cargas adentro y un solo mensaje de
+ * error que hablaba de proyectos. Cuando fallo la tabla de cortes por una
+ * columna que faltaba, la pantalla de Proyectos mostro «No se pudieron
+ * actualizar los proyectos: column cortes.cuadras does not exist» -- que nombra
+ * dos cosas distintas y no ayuda a ninguna de las dos.
+ */
+const CARGAS_REMOTAS = [
+  ['los eventos', eventosRemotos, async () => {
+    const remoto = await eventosRemotos.cargar();
+    bdActual.eventos = remoto.eventos;
+    bdActual.requerimientos_evento = remoto.requerimientos_evento;
+  }],
+  ['los proyectos', proyectosRemotos, async () => {
+    bdActual.proyectos = await proyectosRemotos.cargar();
+  }],
+  ['los seguimientos', seguimientosRemotos, async () => {
+    bdActual.seguimientos = await seguimientosRemotos.cargar();
+  }],
+  ['los compromisos', compromisosRemotos, async () => {
+    bdActual.compromisos = await compromisosRemotos.cargar();
+  }],
+  ['los monitoreos', monitoreosRemotos, async () => {
+    bdActual.monitoreos = await monitoreosRemotos.cargar();
+    bdActual.temas_monitoreo = bdActual.monitoreos.flatMap((m) => m.temas ?? []);
+    await adjuntarResumenMonitoreos();
+  }],
+  ['posicionamiento', posicionamientoRemoto, async () => {
+    bdActual.proyectos_posicionamiento = await posicionamientoRemoto.cargar();
+  }],
+  ['las mesas de trabajo', mesasRemotas, async () => {
+    const remoto = await mesasRemotas.cargar();
+    bdActual.mesas = remoto.mesas;
+    bdActual.reuniones_mesa = remoto.reuniones_mesa;
+  }],
+  ['los cortes de calle', cortesRemotos, async () => {
+    bdActual.cortes = await cortesRemotos.cargar();
+  }],
+];
+
+/**
+ * Trae de Supabase lo que ya no vive en el navegador.
+ *
+ * Cada colección va en su propio `try`, y no es un detalle: antes una que
+ * fallara cortaba las que venían después. Con ocho colecciones migradas, una
+ * columna faltante en la última dejaba media aplicación sin datos aunque su
+ * propia tabla estuviera perfecta.
+ *
+ * Se junta TODO lo que fallo, no solo lo primero: si hay dos problemas
+ * conviene enterarse de los dos de una vez y no descubrir el segundo recién
+ * despues de arreglar el primero.
+ */
 async function traerRemotos() {
-  if (!eventosRemotos.activo() && !proyectosRemotos.activo() && !seguimientosRemotos.activo() && !compromisosRemotos.activo() && !monitoreosRemotos.activo()) return;
-  try {
-    if (eventosRemotos.activo()) {
-      const remotoEventos = await eventosRemotos.cargar();
-      bdActual.eventos = remotoEventos.eventos;
-      bdActual.requerimientos_evento = remotoEventos.requerimientos_evento;
+  const activas = CARGAS_REMOTAS.filter(([, modulo]) => modulo.activo());
+  if (!activas.length) return;
+
+  const fallos = [];
+  for (const [rotulo, , cargar] of activas) {
+    try {
+      await cargar();
+    } catch (error) {
+      fallos.push(`${rotulo}: ${error.message ?? String(error)}`);
+      console.error(`No se pudieron traer ${rotulo} de Supabase`, error);
     }
-    if (proyectosRemotos.activo()) {
-      bdActual.proyectos = await proyectosRemotos.cargar();
-    }
-    if (seguimientosRemotos.activo()) {
-      bdActual.seguimientos = await seguimientosRemotos.cargar();
-    }
-    if (compromisosRemotos.activo()) {
-      bdActual.compromisos = await compromisosRemotos.cargar();
-    }
-    if (monitoreosRemotos.activo()) {
-      bdActual.monitoreos = await monitoreosRemotos.cargar();
-      bdActual.temas_monitoreo = bdActual.monitoreos.flatMap((m) => m.temas ?? []);
-      await adjuntarResumenMonitoreos();
-    }
-    if (posicionamientoRemoto.activo()) {
-      bdActual.proyectos_posicionamiento = await posicionamientoRemoto.cargar();
-    }
-    if (mesasRemotas.activo()) {
-      const remotoMesas = await mesasRemotas.cargar();
-      bdActual.mesas = remotoMesas.mesas;
-      bdActual.reuniones_mesa = remotoMesas.reuniones_mesa;
-    }
-    if (cortesRemotos.activo()) {
-      bdActual.cortes = await cortesRemotos.cargar();
-    }
-    errorRemoto = null;
-  } catch (error) {
-    errorRemoto = error.message ?? String(error);
-    console.error('No se pudieron traer los eventos de Supabase', error);
   }
+  errorRemoto = fallos.length ? `No se pudieron traer ${fallos.join(' · ')}` : null;
 }
 
 /**
