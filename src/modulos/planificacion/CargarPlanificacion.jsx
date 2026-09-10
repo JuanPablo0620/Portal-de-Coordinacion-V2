@@ -19,6 +19,8 @@ export function CargarPlanificacion({ filtros, setFiltros }) {
 
   const [datos, setDatos] = useState(VACIO);
   const [guardado, setGuardado] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState(null);
   const [importando, setImportando] = useState(false);
 
   const proyecto = useMemo(() => (bd && idProyecto ? proyectoPorId(bd, idProyecto) : null), [bd, idProyecto]);
@@ -51,6 +53,18 @@ export function CargarPlanificacion({ filtros, setFiltros }) {
   const desajuste = Number(datos.meta_anual) > 0 && ultimoTrimestre > 0 && ultimoTrimestre !== Number(datos.meta_anual);
 
   async function guardar() {
+    setError(null);
+    setGuardando(true);
+    try {
+      await guardarPlan();
+    } catch (e) {
+      setError(e?.message ?? 'No se pudo guardar la planificación.');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  async function guardarPlan() {
     await acciones.guardarPlanificacion({
       id_proyecto: idProyecto,
       anio,
@@ -108,8 +122,9 @@ export function CargarPlanificacion({ filtros, setFiltros }) {
               <>
                 {existente && <Chip tono="acento">Ya planificado</Chip>}
                 {guardado && <Chip tono="enregla">Guardado</Chip>}
-                <Boton variante="primario" tamanio="sm" icono={Save} onClick={guardar}>
-                  Guardar planificación
+                {error && <Aviso tono="error">{error}</Aviso>}
+                <Boton variante="primario" tamanio="sm" icono={Save} onClick={guardar} disabled={guardando}>
+                  {guardando ? "Guardando…" : "Guardar planificación"}
                 </Boton>
               </>
             }

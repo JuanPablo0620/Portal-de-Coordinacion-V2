@@ -268,6 +268,7 @@ function SelectorAreas({ usuario, areasCatalogo, asignadas }) {
   const [seleccion, setSeleccion] = useState(asignadas);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
+  const [error, setError] = useState(null);
 
   // Si `asignadas` cambia por fuera (otro nombre de usuario, u otra pestaña
   // guardó), la selección visible se resincroniza — si no, quedaría mostrando
@@ -286,10 +287,16 @@ function SelectorAreas({ usuario, areasCatalogo, asignadas }) {
 
   async function guardar() {
     setGuardando(true);
+    setError(null);
     try {
       await acciones.guardarAsignacionesMonitoreo(usuario, seleccion);
       setGuardado(true);
       setTimeout(() => setGuardado(false), 2500);
+    } catch (e) {
+      // Habia un try sin catch: si la base rechazaba la escritura, el error se
+      // perdia y la pantalla mostraba el boton listo otra vez, como si hubiera
+      // guardado.
+      setError(e?.message ?? 'No se pudieron guardar tus áreas.');
     } finally {
       setGuardando(false);
     }
@@ -302,6 +309,7 @@ function SelectorAreas({ usuario, areasCatalogo, asignadas }) {
       acciones={
         <>
           {guardado && <Chip tono="enregla">Guardado</Chip>}
+          {error && <Aviso tono="error">{error}</Aviso>}
           <Boton variante="primario" tamanio="sm" icono={Save} onClick={guardar} disabled={guardando || !huboCambios}>
             Guardar
           </Boton>
