@@ -839,8 +839,14 @@ export async function actualizarProyectoPosicionamiento(id, cambios) {
   return actualizar('proyectos_posicionamiento', id, cambios, { id_proyecto: idProyecto });
 }
 
+/**
+ * Pasa por `actualizarProyectoPosicionamiento` y no por `bajaLogica`, que
+ * escribe solo en la copia local: dado de baja acá, el proyecto seguía vigente
+ * para todos los demás hasta que quien lo dio de baja recargaba y le volvía a
+ * aparecer. Es el mismo camino que ya usan `eliminarEvento` y `eliminarCorte`.
+ */
 export async function bajaProyectoPosicionamiento(id) {
-  return bajaLogica('proyectos_posicionamiento', id);
+  return actualizarProyectoPosicionamiento(id, { activo: false });
 }
 
 /* ── Seguimientos ───────────────────────────────────────────────────── */

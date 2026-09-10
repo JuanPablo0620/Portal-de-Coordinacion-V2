@@ -156,7 +156,7 @@ const CAMPOS_PROYECTO = [
   'fecha_inicio, fecha_fin_proyectada, causa_atraso, es_obra',
   'monto_planificado, monto_ejecutado, zona, latitud, longitud, observaciones, activo, fecha_carga',
   'es_estrategico, descripcion_estrategica, estrategico_nota, estrategico_marcado_en',
-  'compromiso_publico, origen_estrategico',
+  'compromiso_publico, origen_estrategico, id_origen_estrategico',
   'created_at',
   'programa:programas(nombre, area:areas(nombre, nombre_formal))',
   'eje:ejes(nombre)',
@@ -255,6 +255,7 @@ function aFormaLocal(fila, observaciones) {
     descripcion_estrategica: fila.descripcion_estrategica ?? '',
     compromiso_publico: fila.compromiso_publico ?? '',
     origen_estrategico: fila.origen_estrategico ?? '',
+    id_origen_estrategico: fila.id_origen_estrategico ?? null,
     fecha_marcado_estrategico: fila.estrategico_marcado_en ?? '',
     // Se lee de la base. Estaba fijo en true, asi que dar de baja un proyecto
     // no tenia efecto: la lectura pisaba el cambio. Ver 0020_proyectos_activo.
@@ -511,10 +512,25 @@ async function observacionesDe(uuid) {
 export async function marcarEstrategico(idLegible, datos, contexto = {}) {
   const uuid = contexto.uuid ?? (await uuidDe(idLegible));
 
+  /*
+   * El origen se manda; antes no, y por eso la columna «Origen» de la cartera
+   * decia «Base maestra» hasta en los proyectos promovidos desde un monitoreo.
+   *
+   * 'base' no viaja: el enum `origen_carga` solo tiene 'monitoreo' y
+   * 'seguimiento', y la ausencia de origen ES la base maestra. Mandarlo como
+   * valor obligaria a inventar un tercer miembro del enum para decir «ninguno
+   * de los dos».
+   */
+  const origen = datos.origen_estrategico === 'monitoreo' || datos.origen_estrategico === 'seguimiento'
+    ? datos.origen_estrategico
+    : null;
+
   const { error } = await supabase.rpc('marcar_estrategico', {
     p_proyecto_id: uuid,
     p_descripcion_estrategica: oNulo(datos.descripcion_estrategica),
     p_compromiso_publico: oNulo(datos.compromiso_publico),
+    p_origen: origen,
+    p_id_origen: origen ? oNulo(datos.id_origen_estrategico) : null,
   });
   if (error) throw error;
 
