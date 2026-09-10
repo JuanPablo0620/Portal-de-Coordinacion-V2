@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import logo3f from '../assets/logo-3f.png';
 import { usePerfil, useSesion } from '../estado/sesion.js';
+import { acciones } from '../estado/tienda.js';
 import {
   CalendarCheck,
   CalendarDays,
@@ -115,8 +116,38 @@ function Marca() {
   );
 }
 
+/**
+ * Cada cuanto, como mucho, se vuelve a traer todo de la base al cambiar de
+ * pantalla. Sin un piso, ir y volver entre dos pantallas dispararia una docena
+ * de consultas por cada clic. Treinta segundos es bastante menos que lo que
+ * tarda alguien en cargar algo del otro lado, que es el caso que esto resuelve.
+ */
+const MINIMO_ENTRE_REFRESCOS = 30_000;
+
 export function Layout() {
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const { pathname } = useLocation();
+  const ultimo = useRef(0);
+
+  /*
+   * Traer lo fresco al entrar a una pantalla ERA la estrategia declarada de
+   * concurrencia del sistema (ver `refrescar()` en repositorio.js), pero solo
+   * dos de las catorce pantallas la aplicaban: Proyectos y Eventos. En el
+   * resto se veia lo que hubiera al abrir la pestania, asi que lo que cargaba
+   * un companiero no aparecia hasta recargar la pagina entera — y nadie tiene
+   * por que saber que hay que hacer eso.
+   *
+   * Va aca y no en cada modulo para que valga para todos, incluidos los que se
+   * agreguen despues. Los errores no se muestran: cada pantalla que le importe
+   * ya los lee con `estadoRemoto()`, y un cartel global por una carga de fondo
+   * seria ruido en catorce lugares.
+   */
+  useEffect(() => {
+    const ahora = Date.now();
+    if (ahora - ultimo.current < MINIMO_ENTRE_REFRESCOS) return;
+    ultimo.current = ahora;
+    acciones.refrescar().catch(() => {});
+  }, [pathname]);
 
   return (
     <div className="layout-app flex h-full">

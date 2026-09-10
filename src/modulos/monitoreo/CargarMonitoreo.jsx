@@ -169,6 +169,11 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
     setTrabajando(true);
     try {
       setMonitoreo(await acciones.crearMonitoreo(cabecera));
+    } catch (err) {
+      // Sin esto el boton no hacia nada: la promesa se rechazaba y nadie la
+      // atendia. Es el mismo error que ya tenia el alta de temas, dos
+      // funciones mas abajo, y que ahi si estaba resuelto.
+      marcar('cabecera', 'No se pudo iniciar el monitoreo: ' + err.message);
     } finally {
       setTrabajando(false);
     }

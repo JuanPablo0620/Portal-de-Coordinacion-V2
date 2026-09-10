@@ -244,6 +244,7 @@ function Tablero({ resumen, lista, setFiltros, bd, proyectoSeleccionado, setProy
  */
 function ProyectosEnCurso({ bd, proyectoSeleccionado, setProyectoSeleccionado, hoy }) {
   const [cargando, setCargando] = useState(false);
+  const [fallo, setFallo] = useState(null);
 
   const proyectos = useMemo(
     () =>
@@ -255,8 +256,11 @@ function ProyectosEnCurso({ bd, proyectoSeleccionado, setProyectoSeleccionado, h
 
   async function cargarReales() {
     setCargando(true);
+    setFallo(null);
     try {
       await repo.cargarProyectosPosicionamientoReales();
+    } catch (e) {
+      setFallo(e?.message ?? 'No se pudieron cargar los proyectos de posicionamiento.');
     } finally {
       setCargando(false);
     }
@@ -268,6 +272,11 @@ function ProyectosEnCurso({ bd, proyectoSeleccionado, setProyectoSeleccionado, h
         titulo="Proyectos de posicionamiento en curso"
         descripcion="Se lee de la base maestra de proyectos, filtrado por programa — no es una lista fija. Hacé clic en una tarjeta para ver el historial."
       >
+        {fallo && (
+          <div className="mb-3">
+            <Aviso tono="error">{fallo}</Aviso>
+          </div>
+        )}
         {proyectos.length === 0 ? (
           <Vacio
             compacto

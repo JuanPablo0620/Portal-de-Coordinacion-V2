@@ -852,12 +852,16 @@ function PanelPlanificacion({ desvios, presupuesto, anio, trimestre, sufijo, nav
 function ModalCierre({ item, hoy, alCerrar }) {
   const [fecha, setFecha] = useState(hoy);
   const [trabajando, setTrabajando] = useState(false);
+  const [error, setError] = useState(null);
 
   async function confirmar() {
     setTrabajando(true);
+    setError(null);
     try {
       await acciones.marcarCumplido(item.registro.id, fecha);
       alCerrar();
+    } catch (e) {
+      setError(e?.message ?? 'No se pudo marcar el compromiso como cumplido.');
     } finally {
       setTrabajando(false);
     }
@@ -879,6 +883,11 @@ function ModalCierre({ item, hoy, alCerrar }) {
       }
     >
       <p className="mb-3 text-sm leading-relaxed text-gris">{item.registro.descripcion}</p>
+      {error && (
+        <div className="mb-3">
+          <Aviso tono="error">{error}</Aviso>
+        </div>
+      )}
       <CampoFecha etiqueta="Fecha de cumplimiento" value={fecha} onChange={(e) => setFecha(e.target.value)} />
     </Modal>
   );

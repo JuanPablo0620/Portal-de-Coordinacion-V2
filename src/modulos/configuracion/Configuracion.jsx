@@ -301,6 +301,7 @@ function SeccionDatos() {
   const [confirmando, setConfirmando] = useState(null);
   const [trabajando, setTrabajando] = useState(false);
   const [resumenReales, setResumenReales] = useState(null);
+  const [falloReales, setFalloReales] = useState(null);
 
   const conteos = bd
     ? [
@@ -335,6 +336,8 @@ function SeccionDatos() {
     try {
       const resumen = await acciones.cargarTodosLosProyectosReales();
       setResumenReales(resumen);
+    } catch (e) {
+      setFalloReales(e?.message ?? 'No se pudieron cargar los proyectos reales.');
     } finally {
       setTrabajando(false);
     }
@@ -376,6 +379,7 @@ function SeccionDatos() {
         </Boton>
       </div>
 
+      {falloReales && <Aviso tono="error">{falloReales}</Aviso>}
       {resumenReales && (
         <p className="mt-2 text-xs text-tenue">
           Proyectos reales dados de alta:{' '}

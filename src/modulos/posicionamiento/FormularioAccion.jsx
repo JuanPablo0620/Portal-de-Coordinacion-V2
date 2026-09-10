@@ -92,6 +92,10 @@ export function FormularioAccion({ abierto, alCerrar, accion }) {
       if (esEdicion) await acciones.actualizarProyectoPosicionamiento(accion.id, payload);
       else await acciones.crearProyectoPosicionamiento(payload);
       alCerrar();
+    } catch (e) {
+      // Los errores por campo ya se muestran; este es el de la base, que no
+      // corresponde a ninguno en particular y hasta ahora se perdia.
+      setErrores((x) => ({ ...x, general: e?.message ?? 'No se pudo guardar.' }));
     } finally {
       setGuardando(false);
     }
@@ -118,6 +122,7 @@ export function FormularioAccion({ abierto, alCerrar, accion }) {
       }
     >
       <div className="flex flex-col gap-4">
+        {errores.general && <Aviso tono="error">{errores.general}</Aviso>}
         <CampoTexto
           etiqueta="Nombre de la acción"
           requerido
