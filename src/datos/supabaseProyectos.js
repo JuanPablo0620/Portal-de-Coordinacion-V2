@@ -191,7 +191,25 @@ function aplanarObservaciones(lista) {
   const ultima = ordenadas[ordenadas.length - 1];
   const conNumero = ordenadas.filter((a) => a.cuanti);
 
+  /*
+   * La serie de avance en el tiempo, para el gráfico de evolución.
+   *
+   * Antes se reconstruía leyendo la BITÁCORA local y buscando cambios del campo
+   * `avance` — un parche que solo funcionaba en la máquina de quien había
+   * cargado, y que dejaba de funcionar si esa persona limpiaba el navegador.
+   *
+   * Ahora sale de donde corresponde: cada observación fechada aporta su punto,
+   * y el acumulado es la suma corrida. Es exactamente para esto que la base
+   * guarda una fila por período en vez de pisar un campo.
+   */
+  let corrido = 0;
+  const serie_avance = conNumero.map((a) => {
+    corrido += Number(a.cuanti.cantidad) || 0;
+    return { fecha: String(a.fecha_actualizacion).slice(0, 10), avance: corrido };
+  });
+
   return {
+    serie_avance,
     avance: conNumero.reduce((suma, a) => suma + (Number(a.cuanti.cantidad) || 0), 0),
     cantidad: ultima.cuanti ? Number(ultima.cuanti.cantidad) || 0 : '',
     objetivo: conNumero.length ? Number(conNumero[conNumero.length - 1].cuanti.objetivo) || '' : '',
@@ -217,6 +235,7 @@ function aFormaLocal(fila, observaciones) {
     tipo: fila.tipo?.nombre ?? '',
     // Sin observaciones todavía, el estado sale del general de la fila.
     estado: obs.estado ?? (fila.estado_general === 'finalizado' ? 'finalizado' : 'planificado'),
+    serie_avance: obs.serie_avance ?? [],
     cantidad: obs.cantidad ?? '',
     objetivo: obs.objetivo ?? '',
     avance: obs.avance ?? 0,

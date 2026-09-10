@@ -853,8 +853,21 @@ export function historialArea(bd, area, hoy = hoyISO()) {
   };
 }
 
-/** Serie de avance de un proyecto a lo largo del tiempo, leída de la bitácora. */
+/**
+ * Serie de avance de un proyecto a lo largo del tiempo.
+ *
+ * Sale de las observaciones fechadas que trae el proyecto desde la base. Antes
+ * se reconstruía leyendo la bitácora local y buscando cambios del campo
+ * `avance`: funcionaba solo en la máquina de quien había cargado, y se perdía
+ * al limpiar el navegador.
+ *
+ * El `filter` de abajo es el camino viejo, para la base local que todavía usan
+ * los tests y la prueba de humo, donde no hay observaciones.
+ */
 export function serieAvance(bd, idProyecto) {
+  const proyecto = (bd.proyectos ?? []).find((p) => p.id_proyecto === idProyecto);
+  if (proyecto?.serie_avance?.length) return proyecto.serie_avance;
+
   const puntos = [];
   for (const h of historialProyecto(bd, idProyecto).reverse()) {
     const cambio = (h.cambios ?? []).find((c) => c.campo === 'avance');

@@ -22,6 +22,7 @@ import * as posicionamientoRemoto from './supabasePosicionamiento.js';
 import * as mesasRemotas from './supabaseMesas.js';
 import * as cortesRemotos from './supabaseCortes.js';
 import * as planificacionRemota from './supabasePlanificacion.js';
+import * as auditoriaRemota from './supabaseAuditoria.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -158,6 +159,14 @@ const CARGAS_REMOTAS = [
   ['«Mis áreas»', planificacionRemota, async () => {
     bdActual.asignaciones_monitoreo = await planificacionRemota.cargarAsignaciones();
   }],
+  ['la bitácora', auditoriaRemota, async () => {
+    // Va última: necesita los proyectos ya cargados para traducir el uuid de
+    // cada fila auditada al código visible con el que filtran las pantallas.
+    const porUuid = new Map(
+      (bdActual.proyectos ?? []).filter((p) => p.uuid).map((p) => [p.uuid, p.id_proyecto]),
+    );
+    bdActual.historial = await auditoriaRemota.cargar(porUuid);
+  }],
 ];
 
 /**
@@ -239,6 +248,7 @@ export async function refrescar() {
   mesasRemotas.olvidarCatalogos();
   cortesRemotos.olvidarCatalogos();
   planificacionRemota.olvidarCatalogos();
+  auditoriaRemota.olvidarCatalogos();
   await traerRemotos();
   notificar();
   return bdActual;
