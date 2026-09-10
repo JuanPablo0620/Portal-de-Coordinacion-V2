@@ -21,6 +21,7 @@ import * as monitoreosRemotos from './supabaseMonitoreos.js';
 import * as posicionamientoRemoto from './supabasePosicionamiento.js';
 import * as mesasRemotas from './supabaseMesas.js';
 import * as cortesRemotos from './supabaseCortes.js';
+import * as planificacionRemota from './supabasePlanificacion.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -148,6 +149,15 @@ const CARGAS_REMOTAS = [
   ['los cortes de calle', cortesRemotos, async () => {
     bdActual.cortes = await cortesRemotos.cargar();
   }],
+  ['la planificación anual', planificacionRemota, async () => {
+    bdActual.planificacion_anual = await planificacionRemota.cargarPlanificacion();
+  }],
+  ['los reportes guardados', planificacionRemota, async () => {
+    bdActual.reportes_guardados = await planificacionRemota.cargarReportes();
+  }],
+  ['«Mis áreas»', planificacionRemota, async () => {
+    bdActual.asignaciones_monitoreo = await planificacionRemota.cargarAsignaciones();
+  }],
 ];
 
 /**
@@ -228,6 +238,7 @@ export async function refrescar() {
   posicionamientoRemoto.olvidarCatalogos();
   mesasRemotas.olvidarCatalogos();
   cortesRemotos.olvidarCatalogos();
+  planificacionRemota.olvidarCatalogos();
   await traerRemotos();
   notificar();
   return bdActual;
@@ -328,6 +339,11 @@ export async function guardarCatalogo(nombre, items) {
  * preferencia de quien usa el sistema, no dato de gestión institucional.
  */
 export async function guardarAsignacionesMonitoreo(usuario, areas) {
+  if (planificacionRemota.activo()) {
+    const bd = await obtenerBD();
+    bd.asignaciones_monitoreo = await planificacionRemota.guardarAsignaciones(areas);
+    return persistir();
+  }
   const bd = await obtenerBD();
   const deOtros = (bd.asignaciones_monitoreo ?? []).filter((a) => a.usuario !== usuario);
   const propias = areas.map((area) => ({ usuario, area }));
@@ -1269,6 +1285,18 @@ export async function eliminarCorte(id) {
 
 /** Una planificación por proyecto y año: si ya existe, se actualiza. */
 export async function guardarPlanificacion(datos) {
+  if (planificacionRemota.activo()) {
+    const bd = await obtenerBD();
+    const guardada = await planificacionRemota.guardarPlan(datos);
+    // Una por proyecto y año: si ya estaba, se reemplaza en la copia en
+    // memoria; si no, se agrega. La base ya resolvió cuál de los dos era.
+    const previa = bd.planificacion_anual.find((x) => x.id === guardada.id);
+    bd.planificacion_anual = previa
+      ? bd.planificacion_anual.map((x) => (x.id === guardada.id ? guardada : x))
+      : [...bd.planificacion_anual, guardada];
+    await persistir();
+    return guardada;
+  }
   const bd = await obtenerBD();
   const existente = bd.planificacion_anual.find(
     (p) => p.id_proyecto === datos.id_proyecto && p.anio === datos.anio && p.activo !== false,
@@ -1278,17 +1306,40 @@ export async function guardarPlanificacion(datos) {
 }
 
 export async function actualizarPlanificacion(id, cambios) {
-  return actualizar('planificacion_anual', id, cambios);
+  if (!planificacionRemota.activo()) return actualizar('planificacion_anual', id, cambios);
+  const bd = await obtenerBD();
+  const previa = bd.planificacion_anual.find((x) => x.id === id);
+  return escribirRemoto(
+    'planificacion_anual',
+    () => planificacionRemota.actualizarPlan(id, cambios),
+    { accion: 'edicion', id, previo: previa, id_proyecto: previa?.id_proyecto ?? null },
+  );
 }
 
 /* ── Reportes guardados ─────────────────────────────────────────────── */
 
 export async function guardarReporte(nombre, filtros, bloques) {
-  return crear('reportes_guardados', { nombre, filtros, bloques });
+  if (!planificacionRemota.activo()) {
+    return crear('reportes_guardados', { nombre, filtros, bloques });
+  }
+  return escribirRemoto(
+    'reportes_guardados',
+    () => planificacionRemota.guardarReporte({ nombre, filtros, bloques }),
+    { accion: 'alta' },
+  );
 }
 
+/**
+ * Un reporte guardado se borra de verdad, a diferencia del resto del sistema.
+ * No es dato de gestión: es una vista que alguien armó para sí, y no hay nada
+ * que auditar en que la haya descartado.
+ */
 export async function borrarReporte(id) {
-  return bajaLogica('reportes_guardados', id);
+  if (!planificacionRemota.activo()) return bajaLogica('reportes_guardados', id);
+  await planificacionRemota.borrarReporte(id);
+  const bd = await obtenerBD();
+  bd.reportes_guardados = bd.reportes_guardados.filter((r) => r.id !== id);
+  return persistir();
 }
 
 /* ── Importación masiva ─────────────────────────────────────────────── */

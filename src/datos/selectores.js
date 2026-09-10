@@ -1395,7 +1395,6 @@ export function proyectosPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
     .filter((a) =>
       coincide(resto.tipo, a.tipo) &&
       coincide(resto.organismo, a.organismo) &&
-      coincide(resto.pais, a.pais) &&
       coincide(resto.estado, a.estado) &&
       coincide(resto.alcance, a.alcance) &&
       coincide(resto.area, a.area) &&
@@ -1404,7 +1403,7 @@ export function proyectosPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
       (ods ? a.ods.includes(Number(ods)) : true) &&
       dentroDelRango(a.fecha_inicio, resto.desde, resto.hasta) &&
       (!texto ||
-        `${a.nombre} ${a.organismo ?? ''} ${a.pais ?? ''} ${a.descripcion ?? ''}`
+        `${a.nombre} ${a.organismo ?? ''} ${a.descripcion ?? ''}`
           .toLowerCase()
           .includes(texto.toLowerCase())),
     )
@@ -1463,7 +1462,6 @@ export function resumenPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
     financiamiento_obtenido: financiamientoObtenido,
     financiamiento_en_gestion: financiamientoEnGestion,
     organismos: new Set(lista.map((a) => a.organismo).filter(Boolean)).size,
-    paises: new Set(lista.map((a) => a.pais).filter(Boolean)).size,
     ods_cubiertos: new Set(lista.flatMap((a) => a.ods)).size,
     proyectos_vinculados: new Set(lista.flatMap((a) => a.ids_proyecto)).size,
     por_estado: porEstado,

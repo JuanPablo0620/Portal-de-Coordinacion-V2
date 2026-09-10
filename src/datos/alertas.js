@@ -403,7 +403,7 @@ export function vencimientosProximos(bd, hoy = hoyISO(), dias = UMBRALES.DIAS_VE
     items.push({
       clase: 'cierre posicionamiento',
       titulo: a.nombre,
-      detalle: [a.organismo, a.pais].filter(Boolean).join(' · '),
+      detalle: a.organismo ?? '',
       fecha: a.fecha_limite,
       dias: diasHasta(a.fecha_limite, hoy),
       id_proyecto: a.ids_proyecto?.[0] ?? null,

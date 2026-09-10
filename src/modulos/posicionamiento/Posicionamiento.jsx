@@ -173,7 +173,7 @@ function Tablero({ resumen, lista, setFiltros, bd, proyectoSeleccionado, setProy
         <Metrica
           valor={resumen.vigentes}
           etiqueta="Vínculos vigentes"
-          detalle={`${resumen.organismos} organismo(s) · ${resumen.paises} país(es)`}
+          detalle={`${resumen.organismos} organismo(s)`}
         />
       </div>
 
@@ -431,7 +431,6 @@ function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
                   <p className="truncate text-sm text-tinta">{a.nombre}</p>
                   <p className="truncate text-[11px] text-tenue">
                     {a.organismo || 'sin organismo'}
-                    {a.pais ? ` · ${a.pais}` : ''}
                   </p>
                 </div>
               ),
@@ -531,7 +530,6 @@ function FichaAccion({ bd, accion, alEditar, alBorrar, alCerrar }) {
         <div className="flex flex-wrap items-center gap-2">
           <Chip tono={TONO_ESTADO[accion.estado] ?? 'neutro'}>{accion.estado}</Chip>
           {accion.organismo && <Chip tono="acento">{accion.organismo}</Chip>}
-          {accion.pais && <Chip tono="neutro">{accion.pais}</Chip>}
           {accion.area && <Chip tono="neutro">{accion.area}</Chip>}
         </div>
 
@@ -604,10 +602,6 @@ function PanelAlianzas({ bd, criterios, hoy, resumen }) {
     () => (bd ? accionesPorDimension(bd, 'organismo', criterios, hoy).slice(0, 12) : []),
     [bd, criterios, hoy],
   );
-  const porPais = useMemo(
-    () => (bd ? accionesPorDimension(bd, 'pais', criterios, hoy).slice(0, 12) : []),
-    [bd, criterios, hoy],
-  );
   const porODS = useMemo(() => {
     if (!bd) return [];
     const cuenta = new Map(accionesPorDimension(bd, 'ods', criterios, hoy).map((d) => [d.nombre, d.cantidad]));
@@ -619,9 +613,8 @@ function PanelAlianzas({ bd, criterios, hoy, resumen }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Metrica valor={resumen?.organismos ?? 0} etiqueta="Organismos y redes" />
-        <Metrica valor={resumen?.paises ?? 0} etiqueta="Países contraparte" />
         <Metrica
           valor={`${resumen?.ods_cubiertos ?? 0} / 17`}
           etiqueta="ODS cubiertos"
@@ -647,14 +640,9 @@ function PanelAlianzas({ bd, criterios, hoy, resumen }) {
         />
       </Tarjeta>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Tarjeta titulo="Por organismo o red" descripcion="Con quién se sostiene el vínculo.">
-          <GraficoBarras datos={porOrganismo} horizontal anchoEtiqueta={210} alto={Math.max(220, porOrganismo.length * 30)} series={[{ clave: 'cantidad', titulo: 'Acciones' }]} />
-        </Tarjeta>
-        <Tarjeta titulo="Por país contraparte" descripcion="Dónde está puesto el esfuerzo.">
-          <GraficoBarras datos={porPais} horizontal anchoEtiqueta={150} alto={Math.max(220, porPais.length * 30)} series={[{ clave: 'cantidad', titulo: 'Acciones' }]} />
-        </Tarjeta>
-      </div>
+      <Tarjeta titulo="Por organismo o red" descripcion="Con quién se sostiene el vínculo.">
+        <GraficoBarras datos={porOrganismo} horizontal anchoEtiqueta={210} alto={Math.max(220, porOrganismo.length * 30)} series={[{ clave: 'cantidad', titulo: 'Acciones' }]} />
+      </Tarjeta>
 
       <Tarjeta titulo="Referencia de los ODS" descripcion="Los diecisiete objetivos de la Agenda 2030, para leer los gráficos de arriba.">
         <ul className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 xl:grid-cols-3">
