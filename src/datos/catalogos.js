@@ -363,7 +363,9 @@ export const CATALOGOS_SEMILLA = Object.freeze({
 /** Metadatos de presentación de cada catálogo administrable, para Configuración. */
 export const CATALOGOS_ADMINISTRABLES = Object.freeze([
   { clave: 'areas', titulo: 'Áreas', descripcion: 'Secretarías, subsecretarías y direcciones', conPrefijo: true },
-  { clave: 'programas', titulo: 'Programas', descripcion: 'Programas a los que pertenecen los proyectos' },
+  // Un programa pertenece a UNA secretaria; sin ella la base lo rechaza, asi
+  // que el panel tiene que pedirla al darlo de alta.
+  { clave: 'programas', titulo: 'Programas', descripcion: 'Programas a los que pertenecen los proyectos', conArea: true },
   { clave: 'ejes', titulo: 'Ejes estratégicos', descripcion: 'Ejes de gestión' },
   { clave: 'tipos', titulo: 'Tipos de proyecto', descripcion: 'Obra, servicio, programa social, gestión interna, adquisición', conEsObra: true },
   { clave: 'unidades', titulo: 'Unidades de medida', descripcion: 'Unidad en que se mide el objetivo' },

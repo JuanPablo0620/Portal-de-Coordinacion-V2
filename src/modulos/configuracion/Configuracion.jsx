@@ -4,6 +4,7 @@ import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Aviso, Boton, Chip, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { CATALOGOS_ADMINISTRABLES } from '../../datos/catalogos.js';
+import { useOpciones } from '../../utilidades/catalogos.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { acciones, useBD, useCatalogos } from '../../estado/tienda.js';
 import { usePerfil, useSesion } from '../../estado/sesion.js';
@@ -118,6 +119,10 @@ function PanelCatalogo({ cfg }) {
   const items = catalogos[cfg.clave] ?? [];
   const [nombre, setNombre] = useState('');
   const [prefijo, setPrefijo] = useState('');
+  const [area, setArea] = useState('');
+  // Las areas que ofrece el desplegable salen del catalogo de areas, que es la
+  // misma lista que este panel edita mas arriba.
+  const opcionesArea = useOpciones('areas');
   /*
    * Desde que los catalogos se guardan en la base, guardar puede fallar: la
    * escritura es solo de admin, y un nombre repetido choca con la restriccion
@@ -151,11 +156,14 @@ function PanelCatalogo({ cfg }) {
     if (activos.some((i) => i.nombre.toLowerCase() === limpio.toLowerCase())) return;
     const item = { id: nuevoId('cat'), nombre: limpio, activo: true };
     if (cfg.conPrefijo) item.prefijo = (prefijo.trim() || limpio.slice(0, 3)).toUpperCase().slice(0, 4);
+    if (cfg.conArea) item.area = area;
     // El campo se limpia solo si el alta entro: si fallo, lo escrito sigue ahi
     // para poder reintentar sin volver a tipearlo.
     if (await guardar([...items, item])) {
       setNombre('');
       setPrefijo('');
+      // El area NO se limpia: cargar varios programas de la misma secretaria de
+      // corrido es el caso normal, y volver a elegirla cada vez es friccion.
     }
   }
 
@@ -189,6 +197,21 @@ function PanelCatalogo({ cfg }) {
           aria-label={`Nuevo ítem de ${cfg.titulo}`}
           className="campo-base min-w-32 flex-1 py-1.5 text-xs"
         />
+        {cfg.conArea && (
+          <select
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+            aria-label={'Secretaría del nuevo ítem de ' + cfg.titulo}
+            className="campo-base min-w-40 py-1.5 text-xs"
+          >
+            <option value="">Elegí la secretaría…</option>
+            {opcionesArea.map((o) => (
+              <option key={o.id} value={o.nombre}>
+                {o.nombre}
+              </option>
+            ))}
+          </select>
+        )}
         {cfg.conPrefijo && (
           <input
             value={prefijo}
@@ -201,7 +224,12 @@ function PanelCatalogo({ cfg }) {
             className="campo-base w-20 py-1.5 text-xs uppercase"
           />
         )}
-        <Boton tamanio="sm" icono={Plus} onClick={agregar} disabled={!nombre.trim()}>
+        <Boton
+          tamanio="sm"
+          icono={Plus}
+          onClick={agregar}
+          disabled={!nombre.trim() || (cfg.conArea && !area)}
+        >
           Agregar
         </Boton>
       </div>
@@ -221,6 +249,12 @@ function PanelCatalogo({ cfg }) {
                 className="min-w-0 flex-1 rounded bg-transparent px-1 text-sm text-tinta focus:bg-paper focus:outline-2 focus:outline-acento"
               />
               {cfg.conPrefijo && item.prefijo && <Chip tono="acento">{item.prefijo}</Chip>}
+              {/* Sesenta y un programas en una lista plana de nombres no se
+                  pueden distinguir: «Eventos» de Capital Humano y «Eventos» de
+                  Coordinación se leen igual. La secretaría es lo que los separa. */}
+              {cfg.conArea && item.area && (
+                <span className="shrink-0 text-[11px] text-tenue">{item.area}</span>
+              )}
               <button
                 type="button"
                 onClick={() => cambiarEstado(item.id, false)}
