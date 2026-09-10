@@ -209,7 +209,7 @@ export const DIAS_PERIODICIDAD = Object.freeze({
  */
 export const CATALOGOS_SEMILLA = Object.freeze({
   areas: [
-    { id: 'ar_coord', nombre: 'Coordinación', prefijo: 'COR', activo: true },
+    { id: 'ar_coord', slug: 'coordinacion', nombre: 'Coordinación', prefijo: 'COR', activo: true },
     { id: 'ar_r_ambiente', nombre: 'Secretaría de Ambiente y Servicios Públicos', prefijo: 'AMB', activo: true },
     { id: 'ar_r_capital', nombre: 'Secretaría de Capital Humano', prefijo: 'CAH', activo: true },
     { id: 'ar_r_obras', nombre: 'Secretaría de Obras', prefijo: 'OBR', activo: true },
@@ -263,7 +263,7 @@ export const CATALOGOS_SEMILLA = Object.freeze({
     { id: 'ej_mesa_edla', nombre: 'Mesa EDLA', activo: true },
     { id: 'ej_mesa_favelita', nombre: 'Mesa Favelita / El Libertador', activo: true },
     { id: 'ej_posic', nombre: 'Posicionamiento', activo: true },
-    { id: 'ej_compromisos', nombre: 'Compromisos', activo: true },
+    { id: 'ej_compromisos', slug: 'compromisos', nombre: 'Compromisos', activo: true },
   ],
   tipos: [
     { id: 'ti_obra', nombre: 'Obra', es_obra: true, activo: true },

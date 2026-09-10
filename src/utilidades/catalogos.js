@@ -9,6 +9,18 @@ import { useMemo } from 'react';
 import { useCatalogos } from '../estado/tienda.js';
 
 /** Opciones `{ valor, titulo }` de un catálogo administrable, sólo activas. */
+/**
+ * Identidad estable de un ítem de catálogo.
+ *
+ * El `id` dejó de servir para esto cuando los catálogos pasaron a Supabase:
+ * en la base es un uuid, no el `ar_coord` de la maqueta. El `slug` sí es
+ * estable —no cambia aunque alguien renombre el ítem— y existe en las dos
+ * fuentes, así que es lo que hay que comparar. Se acepta el id viejo como
+ * respaldo para las bases locales que se hidrataron antes de este cambio.
+ */
+export const esItem = (opcion, slug, idViejo) =>
+  opcion.slug === slug || opcion.id === idViejo;
+
 export function useOpciones(nombreCatalogo) {
   const catalogos = useCatalogos();
   return useMemo(() => {

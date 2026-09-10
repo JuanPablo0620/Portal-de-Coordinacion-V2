@@ -22,7 +22,7 @@ import { COLUMNAS_CSV_PROYECTO } from '../../datos/importacion.js';
 import { proyectos as selProyectos, hoyISO } from '../../datos/selectores.js';
 import { fecha as fFecha, haceCuanto, moneda, numero } from '../../utilidades/formato.js';
 import { acciones, useBD } from '../../estado/tienda.js';
-import { useOpciones, useOpcionesPrograma } from '../../utilidades/catalogos.js';
+import { esItem, useOpciones, useOpcionesPrograma } from '../../utilidades/catalogos.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
 const DEFAULTS = {
@@ -63,7 +63,7 @@ export default function Proyectos() {
   // proyecto— así que filtrar por él siempre da la lista vacía. Se saca del
   // filtro (no del catálogo: sigue en Configuración como vocabulario
   // institucional, ver catalogos.js).
-  const opcionesEje = useOpciones('ejes').filter((o) => o.id !== 'ej_compromisos');
+  const opcionesEje = useOpciones('ejes').filter((o) => !esItem(o, 'compromisos', 'ej_compromisos'));
   const opcionesTipo = useOpciones('tipos');
 
   const filas = useMemo(() => (bd ? selProyectos(bd, filtros) : []), [bd, filtros]);

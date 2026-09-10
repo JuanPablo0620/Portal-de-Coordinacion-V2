@@ -21,7 +21,7 @@ import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { SelectorODS } from './SelectorODS.jsx';
 import { ESTADOS_POSICIONAMIENTO } from '../../datos/catalogos.js';
 import { hoyISO } from '../../datos/selectores.js';
-import { useOpciones } from '../../utilidades/catalogos.js';
+import { esItem, useOpciones } from '../../utilidades/catalogos.js';
 import { acciones } from '../../estado/tienda.js';
 
 const VACIA = {
@@ -58,7 +58,7 @@ export function FormularioAccion({ abierto, alCerrar, accion }) {
   const opcionesOrganismo = useOpciones('organismos');
   // Coordinación no impulsa acciones de posicionamiento en este formulario —
   // es quien lo carga, no un área "que la impulsa" para elegir de una lista.
-  const opcionesArea = useOpciones('areas').filter((o) => o.id !== 'ar_coord');
+  const opcionesArea = useOpciones('areas').filter((o) => !esItem(o, 'coordinacion', 'ar_coord'));
 
   const cambiar = (campo) => (e) => {
     setDatos((d) => ({ ...d, [campo]: e?.target?.value ?? e }));

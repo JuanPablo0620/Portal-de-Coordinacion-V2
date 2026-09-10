@@ -43,7 +43,7 @@ import {
   proyectoPorId,
 } from '../../datos/selectores.js';
 import { dolares, fecha as fFecha, textoVencimiento } from '../../utilidades/formato.js';
-import { useOpciones } from '../../utilidades/catalogos.js';
+import { esItem, useOpciones } from '../../utilidades/catalogos.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 import { acciones as repo, useBD } from '../../estado/tienda.js';
 
@@ -382,7 +382,7 @@ function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
   const opcionesOrganismo = useOpciones('organismos');
   // Coordinación no impulsa proyectos de posicionamiento como filtro de área
   // — mismo criterio que en el formulario de alta.
-  const opcionesArea = useOpciones('areas').filter((o) => o.id !== 'ar_coord');
+  const opcionesArea = useOpciones('areas').filter((o) => !esItem(o, 'coordinacion', 'ar_coord'));
 
   const elegida = filtros.accion ? lista.find((a) => a.id === filtros.accion) : null;
 

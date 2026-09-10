@@ -23,6 +23,7 @@ import * as mesasRemotas from './supabaseMesas.js';
 import * as cortesRemotos from './supabaseCortes.js';
 import * as planificacionRemota from './supabasePlanificacion.js';
 import * as auditoriaRemota from './supabaseAuditoria.js';
+import * as catalogosRemotos from './supabaseCatalogos.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -112,6 +113,15 @@ export const estadoRemoto = () => ({ error: errorRemoto });
  * dos cosas distintas y no ayuda a ninguna de las dos.
  */
 const CARGAS_REMOTAS = [
+  // Van primeros: son el vocabulario compartido del que cuelgan los
+  // desplegables y los filtros de todas las demas pantallas.
+  ['los catálogos', catalogosRemotos, async () => {
+    const remotos = await catalogosRemotos.cargar();
+    // Se mezclan sobre la semilla en vez de reemplazarla: si un catalogo no
+    // pudo traerse, la pantalla sigue ofreciendo la lista local en lugar de
+    // quedarse con un desplegable vacio.
+    bdActual.catalogos = { ...bdActual.catalogos, ...remotos };
+  }],
   ['los eventos', eventosRemotos, async () => {
     const remoto = await eventosRemotos.cargar();
     bdActual.eventos = remoto.eventos;
@@ -119,14 +129,6 @@ const CARGAS_REMOTAS = [
   }],
   ['los proyectos', proyectosRemotos, async () => {
     bdActual.proyectos = await proyectosRemotos.cargar();
-    // Los programas REALES, con su secretaria. Pisan la semilla de la maqueta,
-    // que tiene nombres genericos que ningun proyecto usa y no sabe de que area
-    // es cada uno -- por eso el desplegable de Programa mostraba opciones que
-    // no eran y no podia filtrarse por secretaria.
-    bdActual.catalogos = {
-      ...bdActual.catalogos,
-      programas: await proyectosRemotos.cargarProgramas(),
-    };
   }],
   ['los seguimientos', seguimientosRemotos, async () => {
     bdActual.seguimientos = await seguimientosRemotos.cargar();
@@ -248,6 +250,7 @@ export async function refrescar() {
   mesasRemotas.olvidarCatalogos();
   cortesRemotos.olvidarCatalogos();
   planificacionRemota.olvidarCatalogos();
+  catalogosRemotos.olvidarCatalogos();
   auditoriaRemota.olvidarCatalogos();
   await traerRemotos();
   notificar();
@@ -332,8 +335,24 @@ export async function guardarConfig(cambios) {
   return persistir();
 }
 
+/**
+ * Guarda un catalogo entero, como lo manda Configuracion.
+ *
+ * Antes esto escribia solo en el navegador: agregabas una secretaria y no la
+ * veia nadie mas, y al recargar, la lista volvia a la de la base. Un catalogo
+ * es el vocabulario compartido del sistema —de el dependen los desplegables,
+ * los filtros y los nombres que salen en los informes— asi que es justamente
+ * el dato que tiene que ser igual para todos.
+ *
+ * En la base lo escribe solo admin (ver 0025): renombrar una secretaria o un
+ * eje se propaga a todos los informes a la vez.
+ */
 export async function guardarCatalogo(nombre, items) {
   const bd = await obtenerBD();
+  if (catalogosRemotos.activo() && catalogosRemotos.CLAVES.includes(nombre)) {
+    bd.catalogos = { ...bd.catalogos, [nombre]: await catalogosRemotos.guardar(nombre, items) };
+    return persistir();
+  }
   bd.catalogos = { ...bd.catalogos, [nombre]: items };
   return persistir();
 }
