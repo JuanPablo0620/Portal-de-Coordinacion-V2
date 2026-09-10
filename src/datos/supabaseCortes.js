@@ -45,7 +45,7 @@ const CAMPOS = [
   'id, motivo, detalle_motivo, estado, alcance',
   'vigencia_desde, vigencia_hasta, hora_desde, hora_hasta',
   'dias_semana, fechas_excluidas, tramos, cuadras, observaciones',
-  'geometria, forma, trazado_aproximado',
+  'geometria, forma, trazado_aproximado, levantado_en',
   'activo, created_at',
   'evento_id',
   'area:areas(nombre, nombre_formal)',
@@ -92,6 +92,7 @@ function aFormaLocal(fila) {
     geometria: fila.geometria ?? null,
     forma: fila.forma ?? "tramo",
     trazado_aproximado: fila.trazado_aproximado ?? false,
+    levantado_en: fila.levantado_en ?? null,
     observaciones: fila.observaciones ?? '',
     activo: fila.activo,
     creado_en: fila.created_at,
@@ -116,6 +117,7 @@ async function aFilaBase(datos, cat) {
   if ('geometria' in datos) fila.geometria = datos.geometria ?? null;
   if ('forma' in datos) fila.forma = datos.forma || 'tramo';
   if ('trazado_aproximado' in datos) fila.trazado_aproximado = Boolean(datos.trazado_aproximado);
+  if ('levantado_en' in datos) fila.levantado_en = oNulo(datos.levantado_en);
   if ('observaciones' in datos) fila.observaciones = oNulo(datos.observaciones);
   if ('activo' in datos) fila.activo = datos.activo;
 

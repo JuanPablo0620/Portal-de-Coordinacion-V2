@@ -1253,12 +1253,16 @@ export async function actualizarCorte(id, cambios) {
  * toda la semana, y el histórico mentiría.
  */
 export async function levantarCorte(id, hoy = hoyISO()) {
-  return actualizar('cortes', id, { estado: 'levantado', levantado_en: hoy });
+  // Pasa por `actualizarCorte` y no por `actualizar` directo: si no, el cambio
+  // se quedaba en la copia local. El corte figuraba levantado para quien lo
+  // levantó y seguía activo para todos los demás, hasta que esa persona
+  // recargaba y le volvía a aparecer vigente.
+  return actualizarCorte(id, { estado: 'levantado', levantado_en: hoy });
 }
 
 /** Baja lógica: el corte se cargó por error o duplicado. */
 export async function eliminarCorte(id) {
-  return actualizar('cortes', id, { activo: false });
+  return actualizarCorte(id, { activo: false });
 }
 
 /* ── Planificación ──────────────────────────────────────────────────── */

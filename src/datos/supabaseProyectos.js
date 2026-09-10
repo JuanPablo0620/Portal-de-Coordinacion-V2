@@ -154,7 +154,7 @@ const oNumero = (v) => (v === '' || v === null || v === undefined ? null : Numbe
 const CAMPOS_PROYECTO = [
   'id, id_legible, nombre, estado_general, responsable, prioridad',
   'fecha_inicio, fecha_fin_proyectada, causa_atraso, es_obra',
-  'monto_planificado, monto_ejecutado, zona, latitud, longitud, observaciones, activo',
+  'monto_planificado, monto_ejecutado, zona, latitud, longitud, observaciones, activo, fecha_carga',
   'es_estrategico, descripcion_estrategica, estrategico_nota, estrategico_marcado_en',
   'compromiso_publico, origen_estrategico',
   'created_at',
@@ -240,6 +240,9 @@ function aFormaLocal(fila, observaciones) {
     // Se lee de la base. Estaba fijo en true, asi que dar de baja un proyecto
     // no tenia efecto: la lectura pisaba el cambio. Ver 0020_proyectos_activo.
     activo: fila.activo ?? true,
+    // La usa la ficha del proyecto y, sobre todo, el filtro por periodo de la
+    // base maestra: sin ella comparaba contra undefined en cada fila.
+    fecha_carga: fila.fecha_carga ?? (fila.created_at ? String(fila.created_at).slice(0, 10) : ''),
     creado_por: fila.autor?.nombre ?? '',
     creado_en: fila.created_at,
   };
@@ -287,6 +290,7 @@ async function aFilaProyecto(datos, cat) {
   if ('longitud' in datos) fila.longitud = oNumero(datos.longitud);
   if ('observaciones' in datos) fila.observaciones = oNulo(datos.observaciones);
   if ('activo' in datos) fila.activo = Boolean(datos.activo);
+  if ('fecha_carga' in datos) fila.fecha_carga = oNulo(datos.fecha_carga);
 
   if ('eje' in datos) fila.eje_id = resolver(cat.ejes, datos.eje, 'ejes');
   if ('tipo' in datos) fila.tipo_id = resolver(cat.tipos, datos.tipo, 'tipos de proyecto');
