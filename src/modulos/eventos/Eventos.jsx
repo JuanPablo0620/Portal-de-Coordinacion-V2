@@ -86,7 +86,7 @@ export default function Eventos() {
             traer, lo que se ve puede estar desactualizado o incompleto — y eso
             hay que decirlo, no dejar que parezca la lista real. */}
         {errorRemoto && (
-          <Aviso tono="error" titulo="No se pudieron traer los eventos de la base">
+          <Aviso tono="error" titulo="No se pudo traer todo desde la base">
             Puede que estés viendo información desactualizada, y lo que cargues ahora quizás no se
             guarde. Probá recargar la página. Si sigue, avisale a Control de Gestión. ({errorRemoto})
           </Aviso>

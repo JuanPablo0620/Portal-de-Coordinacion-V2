@@ -142,7 +142,14 @@ export default function Proyectos() {
       />
 
       <Pagina className="flex flex-col gap-4">
-        {errorRemoto && <Aviso tono="error">No se pudieron actualizar los proyectos: {errorRemoto}</Aviso>}
+        {/* El error es el de la carga remota COMPLETA, no el de los proyectos:
+            decía "no se pudieron actualizar los proyectos" aunque lo que hubiera
+            fallado fuera la bitácora. El mensaje ya nombra la colección real. */}
+        {errorRemoto && (
+          <Aviso tono="error" titulo="No se pudo traer todo desde la base">
+            Lo que ves puede estar desactualizado. {errorRemoto}
+          </Aviso>
+        )}
         <TarjetaFiltros filtros={filtros} defaults={DEFAULTS} alLimpiar={limpiarFiltros}>
           <GrillaFiltros columnas={6}>
             <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />

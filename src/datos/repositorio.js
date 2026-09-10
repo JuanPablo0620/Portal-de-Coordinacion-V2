@@ -194,7 +194,7 @@ async function traerRemotos() {
       console.error(`No se pudieron traer ${rotulo} de Supabase`, error);
     }
   }
-  errorRemoto = fallos.length ? `No se pudieron traer ${fallos.join(' · ')}` : null;
+  errorRemoto = fallos.length ? `Falló la carga de ${fallos.join(' · ')}` : null;
 }
 
 /**

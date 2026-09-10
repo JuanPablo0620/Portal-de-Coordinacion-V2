@@ -79,10 +79,29 @@ function diferencias(antes, despues) {
  *   uuid de la fila, y las pantallas de historial filtran por el código visible
  *   del proyecto. Sin esto, el historial de un proyecto saldría siempre vacío.
  */
+/**
+ * Nombre de cada autor, por id.
+ *
+ * Va en una consulta aparte y no como embed (`autor:perfiles(nombre)`) a
+ * propósito. El embed necesita que PostgREST vea una clave foránea entre
+ * `auditoria` y `perfiles`, y `usuario_id` se declaró en 0001 como un uuid
+ * suelto: sin la restricción, la consulta ENTERA falla con PGRST200 y la
+ * bitácora no carga. 0023 agrega esa clave, pero pedir los perfiles por
+ * separado no depende de ella — y son nueve filas.
+ *
+ * Si la lectura falla, los asientos salen sin autor en vez de no salir: quién
+ * cambió qué es información valiosa, pero menos que el cambio en sí.
+ */
+async function nombresPorId() {
+  const { data, error } = await supabase.from('perfiles').select('id, nombre');
+  if (error) return new Map();
+  return new Map(data.map((p) => [p.id, p.nombre]));
+}
+
 export async function cargar(proyectosPorUuid = new Map()) {
   const { data, error } = await supabase
     .from('auditoria')
-    .select('id, tabla, registro_id, accion, ts, datos_antes, datos_despues, autor:perfiles(nombre)')
+    .select('id, tabla, registro_id, accion, ts, datos_antes, datos_despues, usuario_id')
     .order('ts', { ascending: false })
     .limit(TOPE);
 
@@ -93,6 +112,8 @@ export async function cargar(proyectosPorUuid = new Map()) {
     if (error.code === '42501' || error.code === 'PGRST301') return [];
     throw error;
   }
+
+  const autores = await nombresPorId();
 
   return data.map((f) => {
     const fila = f.datos_despues ?? f.datos_antes ?? {};
@@ -107,7 +128,7 @@ export async function cargar(proyectosPorUuid = new Map()) {
       accion: ACCION[f.accion] ?? f.accion,
       cambios: diferencias(f.datos_antes, f.datos_despues),
       id_proyecto: proyectosPorUuid.get(uuidProyecto) ?? null,
-      creado_por: f.autor?.nombre ?? 'el sistema',
+      creado_por: autores.get(f.usuario_id) ?? 'el sistema',
       creado_en: f.ts,
     };
   });
