@@ -30,8 +30,8 @@ que el otro no puede deducir leyendo el repo.
 | Qué | Estado |
 |---|---|
 | Implementación Eventos/Mapa | `9cd03a9`, publicada en `fork/main` |
-| Rediseño de Eventos | Agenda ejecutiva implementada y verificada localmente; pendiente de publicación al cerrar esta tanda |
-| Producción | Bundle `index-D2U6FZQ3.js` verificado con Eventos multidía y mapa claro |
+| Rediseño de Eventos | `9b344bf`, Agenda ejecutiva publicada en `fork/main`, con identidad por área y preparación visible |
+| Producción | Bundles `index-DANmeyC1.js` y `index-D03l_d4H.css` verificados en el dominio público |
 | Migraciones `0001` a `0010` | El front vigente depende de ellas; su historial remoto no se re-auditó en esta sesión |
 | Migración `0011` | **Escrita, todavía no aplicada**: agrega `eventos.fecha_hasta` y normaliza los rangos temporales |
 | Secretaría General | Agregada y verificada en el catálogo real de Supabase por API REST |
