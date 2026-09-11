@@ -94,7 +94,7 @@ export async function cargarResumen() {
       .not('monitoreo_id', 'is', null),
     supabase
       .from('compromisos')
-      .select('id, id_monitoreo_origen, descripcion, responsable, fecha_limite, estado, activo')
+      .select('id, id_monitoreo_origen, descripcion, fecha_limite, estado, activo')
       .not('id_monitoreo_origen', 'is', null),
   ]);
   if (avances.error) throw avances.error;
@@ -127,7 +127,6 @@ export async function cargarResumen() {
     entrada(c.id_monitoreo_origen).compromisos.push({
       id: c.id,
       descripcion: c.descripcion ?? '',
-      responsable: c.responsable ?? '',
       fecha_limite: c.fecha_limite ?? null,
       estado: c.estado,
     });

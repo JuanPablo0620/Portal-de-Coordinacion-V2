@@ -46,7 +46,6 @@ const nuevaClave = () => Math.random().toString(36).slice(2);
 const filaCompromisoVacia = (fechaSeguimiento) => ({
   clave: nuevaClave(),
   descripcion: '',
-  responsable: '',
   fecha_limite: sumarDias(fechaSeguimiento, UMBRALES.DIAS_ENTRE_SEGUIMIENTOS),
   id_proyecto: '',
 });
@@ -173,7 +172,6 @@ export function CargarSeguimiento({ alTerminar }) {
             id_proyecto: c.id_proyecto || null,
             area,
             descripcion: c.descripcion.trim(),
-            responsable: c.responsable.trim(),
             fecha_limite: c.fecha_limite || null,
           }));
         if (aCrear.length) await acciones.crearCompromisos(aCrear);
@@ -336,7 +334,7 @@ function BloqueCompromisos({ filas, setFilas, hoy, area, fechaSeguimiento }) {
           const fechaFalta = fila.descripcion.trim() && !fila.fecha_limite;
           const fechaInvalida = fila.fecha_limite && fila.fecha_limite < hoy;
           return (
-            <div key={fila.clave} className="grid grid-cols-1 gap-2 sm:grid-cols-[170px_1fr_150px_140px_auto]">
+            <div key={fila.clave} className="grid grid-cols-1 gap-2 sm:grid-cols-[170px_1fr_140px_auto]">
               <SelectorProyectoCompacto
                 area={area}
                 valor={fila.id_proyecto}
@@ -347,12 +345,6 @@ function BloqueCompromisos({ filas, setFilas, hoy, area, fechaSeguimiento }) {
                 placeholder="Descripción de la acción comprometida"
                 value={fila.descripcion}
                 onChange={(e) => actualizar(fila.clave, 'descripcion', e.target.value)}
-              />
-              <input
-                className="campo-base py-1.5 text-sm"
-                placeholder="Responsable"
-                value={fila.responsable}
-                onChange={(e) => actualizar(fila.clave, 'responsable', e.target.value)}
               />
               <div>
                 <input

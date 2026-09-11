@@ -680,7 +680,7 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
 
       <Tarjeta
         titulo="Temas del período"
-        descripcion="Los que requieren acción muestran responsable y fecha comprometida; se pueden cerrar acá mismo."
+        descripcion="Los que requieren acción muestran la fecha comprometida; se pueden cerrar acá mismo."
         sinPadding
       >
         <Tabla
@@ -697,22 +697,15 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
               render: (f) => <Criticidad nivel={f.criticidad} />,
             },
             {
-              clave: 'responsable',
+              clave: 'fecha_limite',
               titulo: 'Acción comprometida',
               ancho: 160,
               render: (f) =>
-                f.requiere_accion ? (
-                  <div>
-                    <Chip tono="proximo">{f.responsable || 'sin responsable'}</Chip>
-                    {f.fecha_limite && (
-                      <p className="mt-0.5">
-                        <Semaforo
-                          nivel={f.resuelto ? 'enregla' : nivelPorDias(diasHasta(f.fecha_limite, hoy))}
-                          texto={fFecha(f.fecha_limite)}
-                        />
-                      </p>
-                    )}
-                  </div>
+                f.requiere_accion && f.fecha_limite ? (
+                  <Semaforo
+                    nivel={f.resuelto ? 'enregla' : nivelPorDias(diasHasta(f.fecha_limite, hoy))}
+                    texto={fFecha(f.fecha_limite)}
+                  />
                 ) : (
                   <span className="text-tenue">—</span>
                 ),

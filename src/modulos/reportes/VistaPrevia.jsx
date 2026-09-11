@@ -208,7 +208,6 @@ function BloqueCompromisos({ filas }) {
         conBusqueda={false}
         columnas={[
           { clave: 'descripcion', titulo: 'Compromiso' },
-          { clave: 'responsable', titulo: 'Responsable', ancho: 130 },
           { clave: 'area', titulo: 'Área', ancho: 175 },
           { clave: 'origen_tipo', titulo: 'Origen', ancho: 105 },
           { clave: 'fecha_limite', titulo: 'Vence', ancho: 100, render: (f) => fFecha(f.fecha_limite), formatoCSV: fFecha },

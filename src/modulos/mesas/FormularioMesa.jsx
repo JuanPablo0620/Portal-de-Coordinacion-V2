@@ -99,14 +99,19 @@ export function FormularioMesa({ abierto, alCerrar, mesa, tipoInicial }) {
           <CampoSelect etiqueta="Estado" opciones={ESTADOS_MESA} value={datos.estado} onChange={cambiar('estado')} placeholder="" />
         </GrillaCampos>
 
-        <SelectorProyecto
-          multiple
-          etiqueta="Proyectos vinculados"
-          ayuda="opcional"
-          valor={datos.proyectos_vinculados}
-          alCambiar={(v) => setDatos((d) => ({ ...d, proyectos_vinculados: v }))}
-          maxAltura={180}
-        />
+        {/* Solo tiene sentido al editar: al crear la mesa todavía no existe
+            en la base, y vincular proyectos ahí complicaba el alta sin
+            aportar nada — se hace después, desde "Editar". */}
+        {esEdicion && (
+          <SelectorProyecto
+            multiple
+            etiqueta="Proyectos vinculados"
+            ayuda="opcional"
+            valor={datos.proyectos_vinculados}
+            alCambiar={(v) => setDatos((d) => ({ ...d, proyectos_vinculados: v }))}
+            maxAltura={180}
+          />
+        )}
       </div>
     </Modal>
   );

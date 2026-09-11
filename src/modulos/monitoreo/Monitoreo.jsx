@@ -367,8 +367,7 @@ function DetalleMonitoreo({ monitoreo, navegar }) {
               <div className="min-w-40 flex-1">
                 <p className="text-sm text-tinta">{c.descripcion}</p>
                 <p className="text-[11px] text-tenue">
-                  {c.responsable || 'sin responsable'}
-                  {c.fecha_limite ? ` · vence ${fFecha(c.fecha_limite)}` : ' · sin fecha límite'}
+                  {c.fecha_limite ? `vence ${fFecha(c.fecha_limite)}` : 'sin fecha límite'}
                 </p>
               </div>
               <Chip tono={c.estado === 'cumplido' ? 'enregla' : 'proximo'}>{c.estado}</Chip>

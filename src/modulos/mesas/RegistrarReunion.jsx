@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton, Chip } from '../../componentes/Basicos.jsx';
-import { CampoArea, CampoFecha, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
+import { CampoArea, CampoFecha } from '../../componentes/Campo.jsx';
 import { hoyISO } from '../../datos/selectores.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones } from '../../estado/tienda.js';
 
-const filaVacia = () => ({ clave: Math.random().toString(36).slice(2), descripcion: '', responsable: '', fecha_limite: '', area: '' });
+const filaVacia = () => ({ clave: Math.random().toString(36).slice(2), descripcion: '', fecha_limite: '', area: '' });
 
 /**
  * Los compromisos que salen de una reunión de mesa se crean con
@@ -17,7 +17,7 @@ const filaVacia = () => ({ clave: Math.random().toString(36).slice(2), descripci
 export function RegistrarReunion({ abierto, alCerrar, mesa }) {
   const hoy = hoyISO();
   const opcionesArea = useOpciones('areas');
-  const [datos, setDatos] = useState({ fecha: hoy, asistentes: '', temas: '' });
+  const [datos, setDatos] = useState({ fecha: hoy, temas: '' });
   const [compromisos, setCompromisos] = useState([]);
   const [error, setError] = useState('');
 
@@ -31,29 +31,45 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
       return;
     }
     for (const c of compromisos) {
-      if (c.descripcion.trim() && c.fecha_limite && c.fecha_limite < hoy) {
+      if (!c.descripcion.trim()) continue;
+      if (c.fecha_limite && c.fecha_limite < hoy) {
         setError('Las fechas límite no pueden ser anteriores a hoy.');
+        return;
+      }
+      // Sin esto, el compromiso fallaba recién al guardar: la base exige
+      // área y ahí no había mensaje (ver nota del catch, más abajo). Se
+      // valida acá para no llegar a intentarlo sin área.
+      if (!c.area) {
+        setError('Elegí el área responsable de cada compromiso antes de guardar.');
         return;
       }
     }
     setError('');
 
-    await acciones.crearReunionMesa({ id_mesa: mesa.id, ...datos });
+    // Antes, un error de Supabase (por ejemplo el del área, arriba, u otro de
+    // permisos) quedaba sin capturar: la promesa del onClick rechazaba en
+    // silencio, el modal no se cerraba y el botón «no hacía nada» — pero la
+    // reunión, que se crea antes que los compromisos, ya había quedado
+    // guardada. Ahora cualquier error restante se muestra en vez de tragarse.
+    try {
+      await acciones.crearReunionMesa({ id_mesa: mesa.id, ...datos });
 
-    const aCrear = compromisos
-      .filter((c) => c.descripcion.trim())
-      .map((c) => ({
-        origen_tipo: 'mesa',
-        id_origen: mesa.id,
-        id_proyecto: mesa.proyectos_vinculados?.[0] ?? null,
-        area: c.area || '',
-        descripcion: c.descripcion.trim(),
-        responsable: c.responsable.trim(),
-        fecha_limite: c.fecha_limite || null,
-      }));
-    if (aCrear.length) await acciones.crearCompromisos(aCrear);
+      const aCrear = compromisos
+        .filter((c) => c.descripcion.trim())
+        .map((c) => ({
+          origen_tipo: 'mesa',
+          id_origen: mesa.id,
+          id_proyecto: mesa.proyectos_vinculados?.[0] ?? null,
+          area: c.area || '',
+          descripcion: c.descripcion.trim(),
+          fecha_limite: c.fecha_limite || null,
+        }));
+      if (aCrear.length) await acciones.crearCompromisos(aCrear);
 
-    alCerrar();
+      alCerrar();
+    } catch (err) {
+      setError(err?.message || 'No se pudo guardar la reunión. Probá de nuevo.');
+    }
   }
 
   return (
@@ -73,10 +89,7 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
       }
     >
       <div className="flex flex-col gap-3">
-        <GrillaCampos columnas={2}>
-          <CampoFecha etiqueta="Fecha" requerido value={datos.fecha} onChange={cambiar('fecha')} />
-          <CampoTexto etiqueta="Asistentes" value={datos.asistentes} onChange={cambiar('asistentes')} placeholder="Nombres separados por coma" />
-        </GrillaCampos>
+        <CampoFecha etiqueta="Fecha" requerido value={datos.fecha} onChange={cambiar('fecha')} />
 
         <CampoArea etiqueta="Temas tratados" filas={4} value={datos.temas} onChange={cambiar('temas')} />
 
@@ -92,20 +105,13 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
               </p>
             )}
             {compromisos.map((fila) => (
-              <div key={fila.clave} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px_150px_130px_auto]">
+              <div key={fila.clave} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_150px_130px_auto]">
                 <input
                   className="campo-base py-1.5 text-sm"
                   placeholder="Acción comprometida"
                   aria-label="Acción comprometida"
                   value={fila.descripcion}
                   onChange={(e) => actualizarFila(fila.clave, 'descripcion', e.target.value)}
-                />
-                <input
-                  className="campo-base py-1.5 text-sm"
-                  placeholder="Responsable"
-                  aria-label="Responsable del compromiso"
-                  value={fila.responsable}
-                  onChange={(e) => actualizarFila(fila.clave, 'responsable', e.target.value)}
                 />
                 <select
                   className="campo-base py-1.5 text-sm"

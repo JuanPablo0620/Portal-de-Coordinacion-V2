@@ -24,7 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import { BarraAvance, Boton, Aviso, Chip, Criticidad, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
-import { CampoArea, CampoCheck, CampoFecha, CampoNumero, CampoRadios, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
+import { CampoArea, CampoCheck, CampoFecha, CampoNumero, CampoRadios, CampoSelect, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarTemas } from '../../datos/minutas/separarTemas.js';
@@ -61,7 +61,6 @@ const TEMA_VACIO = {
   descripcion_compromiso: '',
   criticidad: 'media',
   requiere_accion: false,
-  responsable: '',
   fecha_limite: '',
 };
 
@@ -102,7 +101,6 @@ function scrollDentroDelContenido(el) {
 function validarTema(tema, hoy) {
   if (!tema.categoria) return 'Elegí la categoría del tema.';
   if (!tema.descripcion.trim()) return 'Describí el tema.';
-  if (tema.requiere_accion && !tema.responsable.trim()) return 'Indicá el responsable de la acción.';
   if (tema.requiere_accion && tema.fecha_limite && tema.fecha_limite < hoy) {
     return 'La fecha límite no puede ser anterior a hoy.';
   }
@@ -115,7 +113,6 @@ const aPersistir = (tema) => ({
   descripcion: tema.descripcion.trim(),
   criticidad: tema.criticidad,
   requiere_accion: tema.requiere_accion,
-  responsable: tema.requiere_accion ? tema.responsable.trim() : '',
   descripcion_compromiso: tema.requiere_accion ? tema.descripcion_compromiso.trim() : '',
   id_proyecto: tema.id_proyecto || null,
   id_compromiso: tema.id_compromiso || null,
@@ -506,10 +503,8 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
                 {t.generoCompromiso && <Chip tono="proximo">Genera compromiso</Chip>}
                 {t.compromiso_existente && <Chip tono="acento">Vinculado a compromiso</Chip>}
               </div>
-              {t.requiere_accion && (
-                <p className="text-[11px] text-tenue">
-                  {t.responsable} {t.fecha_limite ? `· vence ${fFecha(t.fecha_limite)}` : ''}
-                </p>
+              {t.requiere_accion && t.fecha_limite && (
+                <p className="text-[11px] text-tenue">vence {fFecha(t.fecha_limite)}</p>
               )}
             </article>
           ))}
@@ -647,7 +642,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
 
   function abrirNuevoCompromiso() {
     setCreandoCompromiso(true);
-    setNuevoCompromiso({ descripcion: '', responsable: '', fecha_limite: '' });
+    setNuevoCompromiso({ descripcion: '', fecha_limite: '' });
   }
 
   async function guardarNuevoCompromiso(p) {
@@ -659,7 +654,6 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
         id_proyecto: p.id_proyecto,
         area: p.area,
         descripcion: nuevoCompromiso.descripcion.trim(),
-        responsable: nuevoCompromiso.responsable.trim(),
         fecha_limite: nuevoCompromiso.fecha_limite || null,
       });
       setCreandoCompromiso(false);
@@ -920,20 +914,13 @@ function TarjetaProyectoVentana({
                 value={nuevoCompromiso?.descripcion ?? ''}
                 onChange={(e) => alCambiarNuevoCompromiso({ descripcion: e.target.value })}
               />
-              <GrillaCampos columnas={2} className="mt-2.5">
-                <CampoTexto
-                  etiqueta="Responsable"
-                  requerido
-                  value={nuevoCompromiso?.responsable ?? ''}
-                  onChange={(e) => alCambiarNuevoCompromiso({ responsable: e.target.value })}
-                />
-                <CampoFecha
-                  etiqueta="Fecha límite"
-                  min={hoy}
-                  value={nuevoCompromiso?.fecha_limite ?? ''}
-                  onChange={(e) => alCambiarNuevoCompromiso({ fecha_limite: e.target.value })}
-                />
-              </GrillaCampos>
+              <CampoFecha
+                etiqueta="Fecha límite"
+                min={hoy}
+                value={nuevoCompromiso?.fecha_limite ?? ''}
+                onChange={(e) => alCambiarNuevoCompromiso({ fecha_limite: e.target.value })}
+                className="mt-2.5"
+              />
               <p className="mt-2 text-[11px] text-tenue">Se crea con estado <b>pendiente</b>.</p>
               <div className="mt-2 flex justify-end gap-2">
                 <Boton tamanio="sm" onClick={alCerrarNuevoCompromiso}>
@@ -944,7 +931,7 @@ function TarjetaProyectoVentana({
                   tamanio="sm"
                   icono={Check}
                   onClick={() => alGuardarNuevoCompromiso(proyecto)}
-                  disabled={guardando || !nuevoCompromiso?.descripcion?.trim() || !nuevoCompromiso?.responsable?.trim()}
+                  disabled={guardando || !nuevoCompromiso?.descripcion?.trim()}
                 >
                   Crear compromiso
                 </Boton>
@@ -1094,9 +1081,7 @@ export function FormularioTema({ tema, alCambiar, opcionesCategoria, hoy }) {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm text-tinta">{c.descripcion}</span>
-                        <span className="block text-[11px] text-tenue">
-                          {c.responsable} · vence {fFecha(c.fecha_limite)}
-                        </span>
+                        <span className="block text-[11px] text-tenue">vence {fFecha(c.fecha_limite)}</span>
                         <span className="mt-1 inline-block">
                           <Semaforo
                             nivel={nivel}
@@ -1160,20 +1145,13 @@ export function FormularioTema({ tema, alCambiar, opcionesCategoria, hoy }) {
         />
         {tema.requiere_accion && (
           <>
-            <GrillaCampos columnas={2} className="mt-3">
-              <CampoTexto
-                etiqueta="Responsable"
-                requerido
-                value={tema.responsable}
-                onChange={(e) => alCambiar({ responsable: e.target.value })}
-              />
-              <CampoFecha
-                etiqueta="Fecha límite"
-                min={hoy}
-                value={tema.fecha_limite}
-                onChange={(e) => alCambiar({ fecha_limite: e.target.value })}
-              />
-            </GrillaCampos>
+            <CampoFecha
+              etiqueta="Fecha límite"
+              min={hoy}
+              value={tema.fecha_limite}
+              onChange={(e) => alCambiar({ fecha_limite: e.target.value })}
+              className="mt-3"
+            />
             <CampoArea
               etiqueta="Descripción del compromiso"
               ayuda="opcional — si no se completa, se usa la del tema"

@@ -27,7 +27,7 @@ test('un compromiso vencido genera alerta crítica con los días de atraso', () 
     compromisos: [
       {
         id: 'c1', activo: true, estado: 'pendiente', fecha_limite: '2026-08-01',
-        area: 'Obras', responsable: 'J. Pérez', id_proyecto: 'OBR-2026-001',
+        area: 'Obras', id_proyecto: 'OBR-2026-001',
         descripcion: 'Enviar pliego',
       },
     ],
@@ -37,7 +37,6 @@ test('un compromiso vencido genera alerta crítica con los días de atraso', () 
   assert.equal(a[0].tipo, TIPOS_ALERTA.COMPROMISO_VENCIDO);
   assert.equal(a[0].severidad, 'critica');
   assert.equal(a[0].dias_atraso, 7);
-  assert.equal(a[0].responsable, 'J. Pérez');
   assert.equal(a[0].area, 'Obras');
   assert.ok(a[0].ruta_origen.includes('c1'), 'la alerta debe linkear a su registro de origen');
 });

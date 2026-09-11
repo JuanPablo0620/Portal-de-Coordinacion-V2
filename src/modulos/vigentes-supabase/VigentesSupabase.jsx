@@ -27,7 +27,6 @@ const COLUMNAS_COMPROMISO = [
     render: (f) => <p className="min-w-40 leading-tight text-tinta">{f.descripcion}</p>,
   },
   { clave: 'area', titulo: 'Área', ancho: 190 },
-  { clave: 'responsable', titulo: 'Responsable', ancho: 140 },
   {
     clave: 'fecha_limite',
     titulo: 'Vence',

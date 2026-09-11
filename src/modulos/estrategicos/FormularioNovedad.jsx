@@ -45,7 +45,6 @@ export function FormularioNovedad({ abierto, proyecto, alCerrar }) {
 
   const [compromisos, setCompromisos] = useState([]);
   const [nuevoCompromiso, setNuevoCompromiso] = useState({
-    responsable: '',
     descripcion: '',
     fecha_limite: '',
   });
@@ -57,12 +56,12 @@ export function FormularioNovedad({ abierto, proyecto, alCerrar }) {
     setDatos((d) => ({ ...d, [campo]: e?.target?.value ?? e }));
 
   function agregarCompromiso() {
-    if (!nuevoCompromiso.responsable || !nuevoCompromiso.descripcion) {
-      setError('Cada compromiso necesita responsable y descripción.');
+    if (!nuevoCompromiso.descripcion) {
+      setError('Cada compromiso necesita una descripción.');
       return;
     }
     setCompromisos([...compromisos, { ...nuevoCompromiso }]);
-    setNuevoCompromiso({ responsable: '', descripcion: '', fecha_limite: '' });
+    setNuevoCompromiso({ descripcion: '', fecha_limite: '' });
     setError('');
   }
 
@@ -79,7 +78,7 @@ export function FormularioNovedad({ abierto, proyecto, alCerrar }) {
       setError('Completá el próximo paso.');
       return;
     }
-    if (nuevoCompromiso.responsable || nuevoCompromiso.descripcion) {
+    if (nuevoCompromiso.descripcion) {
       setError('Hay un compromiso incompleto sin guardar. Agregalo o boralo.');
       return;
     }
@@ -115,7 +114,6 @@ export function FormularioNovedad({ abierto, proyecto, alCerrar }) {
           id_proyecto: proyecto.id_proyecto,
           area: datos.area_contacto,
           descripcion: comp.descripcion,
-          responsable: comp.responsable,
           fecha_limite: comp.fecha_limite || null,
           estado: 'pendiente',
         });
@@ -212,10 +210,7 @@ export function FormularioNovedad({ abierto, proyecto, alCerrar }) {
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-tinta">{comp.descripcion}</p>
-                      <p className="text-[11px] text-tenue">
-                        {comp.responsable}
-                        {comp.fecha_limite && ` · Vence ${comp.fecha_limite}`}
-                      </p>
+                      {comp.fecha_limite && <p className="text-[11px] text-tenue">Vence {comp.fecha_limite}</p>}
                     </div>
                     <Boton tamanio="xs" variante="fantasma" icono={Trash2} onClick={() => quitarCompromiso(idx)} />
                   </li>
@@ -224,19 +219,11 @@ export function FormularioNovedad({ abierto, proyecto, alCerrar }) {
             )}
 
             <div className="space-y-2 rounded-chip border border-acento/40 bg-acento/5 p-3">
-              <GrillaCampos columnas={2}>
-                <CampoTexto
-                  etiqueta="Responsable"
-                  placeholder="Nombre o cargo"
-                  value={nuevoCompromiso.responsable}
-                  onChange={(e) => setNuevoCompromiso((c) => ({ ...c, responsable: e.target.value }))}
-                />
-                <CampoFecha
-                  etiqueta="Fecha límite"
-                  value={nuevoCompromiso.fecha_limite}
-                  onChange={(e) => setNuevoCompromiso((c) => ({ ...c, fecha_limite: e }))}
-                />
-              </GrillaCampos>
+              <CampoFecha
+                etiqueta="Fecha límite"
+                value={nuevoCompromiso.fecha_limite}
+                onChange={(e) => setNuevoCompromiso((c) => ({ ...c, fecha_limite: e }))}
+              />
 
               <CampoArea
                 etiqueta="Descripción del compromiso"

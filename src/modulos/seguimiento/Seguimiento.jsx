@@ -49,7 +49,6 @@ const DEFAULTS = {
   tab: 'calendario',
   vista: 'calendario',
   area: '',
-  responsable: '',
   estado: '',
   desde: '',
   hasta: '',
@@ -59,7 +58,7 @@ const DEFAULTS = {
 };
 
 /** Lo que limpia el botón: filtros, nunca la pestaña ni la vista elegida. */
-const CLAVES_FILTRO = ['area', 'responsable', 'estado', 'desde', 'hasta', 'buscar', 'incluir_cumplidos', 'solo_vencidos'];
+const CLAVES_FILTRO = ['area', 'estado', 'desde', 'hasta', 'buscar', 'incluir_cumplidos', 'solo_vencidos'];
 
 export default function Seguimiento() {
   const bd = useBD();
@@ -289,7 +288,6 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
             bd,
             {
               area: filtros.area,
-              responsable: filtros.responsable,
               estado: filtros.estado,
               desde: filtros.desde,
               hasta: filtros.hasta,
@@ -304,14 +302,9 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
   );
 
   const totalCumplidos = useMemo(
-    () => (bd ? selCompromisos(bd, { area: filtros.area, responsable: filtros.responsable }, hoy).filter((c) => c.estado_efectivo === 'cumplido').length : 0),
-    [bd, filtros.area, filtros.responsable, hoy],
+    () => (bd ? selCompromisos(bd, { area: filtros.area }, hoy).filter((c) => c.estado_efectivo === 'cumplido').length : 0),
+    [bd, filtros.area, hoy],
   );
-
-  const responsables = useMemo(() => {
-    const set = new Set((bd?.compromisos ?? []).filter((c) => c.activo !== false).map((c) => c.responsable).filter(Boolean));
-    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
-  }, [bd]);
 
   const vencidos = filas.filter((f) => f.estado_efectivo === 'alerta').length;
 
@@ -353,9 +346,8 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
           )
         }
       >
-        <GrillaFiltros columnas={5}>
+        <GrillaFiltros columnas={4}>
           <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
-          <CampoSelect etiqueta="Responsable" opciones={responsables} value={filtros.responsable} onChange={(e) => setFiltros({ responsable: e.target.value })} placeholder="Todos" />
           <CampoSelect
             etiqueta="Estado"
             opciones={[...ESTADOS_COMPROMISO, 'vencido']}
@@ -392,7 +384,7 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
           filas={filas}
           columnasCSV={[
             { clave: 'descripcion', titulo: 'Compromiso' },
-            ...COLUMNAS_COMPROMISO.filter((c) => c.clave === 'responsable' || c.clave === 'area'),
+            ...COLUMNAS_COMPROMISO.filter((c) => c.clave === 'area'),
             { clave: 'id_proyecto', titulo: 'Proyecto' },
             ...COLUMNAS_COMPROMISO.filter((c) => c.clave === 'fecha_limite' || c.clave === 'estado_efectivo'),
           ]}
@@ -419,11 +411,7 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
           filaExpandida={expandidoId}
           renderExpandido={(f) => (
             <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-tenue">Responsable</p>
-                  <p className="text-sm text-tinta">{f.responsable || '—'}</p>
-                </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-tenue">Área</p>
                   <p className="text-sm text-tinta">{f.area || '—'}</p>

@@ -178,7 +178,6 @@ const COMPONENTES = [
   // El formulario de tema con un borrador transferido adentro: el compromiso
   // detectado tiene que llegar con la acción marcada y sus campos abiertos.
   ['FormularioTema', 'Crear nuevo compromiso'],
-  ['FormularioTema', 'Responsable'],
   ['FormularioTema', 'Administrativo / expediente'],
   // Parte 2 de Monitoreo: proyectos y compromisos de la ventana entre
   // seguimientos, con el área real de un proyecto de la demo.

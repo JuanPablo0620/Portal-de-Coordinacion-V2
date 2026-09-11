@@ -975,7 +975,6 @@ export async function agregarTema(idMonitoreo, tema) {
         // tema cuenta qué pasó, el compromiso qué hay que hacer. Si no se
         // completó la propia, se usa la del tema como antes.
         descripcion: tema.descripcion_compromiso || tema.descripcion,
-        responsable: tema.responsable,
         fecha_limite: tema.fecha_limite,
       });
       if (!monitoreosRemotos.activo()) await actualizar('temas_monitoreo', registro.id, { id_compromiso: compromiso.id });
@@ -999,10 +998,10 @@ export async function agregarTema(idMonitoreo, tema) {
  *
  * Mantiene el compromiso asociado en sincronía. El invariante que garantiza
  * `agregarTema()` —todo tema con acción tiene su compromiso en la lista
- * general, y sólo esos— tiene que sobrevivir a la edición: corregir el
- * responsable o la fecha del tema sin tocar el compromiso dejaba las dos
- * versiones peleadas, marcar la acción después no creaba nada, y desmarcarla
- * dejaba un compromiso vivo por un tema que ya no lo pedía.
+ * general, y sólo esos— tiene que sobrevivir a la edición: corregir la fecha
+ * del tema sin tocar el compromiso dejaba las dos versiones peleadas, marcar
+ * la acción después no creaba nada, y desmarcarla dejaba un compromiso vivo
+ * por un tema que ya no lo pedía.
  *
  * `compromiso_existente` distingue los dos sentidos que puede tener
  * `id_compromiso`: `false` (o ausente, temas viejos) es el compromiso que
@@ -1039,7 +1038,6 @@ export async function actualizarTema(id, cambios) {
       // Ídem `agregarTema()`: la descripción propia del compromiso, si se
       // cargó, no la del tema.
       descripcion: tema.descripcion_compromiso || tema.descripcion,
-      responsable: tema.responsable,
       fecha_limite: tema.fecha_limite || null,
       id_proyecto: tema.id_proyecto ?? null,
     };
@@ -1097,6 +1095,11 @@ export async function actualizarMesa(id, cambios) {
     id,
     previo: previa,
   });
+}
+
+/** Baja lógica, igual que eventos y posicionamiento: no se borra, se desactiva. */
+export async function eliminarMesa(id) {
+  return actualizarMesa(id, { activo: false });
 }
 
 export async function crearReunionMesa(datos) {

@@ -37,7 +37,7 @@ export async function leerVigentesDeSupabase() {
       .order('nombre'),
     supabase
       .from('compromisos')
-      .select('id, descripcion, responsable, estado, fecha_limite, area:areas(nombre)')
+      .select('id, descripcion, estado, fecha_limite, area:areas(nombre)')
       .eq('activo', true)
       .order('fecha_limite', { nullsFirst: false }),
   ]);
@@ -62,7 +62,6 @@ export async function leerVigentesDeSupabase() {
     return {
       id: c.id,
       descripcion: c.descripcion,
-      responsable: c.responsable,
       area: c.area?.nombre ?? '',
       fecha_limite: c.fecha_limite,
       estado_efectivo,

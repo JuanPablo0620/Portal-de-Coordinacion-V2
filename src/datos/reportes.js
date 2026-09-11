@@ -151,7 +151,7 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
    * se acorte el período: se arrastra hasta que se cumple.
    */
   const compromisos = enModulo('compromisos')
-    ? selCompromisos(bd, { area: filtros.area, responsable: filtros.responsable }, hoy)
+    ? selCompromisos(bd, { area: filtros.area }, hoy)
         .filter((c) => dentroDelPeriodo(c.fecha_limite) || c.estado_efectivo === 'alerta')
         .filter((c) => !hayRecorteProyecto || !c.id_proyecto || idsProyecto.has(c.id_proyecto))
     : [];

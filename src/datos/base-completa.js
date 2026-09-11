@@ -287,7 +287,7 @@ export function generarBaseCompleta(hoy) {
   /* ── Compromisos (constructor común) ────────────────────────────── */
 
   const crearCompromiso = ({
-    origen_tipo, id_origen, area, id_proyecto, fecha_limite, estado, descripcion, responsable, creado_en,
+    origen_tipo, id_origen, area, id_proyecto, fecha_limite, estado, descripcion, creado_en,
   }) => {
     const firma = elegir(EQUIPO);
     const c = {
@@ -297,7 +297,6 @@ export function generarBaseCompleta(hoy) {
       id_proyecto: id_proyecto ?? null,
       area,
       descripcion: descripcion ?? elegir(DESCRIPCIONES_COMPROMISO),
-      responsable: responsable ?? elegir(PERSONAS),
       fecha_limite,
       estado,
       fecha_cumplimiento: estado === 'cumplido' ? desplazar(fecha_limite, -entre(0, 8)) : null,
@@ -503,7 +502,6 @@ export function generarBaseCompleta(hoy) {
           descripcion: elegir(TEMAS_MONITOREO),
           criticidad,
           requiere_accion: requiereAccion,
-          responsable: requiereAccion ? elegir(PERSONAS) : '',
           fecha_limite: fechaLimite,
           resuelto,
           activo: true,
@@ -520,7 +518,6 @@ export function generarBaseCompleta(hoy) {
             fecha_limite: fechaLimite,
             estado: resuelto ? 'cumplido' : estadoSegunEdad(fechaLimite, area.nombre),
             descripcion: tema.descripcion,
-            responsable: tema.responsable,
             creado_en: m.creado_en,
           });
           tema.id_compromiso = c.id;

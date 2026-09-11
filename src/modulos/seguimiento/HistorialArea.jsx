@@ -60,7 +60,7 @@ export function HistorialArea({ bd, filtros, setFiltros }) {
         fecha: c.fecha_limite,
         clase: 'Compromiso',
         titulo: c.descripcion,
-        detalle: c.responsable ? `Responsable: ${c.responsable}` : '',
+        detalle: '',
         estado: c.estado_efectivo,
         dias: c.dias_restantes,
         atraso: c.dias_atraso,

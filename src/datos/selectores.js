@@ -344,7 +344,6 @@ export function compromisos(bd, filtros = {}, hoy = hoyISO()) {
     })
     .filter((c) =>
       coincide(filtros.area, c.area) &&
-      coincide(filtros.responsable, c.responsable) &&
       coincide(filtros.estado, c.estado_efectivo) &&
       coincide(filtros.origen_tipo, c.origen_tipo) &&
       coincide(filtros.id_proyecto, c.id_proyecto) &&
@@ -942,7 +941,7 @@ export function historialUnificado(bd, idProyecto, capas = {}, hoy = hoyISO()) {
         momento: c.creado_en ?? null,
         titulo: c.descripcion,
         detalle: `origen: ${c.origen_tipo}`,
-        extra: [c.area, c.responsable].filter(Boolean).join(' · '),
+        extra: c.area ?? '',
         estado: c.estado_efectivo === 'alerta' ? `alerta · ${c.dias_atraso} d` : c.estado_efectivo,
         nivel: c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes),
         ruta: `/seguimiento?tab=compromisos&compromiso=${c.id}`,
@@ -1538,7 +1537,7 @@ export function itemsCalendario(bd, capas, desde, hasta) {
         fecha: c.fecha_limite.slice(0, 10),
         capa: 'vencimientos',
         titulo: c.descripcion,
-        detalle: c.responsable ?? '',
+        detalle: c.area ?? '',
         ruta: `/seguimiento?tab=compromisos&compromiso=${c.id}`,
       });
     }

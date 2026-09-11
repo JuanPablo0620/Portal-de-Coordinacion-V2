@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CalendarPlus, Pencil } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Pencil, Trash2 } from 'lucide-react';
 import {
   BarraAvance,
   Boton,
@@ -11,11 +11,12 @@ import {
   Vacio,
   nivelPorDias,
 } from '../../componentes/Basicos.jsx';
+import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { compromisos as selCompromisos, hoyISO, proyectoPorId, reunionesDe, diasHasta } from '../../datos/selectores.js';
 import { DIAS_PERIODICIDAD } from '../../datos/catalogos.js';
 import { fecha as fFecha, textoVencimiento } from '../../utilidades/formato.js';
-import { useBD } from '../../estado/tienda.js';
+import { acciones, useBD } from '../../estado/tienda.js';
 import { configDe } from './tipos.js';
 
 export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar }) {
@@ -23,6 +24,7 @@ export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar }) {
   const navegar = useNavigate();
   const hoy = hoyISO();
   const cfg = configDe(mesa.tipo);
+  const [borrando, setBorrando] = useState(false);
 
   const reuniones = useMemo(() => (bd ? reunionesDe(bd, mesa.id) : []), [bd, mesa.id]);
   // Los compromisos de la mesa se leen de la lista GENERAL filtrando por origen:
@@ -68,6 +70,9 @@ export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar }) {
             </Boton>
             <Boton icono={Pencil} onClick={alEditar}>
               Editar
+            </Boton>
+            <Boton icono={Trash2} onClick={() => setBorrando(true)}>
+              Eliminar
             </Boton>
             <Boton variante="primario" icono={CalendarPlus} onClick={alRegistrar}>
               Registrar reunión
@@ -171,7 +176,6 @@ export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar }) {
           conBusqueda={false}
           columnas={[
             { clave: 'descripcion', titulo: 'Compromiso' },
-            { clave: 'responsable', titulo: 'Responsable', ancho: 140 },
             { clave: 'area', titulo: 'Área', ancho: 180 },
             { clave: 'fecha_limite', titulo: 'Vence', ancho: 100, render: (f) => fFecha(f.fecha_limite), formatoCSV: fFecha },
             {
@@ -189,6 +193,19 @@ export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar }) {
           vacio={<Vacio compacto titulo="Sin compromisos generados en esta mesa" />}
         />
       </Tarjeta>
+
+      <ModalConfirmacion
+        abierto={borrando}
+        alCerrar={() => setBorrando(false)}
+        alConfirmar={() => {
+          acciones.eliminarMesa(mesa.id);
+          alVolver();
+        }}
+        titulo="Eliminar mesa"
+        mensaje={`¿Estás seguro? «${mesa.nombre}» deja de aparecer en el listado. No se borra: queda en el historial con su asiento de baja.`}
+        textoConfirmar="Eliminar"
+        variante="peligro"
+      />
     </div>
   );
 }

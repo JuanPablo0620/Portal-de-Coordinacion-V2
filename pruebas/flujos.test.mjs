@@ -301,20 +301,18 @@ test('editar un tema mantiene su compromiso en sincronía', async () => {
   assert.equal(tema.id_compromiso, undefined);
 
   const conAccion = await repo.actualizarTema(tema.id, {
-    requiere_accion: true, responsable: 'M. López', fecha_limite: FUTURO,
+    requiere_accion: true, fecha_limite: FUTURO,
   });
   let bd = await repo.obtenerBD();
   let compromiso = bd.compromisos.find((c) => c.id === conAccion.id_compromiso);
   assert.ok(compromiso, 'marcar la acción después crea el compromiso');
-  assert.equal(compromiso.responsable, 'M. López');
   assert.equal(compromiso.origen_tipo, 'monitoreo');
 
   // Corregir el texto del tema corrige también el compromiso.
-  await repo.actualizarTema(tema.id, { descripcion: 'Falta el insumo crítico', responsable: 'R. Díaz' });
+  await repo.actualizarTema(tema.id, { descripcion: 'Falta el insumo crítico' });
   bd = await repo.obtenerBD();
   compromiso = bd.compromisos.find((c) => c.id === conAccion.id_compromiso);
   assert.equal(compromiso.descripcion, 'Falta el insumo crítico');
-  assert.equal(compromiso.responsable, 'R. Díaz');
 
   // Desmarcar la acción da de baja el compromiso: no queda vivo por un tema que ya no lo pide.
   const sinAccion = await repo.actualizarTema(tema.id, { requiere_accion: false });
