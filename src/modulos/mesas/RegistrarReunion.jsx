@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton, Chip } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoFecha } from '../../componentes/Campo.jsx';
+import { SelectorUnidad } from '../../componentes/SelectorUnidad.jsx';
 import { hoyISO, proximaReunionMesa } from '../../datos/selectores.js';
 import { fecha as fFecha } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
@@ -13,6 +14,8 @@ const filaVacia = (fechaLimitePropuesta = '') => ({
   descripcion: '',
   fecha_limite: fechaLimitePropuesta,
   area: '',
+  id_subsecretaria: '',
+  id_direccion: '',
 });
 
 /**
@@ -35,7 +38,15 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
 
   const cambiar = (campo) => (e) => setDatos((d) => ({ ...d, [campo]: e.target.value }));
   const actualizarFila = (clave, campo, valor) =>
-    setCompromisos((f) => f.map((x) => (x.clave === clave ? { ...x, [campo]: valor } : x)));
+    setCompromisos((f) =>
+      f.map((x) => {
+        if (x.clave !== clave) return x;
+        // Cambiar de área invalida la unidad elegida: subsecretarías y
+        // direcciones son de UNA secretaría, no del sistema entero.
+        const limpiar = campo === 'area' ? { id_subsecretaria: '', id_direccion: '' } : {};
+        return { ...x, [campo]: valor, ...limpiar };
+      }),
+    );
 
   async function guardar() {
     if (!datos.fecha) {
@@ -73,6 +84,8 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
           id_origen: mesa.id,
           id_proyecto: mesa.proyectos_vinculados?.[0] ?? null,
           area: c.area || '',
+          id_subsecretaria: c.id_subsecretaria || null,
+          id_direccion: c.id_direccion || null,
           descripcion: c.descripcion.trim(),
           fecha_limite: c.fecha_limite || null,
         }));
@@ -118,7 +131,8 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
               </p>
             )}
             {compromisos.map((fila) => (
-              <div key={fila.clave} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_150px_130px_auto]">
+              <div key={fila.clave} className="rounded-chip border border-borde p-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_150px_130px_auto]">
                 <input
                   className="campo-base py-1.5 text-sm"
                   placeholder="Acción comprometida"
@@ -155,6 +169,15 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
                 >
                   <Trash2 size={15} />
                 </button>
+              </div>
+              <SelectorUnidad
+                area={fila.area}
+                idSubsecretaria={fila.id_subsecretaria}
+                idDireccion={fila.id_direccion}
+                alCambiar={(parcial) =>
+                  setCompromisos((f) => f.map((x) => (x.clave === fila.clave ? { ...x, ...parcial } : x)))
+                }
+              />
               </div>
             ))}
             <Boton

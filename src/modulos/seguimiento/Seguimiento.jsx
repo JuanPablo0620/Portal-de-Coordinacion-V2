@@ -39,6 +39,7 @@ import {
   hoyISO,
   itemsCalendario,
   seguimientos as selSeguimientos,
+  unidadDe,
 } from '../../datos/selectores.js';
 import { fecha as fFecha, textoVencimiento } from '../../utilidades/formato.js';
 import { acciones, useBD } from '../../estado/tienda.js';
@@ -411,10 +412,14 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
           filaExpandida={expandidoId}
           renderExpandido={(f) => (
             <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-4">
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-tenue">Área</p>
                   <p className="text-sm text-tinta">{f.area || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-tenue">Unidad</p>
+                  <p className="text-sm text-tinta">{unidadDe(bd, f) || '—'}</p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-tenue">Proyecto</p>

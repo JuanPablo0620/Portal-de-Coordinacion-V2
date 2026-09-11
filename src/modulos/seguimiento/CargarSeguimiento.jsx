@@ -22,6 +22,7 @@ import { useMemo, useState } from 'react';
 import { Check, Plus, Trash2 } from 'lucide-react';
 import { Aviso, Boton, Chip, Semaforo, Tarjeta } from '../../componentes/Basicos.jsx';
 import { CampoFecha, CampoHora, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
+import { SelectorUnidad } from '../../componentes/SelectorUnidad.jsx';
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarMinuta } from '../../datos/minutas/separarMinuta.js';
 import { hoyISO, proyectos as selProyectos } from '../../datos/selectores.js';
@@ -46,6 +47,8 @@ const nuevaClave = () => Math.random().toString(36).slice(2);
 const filaCompromisoVacia = (fechaSeguimiento) => ({
   clave: nuevaClave(),
   descripcion: '',
+  id_subsecretaria: '',
+  id_direccion: '',
   fecha_limite: sumarDias(fechaSeguimiento, UMBRALES.DIAS_ENTRE_SEGUIMIENTOS),
   id_proyecto: '',
 });
@@ -171,6 +174,8 @@ export function CargarSeguimiento({ alTerminar }) {
             id_origen: seguimiento.id,
             id_proyecto: c.id_proyecto || null,
             area,
+            id_subsecretaria: c.id_subsecretaria || null,
+            id_direccion: c.id_direccion || null,
             descripcion: c.descripcion.trim(),
             fecha_limite: c.fecha_limite || null,
           }));
@@ -334,7 +339,8 @@ function BloqueCompromisos({ filas, setFilas, hoy, area, fechaSeguimiento }) {
           const fechaFalta = fila.descripcion.trim() && !fila.fecha_limite;
           const fechaInvalida = fila.fecha_limite && fila.fecha_limite < hoy;
           return (
-            <div key={fila.clave} className="grid grid-cols-1 gap-2 sm:grid-cols-[170px_1fr_140px_auto]">
+            <div key={fila.clave} className="rounded-chip border border-borde p-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[170px_1fr_140px_auto]">
               <SelectorProyectoCompacto
                 area={area}
                 valor={fila.id_proyecto}
@@ -365,6 +371,15 @@ function BloqueCompromisos({ filas, setFilas, hoy, area, fechaSeguimiento }) {
               >
                 <Trash2 size={15} />
               </button>
+            </div>
+            <SelectorUnidad
+              area={area}
+              idSubsecretaria={fila.id_subsecretaria}
+              idDireccion={fila.id_direccion}
+              alCambiar={(parcial) =>
+                setFilas((f) => f.map((x) => (x.clave === fila.clave ? { ...x, ...parcial } : x)))
+              }
+            />
             </div>
           );
         })}

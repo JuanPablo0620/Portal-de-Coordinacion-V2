@@ -24,6 +24,7 @@ import * as cortesRemotos from './supabaseCortes.js';
 import * as planificacionRemota from './supabasePlanificacion.js';
 import * as auditoriaRemota from './supabaseAuditoria.js';
 import * as catalogosRemotos from './supabaseCatalogos.js';
+import * as organigramaRemoto from './supabaseOrganigrama.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -121,6 +122,13 @@ const CARGAS_REMOTAS = [
     // pudo traerse, la pantalla sigue ofreciendo la lista local en lugar de
     // quedarse con un desplegable vacio.
     bdActual.catalogos = { ...bdActual.catalogos, ...remotos };
+  }],
+  // Va con los catálogos y por el mismo motivo: es vocabulario compartido del
+  // que cuelgan los desplegables de subsecretaría y dirección.
+  ['el organigrama', organigramaRemoto, async () => {
+    const remoto = await organigramaRemoto.cargar();
+    bdActual.subsecretarias = remoto.subsecretarias;
+    bdActual.direcciones = remoto.direcciones;
   }],
   ['los eventos', eventosRemotos, async () => {
     const remoto = await eventosRemotos.cargar();
@@ -998,7 +1006,7 @@ export async function marcarCumplido(id, fecha) {
  */
 export async function actualizarEstadoCompromiso(
   id,
-  { estado, descripcion, fecha_limite, nuevaActualizacion },
+  { estado, descripcion, fecha_limite, nuevaActualizacion, id_subsecretaria, id_direccion },
   hoy = hoyISO(),
 ) {
   const bd = await obtenerBD();
@@ -1012,6 +1020,8 @@ export async function actualizarEstadoCompromiso(
       : base,
   };
   if (fecha_limite !== undefined) cambios.fecha_limite = fecha_limite || null;
+  if (id_subsecretaria !== undefined) cambios.id_subsecretaria = id_subsecretaria || null;
+  if (id_direccion !== undefined) cambios.id_direccion = id_direccion || null;
   if (estado !== previo.estado) {
     cambios.estado = estado;
     cambios.fecha_cumplimiento = estado === 'cumplido' ? previo.fecha_cumplimiento || hoy : null;

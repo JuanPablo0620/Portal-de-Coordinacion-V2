@@ -23,6 +23,7 @@ import {
   CampoTexto,
   GrillaCampos,
 } from '../../componentes/Campo.jsx';
+import { SelectorUnidad } from '../../componentes/SelectorUnidad.jsx';
 import { ESTADOS_ACTIVOS } from '../../datos/catalogos.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
@@ -47,6 +48,8 @@ export function FormularioNovedad({ abierto, proyecto, alCerrar }) {
   const [nuevoCompromiso, setNuevoCompromiso] = useState({
     descripcion: '',
     fecha_limite: '',
+    id_subsecretaria: '',
+    id_direccion: '',
   });
 
   const [error, setError] = useState('');
@@ -61,7 +64,7 @@ export function FormularioNovedad({ abierto, proyecto, alCerrar }) {
       return;
     }
     setCompromisos([...compromisos, { ...nuevoCompromiso }]);
-    setNuevoCompromiso({ descripcion: '', fecha_limite: '' });
+    setNuevoCompromiso({ descripcion: '', fecha_limite: '', id_subsecretaria: '', id_direccion: '' });
     setError('');
   }
 
@@ -113,6 +116,8 @@ export function FormularioNovedad({ abierto, proyecto, alCerrar }) {
           id_origen: proyecto.id_proyecto, // apunta al proyecto estratégico
           id_proyecto: proyecto.id_proyecto,
           area: datos.area_contacto,
+          id_subsecretaria: comp.id_subsecretaria || null,
+          id_direccion: comp.id_direccion || null,
           descripcion: comp.descripcion,
           fecha_limite: comp.fecha_limite || null,
           estado: 'pendiente',
@@ -223,6 +228,13 @@ export function FormularioNovedad({ abierto, proyecto, alCerrar }) {
                 etiqueta="Fecha límite"
                 value={nuevoCompromiso.fecha_limite}
                 onChange={(e) => setNuevoCompromiso((c) => ({ ...c, fecha_limite: e }))}
+              />
+
+              <SelectorUnidad
+                area={datos.area_contacto}
+                idSubsecretaria={nuevoCompromiso.id_subsecretaria}
+                idDireccion={nuevoCompromiso.id_direccion}
+                alCambiar={(parcial) => setNuevoCompromiso((c) => ({ ...c, ...parcial }))}
               />
 
               <CampoArea

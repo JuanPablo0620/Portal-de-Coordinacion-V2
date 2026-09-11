@@ -27,6 +27,7 @@ import { BarraAvance, Boton, Aviso, Chip, Criticidad, EstadoProyecto, Semaforo, 
 import { CampoArea, CampoCheck, CampoFecha, CampoNumero, CampoRadios, CampoSelect, GrillaCampos } from '../../componentes/Campo.jsx';
 import { EditorCompromiso } from '../../componentes/EditorCompromiso.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
+import { SelectorUnidad } from '../../componentes/SelectorUnidad.jsx';
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarTemas } from '../../datos/minutas/separarTemas.js';
 import { CRITICIDADES, ESTADOS_COMPROMISO, ESTADOS_PROYECTO } from '../../datos/catalogos.js';
@@ -653,7 +654,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
 
   function abrirNuevoCompromiso() {
     setCreandoCompromiso(true);
-    setNuevoCompromiso({ descripcion: '', fecha_limite: '' });
+    setNuevoCompromiso({ descripcion: '', fecha_limite: '', id_subsecretaria: '', id_direccion: '' });
   }
 
   async function guardarNuevoCompromiso(p) {
@@ -664,6 +665,8 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
         id_origen: monitoreoId,
         id_proyecto: p.id_proyecto,
         area: p.area,
+        id_subsecretaria: nuevoCompromiso.id_subsecretaria || null,
+        id_direccion: nuevoCompromiso.id_direccion || null,
         descripcion: nuevoCompromiso.descripcion.trim(),
         fecha_limite: nuevoCompromiso.fecha_limite || null,
       });
@@ -685,7 +688,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
 
   function abrirNuevoSuelto() {
     setCreandoSuelto(true);
-    setNuevoSuelto({ descripcion: '', fecha_limite: '' });
+    setNuevoSuelto({ descripcion: '', fecha_limite: '', id_subsecretaria: '', id_direccion: '' });
   }
 
   async function guardarNuevoSuelto() {
@@ -696,6 +699,8 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
         id_origen: monitoreoId,
         id_proyecto: null,
         area,
+        id_subsecretaria: nuevoSuelto.id_subsecretaria || null,
+        id_direccion: nuevoSuelto.id_direccion || null,
         descripcion: nuevoSuelto.descripcion.trim(),
         fecha_limite: nuevoSuelto.fecha_limite || null,
       });
@@ -784,6 +789,12 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
               value={nuevoSuelto?.fecha_limite ?? ''}
               onChange={(e) => setNuevoSuelto((n) => ({ ...n, fecha_limite: e.target.value }))}
               className="mt-2.5"
+            />
+            <SelectorUnidad
+              area={area}
+              idSubsecretaria={nuevoSuelto?.id_subsecretaria ?? ''}
+              idDireccion={nuevoSuelto?.id_direccion ?? ''}
+              alCambiar={(parcial) => setNuevoSuelto((n) => ({ ...n, ...parcial }))}
             />
             <p className="mt-2 text-[11px] text-tenue">Se crea con estado <b>pendiente</b>.</p>
             <div className="mt-2 flex justify-end gap-2">
@@ -1037,6 +1048,12 @@ function TarjetaProyectoVentana({
                 value={nuevoCompromiso?.fecha_limite ?? ''}
                 onChange={(e) => alCambiarNuevoCompromiso({ fecha_limite: e.target.value })}
                 className="mt-2.5"
+              />
+              <SelectorUnidad
+                area={proyecto.area}
+                idSubsecretaria={nuevoCompromiso?.id_subsecretaria ?? ''}
+                idDireccion={nuevoCompromiso?.id_direccion ?? ''}
+                alCambiar={alCambiarNuevoCompromiso}
               />
               <p className="mt-2 text-[11px] text-tenue">Se crea con estado <b>pendiente</b>.</p>
               <div className="mt-2 flex justify-end gap-2">

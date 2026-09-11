@@ -17,6 +17,11 @@ export const COLECCIONES = Object.freeze([
   'temas_monitoreo',
   'mesas',
   'reuniones_mesa',
+  // El organigrama, para decir a qué unidad de la secretaría pertenece un
+  // compromiso. Son de sólo lectura en el portal: se cargan de la base (ver
+  // 0027) y no hay pantalla que los edite.
+  'subsecretarias',
+  'direcciones',
   'eventos',
   'requerimientos_evento',
   // Cortes de calle del módulo de Mapa. Colección propia y no un campo de

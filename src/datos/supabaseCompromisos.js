@@ -30,7 +30,7 @@ export function olvidarCatalogos() {
 
 const CAMPOS = [
   'id, origen_tipo, id_seguimiento_origen, id_tema_origen, id_reunion_origen',
-  'proyecto_id, area_id, descripcion, fecha_limite, estado',
+  'proyecto_id, area_id, subsecretaria_id, direccion_id, descripcion, fecha_limite, estado',
   'fecha_cumplimiento, activo, creado_por, created_at, updated_at',
   'area:areas(nombre, nombre_formal), proyecto:proyectos(id_legible)',
 ].join(', ');
@@ -74,6 +74,11 @@ function aFormaLocal(fila) {
     id_origen: idOrigen,
     id_proyecto: fila.proyecto?.id_legible ?? '',
     area: fila.area?.nombre_formal ?? fila.area?.nombre ?? '',
+    // Van por uuid y no por nombre —a diferencia del área— porque son sólo
+    // una referencia al organigrama: el nombre lo resuelve `unidadDe()` en
+    // selectores.js contra `bd.subsecretarias` / `bd.direcciones`.
+    id_subsecretaria: fila.subsecretaria_id ?? null,
+    id_direccion: fila.direccion_id ?? null,
     descripcion: fila.descripcion ?? '',
     fecha_limite: fila.fecha_limite ?? null,
     estado: fila.estado,
@@ -131,6 +136,8 @@ async function aFilaBase(datos, { alta = false } = {}) {
     fila.proyecto_id = await proyectoId(datos.id_proyecto);
   }
   if ('descripcion' in datos) fila.descripcion = datos.descripcion;
+  if ('id_subsecretaria' in datos) fila.subsecretaria_id = datos.id_subsecretaria || null;
+  if ('id_direccion' in datos) fila.direccion_id = datos.id_direccion || null;
   if ('fecha_limite' in datos) fila.fecha_limite = datos.fecha_limite || null;
   if ('estado' in datos) fila.estado = datos.estado;
   if ('fecha_cumplimiento' in datos) fila.fecha_cumplimiento = datos.fecha_cumplimiento || null;

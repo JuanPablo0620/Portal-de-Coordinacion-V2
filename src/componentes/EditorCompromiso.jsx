@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react';
 import { Boton } from './Basicos.jsx';
 import { CampoArea, CampoFecha, CampoRadios } from './Campo.jsx';
+import { SelectorUnidad } from './SelectorUnidad.jsx';
 import { ESTADOS_COMPROMISO } from '../datos/catalogos.js';
 
 /**
@@ -50,6 +51,14 @@ export function EditorCompromiso({
           onChange={(e) => alCambiarBorrador({ fecha_limite: e.target.value })}
         />
       )}
+      {/* Los compromisos cargados antes de que existiera el organigrama no
+          tienen unidad, y este es el único lugar donde se les puede poner. */}
+      <SelectorUnidad
+        area={compromiso.area}
+        idSubsecretaria={borrador?.id_subsecretaria ?? compromiso.id_subsecretaria ?? ''}
+        idDireccion={borrador?.id_direccion ?? compromiso.id_direccion ?? ''}
+        alCambiar={alCambiarBorrador}
+      />
       <div className="mt-2 flex justify-end gap-2">
         {alCancelar && (
           <Boton tamanio="sm" onClick={alCancelar}>

@@ -808,6 +808,38 @@ export function mesasSinReunion(bd, hoy = hoyISO()) {
     .filter((m) => m.limite_periodicidad && m.dias_sin_reunion !== null && m.dias_sin_reunion > m.limite_periodicidad);
 }
 
+/* ── Organigrama: subsecretarías y direcciones ──────────────────────── */
+
+/** Las subsecretarías activas de una secretaría, en el orden del organigrama. */
+export function subsecretariasDe(bd, area) {
+  if (!bd || !area) return [];
+  return activos(bd.subsecretarias).filter((s) => s.area === area);
+}
+
+/**
+ * Las direcciones que corresponde ofrecer para una secretaría.
+ *
+ * Con una subsecretaría elegida, sólo las suyas — es la cascada que pidieron.
+ * Sin subsecretaría elegida se ofrecen TODAS las del área, incluidas las que
+ * cuelgan de una: quien carga puede saber la dirección sin tener presente de
+ * qué subsecretaría depende, y obligarlo a adivinar el nivel de arriba para
+ * poder elegir el de abajo sería peor que mostrarle la lista larga.
+ */
+export function direccionesDe(bd, area, idSubsecretaria = '') {
+  if (!bd || !area) return [];
+  return activos(bd.direcciones).filter(
+    (d) => d.area === area && (!idSubsecretaria || d.id_subsecretaria === idSubsecretaria),
+  );
+}
+
+/** Nombre legible de la unidad de un compromiso: «Subsecretaría · Dirección». */
+export function unidadDe(bd, compromiso) {
+  if (!bd || !compromiso) return '';
+  const sub = (bd.subsecretarias ?? []).find((s) => s.id === compromiso.id_subsecretaria);
+  const dir = (bd.direcciones ?? []).find((d) => d.id === compromiso.id_direccion);
+  return [sub?.nombre, dir?.nombre].filter(Boolean).join(' · ');
+}
+
 /* ── Eventos ────────────────────────────────────────────────────────── */
 
 /** Inicio y fin efectivos de un evento. Los registros anteriores al rango

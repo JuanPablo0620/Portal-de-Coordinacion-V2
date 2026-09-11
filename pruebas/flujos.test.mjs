@@ -17,6 +17,9 @@ import {
   compromisos as selCompromisos,
   compromisosEnVentana,
   compromisosSueltosVentana,
+  direccionesDe,
+  subsecretariasDe,
+  unidadDe,
   historialArea,
   historialProyecto,
   proyectoPorId,
@@ -556,6 +559,57 @@ test('compromisosEnVentana filtra por fecha límite, sin límite del lado que fa
   const sinPiso = compromisosEnVentana(bd, p.id_proyecto, { ultimo: null, proximo: { fecha: HOY } }, HOY).map((c) => c.id);
   assert.ok(sinPiso.includes(antes.id));
   assert.ok(!sinPiso.includes(despues.id));
+});
+
+/**
+ * El organigrama: la cascada de los dos desplegables nuevos del compromiso.
+ * No pasa por el repositorio —son de sólo lectura, se cargan de la base— así
+ * que se prueba contra una base armada a mano.
+ */
+test('direccionesDe acota a la subsecretaría elegida, y sin ella ofrece todas las del área', () => {
+  const bd = {
+    subsecretarias: [
+      { id: 'ss1', area: 'Secretaría de Ambiente y Servicios Públicos', nombre: 'Subsecretaría de Ambiente e Higiene Urbana', activo: true },
+      { id: 'ss2', area: 'Secretaría de Ambiente y Servicios Públicos', nombre: 'Subsecretaría de Mantenimiento del Espacio Público', activo: true },
+      { id: 'ss3', area: 'Secretaría de Obras', nombre: 'Subsecretaría de Infraestructura', activo: true },
+    ],
+    direcciones: [
+      { id: 'd1', area: 'Secretaría de Ambiente y Servicios Públicos', id_subsecretaria: 'ss1', nombre: 'Dirección de Ambiente', activo: true },
+      { id: 'd2', area: 'Secretaría de Ambiente y Servicios Públicos', id_subsecretaria: 'ss2', nombre: 'Dirección de Cementerio', activo: true },
+      // Sin subsecretaría: cuelga directo de la secretaría, como las de Salud.
+      { id: 'd3', area: 'Secretaría de Ambiente y Servicios Públicos', id_subsecretaria: null, nombre: 'Dirección suelta', activo: true },
+      { id: 'd4', area: 'Secretaría de Obras', id_subsecretaria: 'ss3', nombre: 'Dirección de Servicios Generales', activo: true },
+      { id: 'd5', area: 'Secretaría de Ambiente y Servicios Públicos', id_subsecretaria: 'ss1', nombre: 'Dirección dada de baja', activo: false },
+    ],
+  };
+  const ambiente = 'Secretaría de Ambiente y Servicios Públicos';
+
+  assert.deepEqual(
+    subsecretariasDe(bd, ambiente).map((s) => s.id),
+    ['ss1', 'ss2'],
+    'sólo las subsecretarías de esa secretaría',
+  );
+
+  assert.deepEqual(
+    direccionesDe(bd, ambiente).map((d) => d.id),
+    ['d1', 'd2', 'd3'],
+    'sin subsecretaría elegida salen todas las activas del área, colgadas o no',
+  );
+
+  assert.deepEqual(
+    direccionesDe(bd, ambiente, 'ss1').map((d) => d.id),
+    ['d1'],
+    'con subsecretaría elegida, sólo las suyas — y nunca una dada de baja',
+  );
+
+  assert.deepEqual(direccionesDe(bd, 'Secretaría de Obras').map((d) => d.id), ['d4']);
+
+  assert.equal(
+    unidadDe(bd, { id_subsecretaria: 'ss2', id_direccion: 'd2' }),
+    'Subsecretaría de Mantenimiento del Espacio Público · Dirección de Cementerio',
+  );
+  assert.equal(unidadDe(bd, { id_subsecretaria: '', id_direccion: 'd3' }), 'Dirección suelta');
+  assert.equal(unidadDe(bd, {}), '', 'un compromiso sin unidad no inventa texto');
 });
 
 test('compromisosSueltosVentana encuentra los del área sin proyecto, y descarta los que sí tienen uno', async () => {
