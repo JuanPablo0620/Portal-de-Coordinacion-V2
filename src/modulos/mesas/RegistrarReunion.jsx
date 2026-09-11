@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton, Chip } from '../../componentes/Basicos.jsx';
-import { CampoArea, CampoFecha } from '../../componentes/Campo.jsx';
+import { CampoArea, CampoFecha, CampoTexto } from '../../componentes/Campo.jsx';
 import { SelectorUnidad } from '../../componentes/SelectorUnidad.jsx';
 import { hoyISO, proximaReunionMesa } from '../../datos/selectores.js';
 import { fecha as fFecha } from '../../utilidades/formato.js';
@@ -27,7 +27,7 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
   const bd = useBD();
   const hoy = hoyISO();
   const opcionesArea = useOpciones('areas');
-  const [datos, setDatos] = useState({ fecha: hoy, temas: '' });
+  const [datos, setDatos] = useState({ fecha: hoy, temas: '', url_drive: '' });
   const [compromisos, setCompromisos] = useState([]);
   const [error, setError] = useState('');
 
@@ -75,13 +75,17 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
     // reunión, que se crea antes que los compromisos, ya había quedado
     // guardada. Ahora cualquier error restante se muestra en vez de tragarse.
     try {
-      await acciones.crearReunionMesa({ id_mesa: mesa.id, ...datos });
+      // Se usa el id de la reunión recién creada, no el de la mesa: antes acá
+      // iba `mesa.id`, y como `id_reunion_origen` es una referencia estricta a
+      // `reuniones_mesa`, la carga de CUALQUIER compromiso en esta pantalla
+      // fallaba siempre con una violación de clave foránea.
+      const reunion = await acciones.crearReunionMesa({ id_mesa: mesa.id, ...datos });
 
       const aCrear = compromisos
         .filter((c) => c.descripcion.trim())
         .map((c) => ({
           origen_tipo: 'mesa',
-          id_origen: mesa.id,
+          id_origen: reunion.id,
           id_proyecto: mesa.proyectos_vinculados?.[0] ?? null,
           area: c.area || '',
           id_subsecretaria: c.id_subsecretaria || null,
@@ -117,6 +121,15 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
         <CampoFecha etiqueta="Fecha" requerido value={datos.fecha} onChange={cambiar('fecha')} />
 
         <CampoArea etiqueta="Temas tratados" filas={4} value={datos.temas} onChange={cambiar('temas')} />
+
+        <CampoTexto
+          etiqueta="Carpeta de Drive"
+          ayuda="opcional"
+          type="url"
+          placeholder="https://drive.google.com/..."
+          value={datos.url_drive}
+          onChange={cambiar('url_drive')}
+        />
 
         <fieldset className="rounded-chip border border-borde">
           <legend className="mx-3 flex items-center gap-2 px-1 text-xs font-semibold text-gris">

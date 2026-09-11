@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { CalendarPlus } from 'lucide-react';
 import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton } from '../../componentes/Basicos.jsx';
-import { CampoFecha } from '../../componentes/Campo.jsx';
+import { CampoFecha, CampoTexto } from '../../componentes/Campo.jsx';
 import { hoyISO } from '../../datos/selectores.js';
 import { acciones } from '../../estado/tienda.js';
 
@@ -18,6 +18,7 @@ import { acciones } from '../../estado/tienda.js';
 export function AgendarReunion({ abierto, alCerrar, mesa }) {
   const hoy = hoyISO();
   const [fecha, setFecha] = useState('');
+  const [urlDrive, setUrlDrive] = useState('');
   const [error, setError] = useState('');
 
   async function guardar() {
@@ -31,7 +32,7 @@ export function AgendarReunion({ abierto, alCerrar, mesa }) {
     }
     setError('');
     try {
-      await acciones.crearReunionMesa({ id_mesa: mesa.id, fecha, asistentes: '', temas: '' });
+      await acciones.crearReunionMesa({ id_mesa: mesa.id, fecha, asistentes: '', temas: '', url_drive: urlDrive });
       alCerrar();
     } catch (err) {
       setError(err?.message || 'No se pudo agendar la reunión. Probá de nuevo.');
@@ -56,6 +57,14 @@ export function AgendarReunion({ abierto, alCerrar, mesa }) {
     >
       <div className="flex flex-col gap-3">
         <CampoFecha etiqueta="Fecha" requerido min={hoy} value={fecha} onChange={(e) => setFecha(e.target.value)} />
+        <CampoTexto
+          etiqueta="Carpeta de Drive"
+          ayuda="opcional — si ya existe"
+          type="url"
+          placeholder="https://drive.google.com/..."
+          value={urlDrive}
+          onChange={(e) => setUrlDrive(e.target.value)}
+        />
         {error && <Aviso tono="error">{error}</Aviso>}
       </div>
     </Modal>

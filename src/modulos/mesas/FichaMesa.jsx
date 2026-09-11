@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, CalendarPlus, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CalendarPlus, FolderOpen, Pencil, Trash2 } from 'lucide-react';
 import {
   BarraAvance,
   Boton,
@@ -12,11 +12,18 @@ import {
   nivelPorDias,
 } from '../../componentes/Basicos.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
-import { Tabla } from '../../componentes/Tabla.jsx';
-import { compromisos as selCompromisos, hoyISO, proyectoPorId, proximaReunionMesa, reunionesDe, diasHasta } from '../../datos/selectores.js';
+import {
+  compromisosDeReunion,
+  hoyISO,
+  proyectoPorId,
+  proximaReunionMesa,
+  reunionesDe,
+  diasHasta,
+} from '../../datos/selectores.js';
 import { DIAS_PERIODICIDAD } from '../../datos/catalogos.js';
 import { fecha as fFecha, textoVencimiento } from '../../utilidades/formato.js';
 import { acciones, useBD } from '../../estado/tienda.js';
+import { EditarReunion } from './EditarReunion.jsx';
 import { configDe } from './tipos.js';
 
 export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar, alAgendar }) {
@@ -25,14 +32,9 @@ export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar, alA
   const hoy = hoyISO();
   const cfg = configDe(mesa.tipo);
   const [borrando, setBorrando] = useState(false);
+  const [editandoReunion, setEditandoReunion] = useState(null);
 
   const reuniones = useMemo(() => (bd ? reunionesDe(bd, mesa.id) : []), [bd, mesa.id]);
-  // Los compromisos de la mesa se leen de la lista GENERAL filtrando por origen:
-  // no hay una colección paralela por mesa.
-  const compromisos = useMemo(
-    () => (bd ? selCompromisos(bd, { origen_tipo: 'mesa', id_origen: mesa.id }, hoy) : []),
-    [bd, mesa.id, hoy],
-  );
   const proyectos = useMemo(
     () => (bd ? (mesa.proyectos_vinculados ?? []).map((id) => proyectoPorId(bd, id)).filter(Boolean) : []),
     [bd, mesa.proyectos_vinculados],
@@ -139,62 +141,24 @@ export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar, alA
         </Tarjeta>
       </div>
 
-      <Tarjeta titulo="Historial de reuniones" sinPadding>
-        <Tabla
-          nombreExport={`reuniones-${mesa.nombre.replace(/\s+/g, '-').toLowerCase()}`}
-          filas={reuniones}
-          conBusqueda={false}
-          columnas={[
-            { clave: 'fecha', titulo: 'Fecha', ancho: 110, render: (f) => fFecha(f.fecha), formatoCSV: fFecha },
-            { clave: 'asistentes', titulo: 'Asistentes', ancho: 260 },
-            { clave: 'temas', titulo: 'Temas' },
-            {
-              clave: 'cuando',
-              titulo: '',
-              ancho: 120,
-              sinOrdenar: true,
-              sinExportar: true,
-              render: (f) =>
-                diasHasta(f.fecha, hoy) >= 0 ? <Chip tono="acento">agendada</Chip> : <span className="text-[11px] text-tenue">realizada</span>,
-            },
-          ]}
-          vacio={
-            <Vacio
-              titulo="Sin reuniones registradas"
-              descripcion="Registrá la primera para empezar a llevar el historial de la mesa."
-              accion={{ texto: 'Registrar reunión', icono: CalendarPlus, alHacerClic: alRegistrar }}
-            />
-          }
-        />
-      </Tarjeta>
-
       <Tarjeta
-        titulo="Compromisos generados en la mesa"
-        descripcion="Son los mismos de la lista general del módulo Seguimiento, filtrados por origen."
+        titulo="Historial de reuniones"
+        descripcion="Cada reunión con los compromisos que salieron de ella."
         sinPadding
       >
-        <Tabla
-          nombreExport={`compromisos-mesa-${mesa.nombre.replace(/\s+/g, '-').toLowerCase()}`}
-          filas={compromisos}
-          conBusqueda={false}
-          columnas={[
-            { clave: 'descripcion', titulo: 'Compromiso' },
-            { clave: 'area', titulo: 'Área', ancho: 180 },
-            { clave: 'fecha_limite', titulo: 'Vence', ancho: 100, render: (f) => fFecha(f.fecha_limite), formatoCSV: fFecha },
-            {
-              clave: 'estado_efectivo',
-              titulo: 'Estado',
-              ancho: 140,
-              render: (f) => (
-                <Semaforo
-                  nivel={f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes)}
-                  texto={f.estado_efectivo === 'alerta' ? `alerta · ${f.dias_atraso} d` : f.estado_efectivo}
-                />
-              ),
-            },
-          ]}
-          vacio={<Vacio compacto titulo="Sin compromisos generados en esta mesa" />}
-        />
+        {reuniones.length === 0 ? (
+          <Vacio
+            titulo="Sin reuniones registradas"
+            descripcion="Registrá la primera para empezar a llevar el historial de la mesa."
+            accion={{ texto: 'Registrar reunión', icono: CalendarPlus, alHacerClic: alRegistrar }}
+          />
+        ) : (
+          <ul className="divide-y divide-borde/60">
+            {reuniones.map((r) => (
+              <FilaReunion key={r.id} reunion={r} hoy={hoy} bd={bd} alEditar={() => setEditandoReunion(r)} />
+            ))}
+          </ul>
+        )}
       </Tarjeta>
 
       <ModalConfirmacion
@@ -209,7 +173,82 @@ export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar, alA
         textoConfirmar="Eliminar"
         variante="peligro"
       />
+
+      {editandoReunion && (
+        <EditarReunion abierto reunion={editandoReunion} alCerrar={() => setEditandoReunion(null)} />
+      )}
     </div>
+  );
+}
+
+/**
+ * Una reunión del historial, con sus compromisos adentro.
+ *
+ * Los compromisos se buscan por `id_reunion_origen` (`compromisosDeReunion`),
+ * no por mesa: es lo que permite que cada reunión muestre sólo lo suyo.
+ */
+function FilaReunion({ reunion, hoy, bd, alEditar }) {
+  const navegar = useNavigate();
+  const agendada = diasHasta(reunion.fecha, hoy) >= 0;
+  const compromisos = useMemo(
+    () => (bd ? compromisosDeReunion(bd, reunion.id, hoy) : []),
+    [bd, reunion.id, hoy],
+  );
+
+  return (
+    <li className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-tinta">{fFecha(reunion.fecha)}</p>
+            <Chip tono={agendada ? 'acento' : 'neutro'}>{agendada ? 'agendada' : 'realizada'}</Chip>
+          </div>
+          {reunion.asistentes && <p className="mt-0.5 text-xs text-gris">Asistentes: {reunion.asistentes}</p>}
+          {reunion.temas && <p className="mt-0.5 whitespace-pre-line text-sm text-gris">{reunion.temas}</p>}
+        </div>
+        <div className="no-imprimir flex shrink-0 gap-1.5">
+          {reunion.url_drive ? (
+            <Boton
+              tamanio="sm"
+              icono={FolderOpen}
+              onClick={() => window.open(reunion.url_drive, '_blank', 'noopener,noreferrer')}
+            >
+              Carpeta de Drive
+            </Boton>
+          ) : (
+            <Boton tamanio="sm" icono={FolderOpen} onClick={alEditar}>
+              Agregar carpeta
+            </Boton>
+          )}
+          <Boton tamanio="sm" icono={Pencil} onClick={alEditar} aria-label="Editar reunión" />
+        </div>
+      </div>
+
+      {compromisos.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-1.5 border-t border-dashed border-borde pt-3">
+          {compromisos.map((c) => (
+            <li key={c.id} className="flex flex-wrap items-center gap-2 text-sm">
+              <Semaforo
+                nivel={c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes)}
+                soloPunto
+                texto={c.estado_efectivo}
+              />
+              <span className="min-w-0 flex-1 text-tinta">{c.descripcion}</span>
+              <span className="text-[11px] text-tenue">{c.area}</span>
+              {c.fecha_limite && (
+                <button
+                  type="button"
+                  onClick={() => navegar(`/seguimiento?tab=compromisos&compromiso=${c.id}`)}
+                  className="text-[11px] text-acento underline-offset-2 hover:underline"
+                >
+                  vence {fFecha(c.fecha_limite)}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }
 

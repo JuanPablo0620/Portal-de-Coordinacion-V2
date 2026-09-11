@@ -17,6 +17,7 @@ import {
   compromisos as selCompromisos,
   compromisosEnVentana,
   compromisosSueltosVentana,
+  compromisosDeReunion,
   direccionesDe,
   subsecretariasDe,
   unidadDe,
@@ -647,19 +648,26 @@ test('los compromisos de una mesa entran a la lista general con origen mesa', as
     nombre: 'Mesa de prueba', tipo: 'barrial', periodicidad: 'mensual', estado: 'activa',
     referente: 'N. Godoy', descripcion: '', proyectos_vinculados: [],
   });
-  await repo.crearReunionMesa({ id_mesa: mesa.id, fecha: HOY, asistentes: 'varios', temas: 'x' });
+  const reunion = await repo.crearReunionMesa({ id_mesa: mesa.id, fecha: HOY, asistentes: 'varios', temas: 'x' });
   await repo.crearCompromisos([
     {
-      origen_tipo: 'mesa', id_origen: mesa.id, id_proyecto: null,
+      // El id de la REUNIÓN, no el de la mesa — es la corrección del 12/09:
+      // antes se mandaba mesa.id acá, y como `id_reunion_origen` es una
+      // referencia estricta a `reuniones_mesa` en Supabase, la carga fallaba
+      // siempre con una violación de clave foránea.
+      origen_tipo: 'mesa', id_origen: reunion.id, id_proyecto: null,
       area: 'Secretaría de Ambiente y Servicios Públicos', descripcion: 'Relevar luminarias',
-      responsable: 'T. Ojeda', fecha_limite: FUTURO,
+      fecha_limite: FUTURO,
     },
   ]);
 
   const bd = await repo.obtenerBD();
-  const lista = selCompromisos(bd, { origen_tipo: 'mesa', id_origen: mesa.id }, HOY);
+  const lista = selCompromisos(bd, { origen_tipo: 'mesa', id_origen: reunion.id }, HOY);
   assert.equal(lista.length, 1);
   assert.equal(selCompromisos(bd, {}, HOY).length, 1, 'es la misma lista, no una paralela');
+
+  assert.equal(compromisosDeReunion(bd, reunion.id, HOY).length, 1);
+  assert.equal(compromisosDeReunion(bd, mesa.id, HOY).length, 0, 'no confunde el id de la mesa con el de la reunión');
 });
 
 /* ── Flujo del módulo 6: evento y requerimientos ────────────────────── */

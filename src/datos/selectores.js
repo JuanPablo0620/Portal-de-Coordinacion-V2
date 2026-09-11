@@ -781,6 +781,20 @@ export function reunionesDe(bd, idMesa) {
 }
 
 /**
+ * Los compromisos que salieron de UNA reunión puntual (`id_reunion_origen`
+ * en la base, `id_origen` acá con `origen_tipo: 'mesa'`).
+ *
+ * Los compromisos cargados antes de que existiera este vínculo —o
+ * importados directo a la base, como el lote del 04/09/2026— tienen
+ * `id_origen` vacío, y no hay ningún otro dato que diga de qué mesa salieron:
+ * quedan fuera de acá a propósito, en vez de adivinar a qué reunión
+ * asignarlos.
+ */
+export function compromisosDeReunion(bd, idReunion, hoy = hoyISO()) {
+  return compromisos(bd, { origen_tipo: 'mesa', id_origen: idReunion }, hoy);
+}
+
+/**
  * La próxima reunión ya agendada de una mesa (la de fecha más próxima que
  * todavía no pasó), o `null` si no hay ninguna.
  *

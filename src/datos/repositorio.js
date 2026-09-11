@@ -1206,6 +1206,24 @@ export async function crearReunionMesa(datos) {
   return crear('reuniones_mesa', datos);
 }
 
+/**
+ * Corrige una reunión ya cargada — típicamente para sumar el link a la
+ * carpeta de Drive una vez que existe, que casi nunca está lista el mismo
+ * día de la reunión.
+ */
+export async function actualizarReunionMesa(id, cambios) {
+  if (mesasRemotas.activo()) {
+    const bd = await obtenerBD();
+    const previa = bd.reuniones_mesa.find((r) => r.id === id);
+    return escribirRemoto('reuniones_mesa', () => mesasRemotas.actualizarReunion(id, cambios), {
+      accion: 'edicion',
+      id,
+      previo: previa,
+    });
+  }
+  return actualizar('reuniones_mesa', id, cambios);
+}
+
 /* ── Eventos ────────────────────────────────────────────────────────── */
 
 /**

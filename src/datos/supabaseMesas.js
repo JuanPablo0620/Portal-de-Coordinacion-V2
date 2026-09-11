@@ -49,7 +49,7 @@ const CAMPOS_MESA = [
   'vinculos:mesas_proyectos(proyecto:proyectos(id_legible))',
 ].join(', ');
 
-const CAMPOS_REUNION = 'id, mesa_id, fecha, asistentes, temas, activo, created_at';
+const CAMPOS_REUNION = 'id, mesa_id, fecha, asistentes, temas, url_drive, activo, created_at';
 
 function mesaLocal(fila) {
   return {
@@ -75,6 +75,7 @@ function reunionLocal(fila) {
     fecha: fila.fecha ?? '',
     asistentes: fila.asistentes ?? '',
     temas: fila.temas ?? '',
+    url_drive: fila.url_drive ?? '',
     activo: fila.activo,
     creado_en: fila.created_at,
   };
@@ -177,6 +178,7 @@ export async function crearReunion(datos) {
     fecha: oNulo(datos.fecha),
     asistentes: oNulo(datos.asistentes),
     temas: oNulo(datos.temas),
+    url_drive: oNulo(datos.url_drive),
   };
   const { data: sesion } = await supabase.auth.getSession();
   if (sesion?.session?.user?.id) fila.creado_por = sesion.session.user.id;
@@ -195,6 +197,7 @@ export async function actualizarReunion(id, cambios) {
   if ('fecha' in cambios) fila.fecha = oNulo(cambios.fecha);
   if ('asistentes' in cambios) fila.asistentes = oNulo(cambios.asistentes);
   if ('temas' in cambios) fila.temas = oNulo(cambios.temas);
+  if ('url_drive' in cambios) fila.url_drive = oNulo(cambios.url_drive);
   if ('activo' in cambios) fila.activo = cambios.activo;
 
   const { data, error } = await supabase
