@@ -97,23 +97,33 @@ export async function cargar() {
   return data.map((fila) => aFormaLocal(fila, porSeguimiento.get(fila.id) ?? []));
 }
 
-async function aFilaBase(datos) {
-  const cat = await catalogos();
-  const areaId = cat.areas.get(datos.area);
-  if (!areaId) throw new Error(`El área «${datos.area}» no existe en el catálogo de la base.`);
-  return {
-    area_id: areaId,
-    fecha: datos.fecha,
-    hora: datos.hora || null,
-    tipo: datos.tipo || 'programado',
-    participantes: datos.participantes || null,
-    texto_crudo: datos.texto_crudo || null,
-    resumen: datos.resumen || null,
-    temas: datos.temas || null,
-    avances: datos.avances ?? [],
-    problemas: datos.problemas ?? [],
-    estado_reportado: datos.estado_reportado || null,
-  };
+/**
+ * `alta` reconstruye la fila entera, como siempre hizo esto — `crearSeguimiento`
+ * manda los diez campos igual que antes. `actualizarSeguimiento` en cambio
+ * puede llegar con una edición parcial (por ejemplo, sólo `{ activo: false }`
+ * para dar de baja un seguimiento cargado por error): ahí no correspondía
+ * exigir un área que la edición ni siquiera trae.
+ */
+async function aFilaBase(datos, { alta = false } = {}) {
+  const fila = {};
+  if (alta || 'area' in datos) {
+    const cat = await catalogos();
+    const areaId = cat.areas.get(datos.area);
+    if (!areaId) throw new Error(`El área «${datos.area}» no existe en el catálogo de la base.`);
+    fila.area_id = areaId;
+  }
+  if (alta || 'fecha' in datos) fila.fecha = datos.fecha;
+  if (alta || 'hora' in datos) fila.hora = datos.hora || null;
+  if (alta || 'tipo' in datos) fila.tipo = datos.tipo || 'programado';
+  if (alta || 'participantes' in datos) fila.participantes = datos.participantes || null;
+  if (alta || 'texto_crudo' in datos) fila.texto_crudo = datos.texto_crudo || null;
+  if (alta || 'resumen' in datos) fila.resumen = datos.resumen || null;
+  if (alta || 'temas' in datos) fila.temas = datos.temas || null;
+  if (alta || 'avances' in datos) fila.avances = datos.avances ?? [];
+  if (alta || 'problemas' in datos) fila.problemas = datos.problemas ?? [];
+  if (alta || 'estado_reportado' in datos) fila.estado_reportado = datos.estado_reportado || null;
+  if ('activo' in datos) fila.activo = datos.activo;
+  return fila;
 }
 
 async function vincularProyectos(seguimientoId, codigos = []) {
@@ -143,7 +153,7 @@ async function conProyectos(fila) {
 }
 
 export async function crearSeguimiento(datos) {
-  const fila = await aFilaBase(datos);
+  const fila = await aFilaBase(datos, { alta: true });
   const { data: sesion } = await supabase.auth.getSession();
   if (sesion?.session?.user?.id) fila.creado_por = sesion.session.user.id;
 

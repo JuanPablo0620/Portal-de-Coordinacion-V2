@@ -834,6 +834,11 @@ export async function actualizarSeguimiento(id, cambios) {
   return actualizar('seguimientos', id, cambios);
 }
 
+/** Un seguimiento cargado por error (duplicado, fecha equivocada): baja lógica, igual que eventos y mesas. */
+export async function eliminarSeguimiento(id) {
+  return actualizarSeguimiento(id, { activo: false });
+}
+
 /* ── Compromisos ────────────────────────────────────────────────────── */
 
 /**
