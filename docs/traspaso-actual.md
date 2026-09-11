@@ -19,7 +19,7 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 09/09/2026 · Codex, por pedido de JP
+**Última actualización:** 11/09/2026 · Codex, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
@@ -30,6 +30,7 @@ que el otro no puede deducir leyendo el repo.
 | Qué | Estado |
 |---|---|
 | Implementación Eventos/Mapa | `9cd03a9`, publicada en `fork/main` |
+| Rediseño de Eventos | Agenda ejecutiva implementada y verificada localmente; pendiente de publicación al cerrar esta tanda |
 | Producción | Bundle `index-D2U6FZQ3.js` verificado con Eventos multidía y mapa claro |
 | Migraciones `0001` a `0010` | El front vigente depende de ellas; su historial remoto no se re-auditó en esta sesión |
 | Migración `0011` | **Escrita, todavía no aplicada**: agrega `eventos.fecha_hasta` y normaliza los rangos temporales |

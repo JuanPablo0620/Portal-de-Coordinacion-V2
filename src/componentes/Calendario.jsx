@@ -47,7 +47,18 @@ export function useMesVisible(hoy) {
   return { anio, mes, mover, volverAHoy, rango };
 }
 
-export function Calendario({ anio, mes, items = [], hoy, capas, alCambiarCapas, alMover, alVolverAHoy, compacto = false }) {
+export function Calendario({
+  anio,
+  mes,
+  items = [],
+  hoy,
+  capas,
+  alCambiarCapas,
+  alMover,
+  alVolverAHoy,
+  compacto = false,
+  presentarItem,
+}) {
   const navegar = useNavigate();
 
   const celdas = useMemo(() => {
@@ -147,22 +158,36 @@ export function Calendario({ anio, mes, items = [], hoy, capas, alCambiarCapas, 
                   )}
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  {celda.items.slice(0, compacto ? 2 : 3).map((item, i) => (
-                    <button
-                      key={`${item.capa}-${i}`}
-                      type="button"
-                      onClick={() => item.ruta && navegar(item.ruta)}
-                      title={`${item.titulo}${item.detalle ? ` · ${item.detalle}` : ''}`}
-                      className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[10px] leading-tight
-                        text-tinta transition hover:bg-paper"
-                    >
-                      <span
-                        className="h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{ background: colorDeCapa(item.capa) }}
-                      />
-                      <span className="truncate">{item.titulo}</span>
-                    </button>
-                  ))}
+                  {celda.items.slice(0, compacto ? 2 : 3).map((item, i) => {
+                    const presentacion = presentarItem?.(item);
+                    const titulo = [presentacion?.nombreArea, item.titulo, item.detalle].filter(Boolean).join(' · ');
+                    return (
+                      <button
+                        key={`${item.capa}-${i}`}
+                        type="button"
+                        onClick={() => item.ruta && navegar(item.ruta)}
+                        title={titulo}
+                        aria-label={titulo}
+                        className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[10px] leading-tight
+                          transition hover:brightness-95 ${presentacion ? 'border' : 'text-tinta hover:bg-paper'}`}
+                        style={
+                          presentacion
+                            ? { background: presentacion.fondo, color: presentacion.color, borderColor: presentacion.borde }
+                            : undefined
+                        }
+                      >
+                        {presentacion ? (
+                          <span className="shrink-0 font-bold">{presentacion.sigla}</span>
+                        ) : (
+                          <span
+                            className="h-1.5 w-1.5 shrink-0 rounded-full"
+                            style={{ background: colorDeCapa(item.capa) }}
+                          />
+                        )}
+                        <span className="truncate">{item.titulo}</span>
+                      </button>
+                    );
+                  })}
                   {celda.items.length > (compacto ? 2 : 3) && (
                     <span className="px-1 text-[10px] text-tenue">
                       +{celda.items.length - (compacto ? 2 : 3)} más

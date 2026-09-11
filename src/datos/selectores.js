@@ -1603,6 +1603,8 @@ export function itemsCalendario(bd, capas, desde, hasta) {
           capa: 'eventos',
           titulo: e.nombre,
           detalle: [e.hora, e.lugar].filter(Boolean).join(' · '),
+          area: e.area_organizadora ?? '',
+          estado: e.estado,
           ruta: `/eventos?tab=checklist&evento=${e.id}`,
         });
       }

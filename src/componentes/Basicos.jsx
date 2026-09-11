@@ -173,6 +173,7 @@ const TONOS_CHIP = {
   'area-seg': 'bg-area-seg-suave text-area-seg-texto border-area-seg/30',
   'area-typ': 'bg-area-typ-suave text-area-typ-texto border-area-typ/30',
   'area-cor': 'bg-area-cor-suave text-area-cor-texto border-area-cor/30',
+  'area-sgr': 'bg-area-sgr-suave text-area-sgr-texto border-area-sgr/30',
 };
 
 /**
@@ -198,11 +199,12 @@ export function tonoPorIdProyecto(idProyecto) {
   return TONO_POR_PREFIJO[prefijo] ?? 'acento';
 }
 
-export function Chip({ tono = 'neutro', children, className = '' }) {
+export function Chip({ tono = 'neutro', children, className = '', ...props }) {
   return (
     <span
       className={`inline-flex items-center gap-1 whitespace-nowrap rounded-chip border px-1.5 py-0.5
         text-[11px] font-medium leading-tight ${TONOS_CHIP[tono] ?? TONOS_CHIP.neutro} ${className}`}
+      {...props}
     >
       {children}
     </span>

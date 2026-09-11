@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, ClipboardCheck, List, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, CalendarDays, ClipboardCheck, List, Pencil, Plus, Trash2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Aviso, Boton, Chip, Metrica, Pestanias, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
@@ -21,6 +21,53 @@ const DEFAULTS = { tab: 'calendario', area: '', tipo: '', estado: '', evento: ''
 
 /** Lo que limpia el botón: filtros, nunca la pestaña ni el evento abierto. */
 const CLAVES_FILTRO = ['area', 'tipo', 'estado'];
+
+/**
+ * El color identifica al área organizadora, no el estado del evento. La sigla
+ * siempre queda escrita al lado: así la agenda sigue siendo legible impresa,
+ * en escala de grises y para personas que no distinguen todos los colores.
+ */
+const IDENTIDAD_POR_PREFIJO = {
+  AMB: { tono: 'area-amb', nombreCorto: 'Ambiente' },
+  CAH: { tono: 'area-cah', nombreCorto: 'Capital Humano' },
+  OBR: { tono: 'area-obr', nombreCorto: 'Obras' },
+  SAL: { tono: 'area-sal', nombreCorto: 'Salud' },
+  SEG: { tono: 'area-seg', nombreCorto: 'Seguridad' },
+  TYP: { tono: 'area-typ', nombreCorto: 'Trabajo y Producción' },
+  COR: { tono: 'area-cor', nombreCorto: 'Coordinación' },
+  SGR: { tono: 'area-sgr', nombreCorto: 'Secretaría General' },
+  SIN: { tono: 'neutro', nombreCorto: 'Sin asignar' },
+};
+
+const VARIABLES_POR_TONO = {
+  'area-amb': ['--color-area-amb-suave', '--color-area-amb-texto', '--color-area-amb'],
+  'area-cah': ['--color-area-cah-suave', '--color-area-cah-texto', '--color-area-cah'],
+  'area-obr': ['--color-area-obr-suave', '--color-area-obr-texto', '--color-area-obr'],
+  'area-sal': ['--color-area-sal-suave', '--color-area-sal-texto', '--color-area-sal'],
+  'area-seg': ['--color-area-seg-suave', '--color-area-seg-texto', '--color-area-seg'],
+  'area-typ': ['--color-area-typ-suave', '--color-area-typ-texto', '--color-area-typ'],
+  'area-cor': ['--color-area-cor-suave', '--color-area-cor-texto', '--color-area-cor'],
+  'area-sgr': ['--color-area-sgr-suave', '--color-area-sgr-texto', '--color-area-sgr'],
+  neutro: ['--color-sindato-suave', '--color-sindato-texto', '--color-sindato'],
+};
+
+function identidadArea(nombreArea, opciones) {
+  const nombre = String(nombreArea ?? '').trim();
+  const opcion = opciones.find((item) => item.valor === nombre || item.nombre === nombre);
+  let sigla = opcion?.prefijo;
+  if (!sigla && nombre === 'Secretaría General') sigla = 'SGR';
+  if (!sigla && !nombre) sigla = 'SIN';
+  const base = IDENTIDAD_POR_PREFIJO[sigla] ?? IDENTIDAD_POR_PREFIJO.SIN;
+  const variables = VARIABLES_POR_TONO[base.tono];
+  return {
+    ...base,
+    sigla: sigla && IDENTIDAD_POR_PREFIJO[sigla] ? (sigla === 'SIN' ? '—' : sigla) : '—',
+    nombreArea: nombre || 'Sin área organizadora asignada',
+    fondo: `var(${variables[0]})`,
+    color: `var(${variables[1]})`,
+    borde: `var(${variables[2]})`,
+  };
+}
 
 export default function Eventos() {
   const bd = useBD();
@@ -73,7 +120,7 @@ export default function Eventos() {
     <>
       <EncabezadoPagina
         titulo="Eventos"
-        descripcion="Agenda de eventos y checklist de requerimientos por evento."
+        descripcion="Agenda y preparación operativa de actividades municipales."
         acciones={
           <Boton variante="primario" icono={Plus} onClick={() => setFormulario({})}>
             Cargar evento
@@ -95,7 +142,7 @@ export default function Eventos() {
 
         <Pestanias opciones={pestanias} valor={filtros.tab} alCambiar={(v) => setFiltros({ tab: v })} />
 
-        {alertasEvento.length > 0 && filtros.tab !== 'checklist' && (
+        {alertasEvento.length > 0 && filtros.tab === 'lista' && (
           <Aviso tono="alerta" titulo={`${alertasEvento.length} evento(s) con requerimientos sin confirmar`}>
             {alertasEvento.map((a) => a.titulo).join(' · ')} — a menos de {UMBRALES.DIAS_EVENTO} días.{' '}
             <button type="button" className="underline" onClick={() => setFiltros({ tab: 'checklist' })}>
@@ -104,7 +151,15 @@ export default function Eventos() {
           </Aviso>
         )}
 
-        {filtros.tab === 'calendario' && <PanelCalendario bd={bd} hoy={hoy} alCargar={() => setFormulario({})} />}
+        {filtros.tab === 'calendario' && (
+          <PanelCalendario
+            bd={bd}
+            hoy={hoy}
+            filtros={filtros}
+            setFiltros={setFiltros}
+            alCargar={() => setFormulario({})}
+          />
+        )}
         {filtros.tab === 'lista' && (
           <PanelLista bd={bd} hoy={hoy} filtros={filtros} setFiltros={setFiltros} alEditar={setFormulario} />
         )}
@@ -136,63 +191,172 @@ export default function Eventos() {
 
 /* ── Calendario ─────────────────────────────────────────────────────── */
 
-function PanelCalendario({ bd, hoy, alCargar }) {
+function PanelCalendario({ bd, hoy, filtros, setFiltros, alCargar }) {
   const mes = useMesVisible(hoy);
-  const items = useMemo(
+  const opcionesAreaBase = useOpciones('areas');
+  const opcionesArea = useMemo(() => conSecretariaGeneral(opcionesAreaBase), [opcionesAreaBase]);
+  const eventosDelMes = useMemo(
     () =>
       bd
-        ? itemsCalendario(bd, { seguimientos: false, eventos: true, mesas: false, vencimientos: false }, mes.rango[0], mes.rango[1])
+        ? selEventos(bd, { area: filtros.area }).filter((evento) => {
+            const inicio = String(evento.fecha ?? '').slice(0, 10);
+            const fin = String(evento.fecha_hasta || evento.fecha || '').slice(0, 10);
+            return inicio <= mes.rango[1] && fin >= mes.rango[0];
+          })
         : [],
-    [bd, mes.rango],
+    [bd, filtros.area, mes.rango],
+  );
+  const items = useMemo(
+    () => {
+      if (!bd) return [];
+      const todos = itemsCalendario(
+        bd,
+        { seguimientos: false, eventos: true, mesas: false, vencimientos: false },
+        mes.rango[0],
+        mes.rango[1],
+      );
+      return filtros.area ? todos.filter((item) => item.area === filtros.area) : todos;
+    },
+    [bd, filtros.area, mes.rango],
   );
 
   const proximos = useMemo(
-    () => (bd ? selEventos(bd, {}).filter((e) => diasHasta(e.fecha, hoy) >= 0).slice(0, 8) : []),
-    [bd, hoy],
+    () => (bd ? selEventos(bd, { area: filtros.area }).filter((e) => diasHasta(e.fecha, hoy) >= 0).slice(0, 8) : []),
+    [bd, filtros.area, hoy],
   );
+  const conPreparacionPendiente = proximos.filter((evento) =>
+    evento.requerimientos.total === 0 || evento.requerimientos.pendientes > 0,
+  );
+  const presentarItem = (item) => identidadArea(item.area, opcionesArea);
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_360px]">
-      <Tarjeta titulo="Calendario de eventos">
-        <Calendario anio={mes.anio} mes={mes.mes} items={items} hoy={hoy} alMover={mes.mover} alVolverAHoy={mes.volverAHoy} />
-      </Tarjeta>
+    <div className="flex flex-col gap-3">
+      <div className="no-imprimir flex flex-wrap items-end justify-between gap-3 rounded-card border border-borde bg-card px-4 py-3">
+        <div className="min-w-52">
+          <label htmlFor="filtro-area-calendario" className="mb-1 block text-[11px] font-medium text-gris">
+            Área organizadora
+          </label>
+          <select
+            id="filtro-area-calendario"
+            className="campo-base py-1.5 text-xs"
+            value={filtros.area}
+            onChange={(evento) => setFiltros({ area: evento.target.value })}
+          >
+            <option value="">Todas las áreas</option>
+            {opcionesArea.map((opcion) => <option key={opcion.valor} value={opcion.valor}>{opcion.titulo}</option>)}
+          </select>
+        </div>
+        <p className="text-xs text-gris">
+          <strong className="text-tinta">{conPreparacionPendiente.length}</strong> próximos requieren atención
+        </p>
+      </div>
 
-      <Tarjeta titulo="Próximos eventos" sinPadding>
-        {proximos.length === 0 ? (
-          <Vacio
-            compacto
-            icono={CalendarDays}
-            titulo="Sin eventos próximos"
-            accion={{ texto: 'Cargar evento', icono: Plus, alHacerClic: alCargar }}
+      <LeyendaAreas opciones={opcionesArea} />
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <Tarjeta
+          titulo="Calendario de eventos"
+          descripcion={`${eventosDelMes.length} evento${eventosDelMes.length === 1 ? '' : 's'} en el mes`}
+        >
+          <Calendario
+            anio={mes.anio}
+            mes={mes.mes}
+            items={items}
+            hoy={hoy}
+            alMover={mes.mover}
+            alVolverAHoy={mes.volverAHoy}
+            presentarItem={presentarItem}
           />
-        ) : (
-          <ul className="divide-y divide-borde/60">
-            {proximos.map((e) => (
-              <li key={e.id} className="flex items-start gap-3 px-4 py-2.5">
-                <div className="w-12 shrink-0 rounded-chip bg-acento-suave py-1 text-center">
-                  <p className="tabular text-sm font-semibold leading-none text-acento-fuerte">{e.fecha.slice(8, 10)}</p>
-                  <p className="text-[10px] uppercase text-acento">{MES_CORTO[Number(e.fecha.slice(5, 7)) - 1]}</p>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm leading-tight text-tinta">{e.nombre}</p>
-                  <p className="truncate text-[11px] text-tenue">
-                    {[e.hora, e.lugar].filter(Boolean).join(' · ') || e.area_organizadora}
-                  </p>
-                  {e.requerimientos.total > 0 && (
-                    <p className="mt-1 text-[11px] text-tenue">
-                      {e.requerimientos.pendientes
-                        ? `${e.requerimientos.pendientes} requerimiento(s) pendiente(s)`
-                        : 'Requerimientos confirmados'}
-                    </p>
-                  )}
-                </div>
-                <Semaforo nivel={nivelPorDias(diasHasta(e.fecha, hoy))} soloPunto texto={textoVencimiento(diasHasta(e.fecha, hoy))} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </Tarjeta>
+        </Tarjeta>
+
+        <div className="flex flex-col gap-4">
+          <Tarjeta
+            titulo="Próximos eventos"
+            descripcion="Ordenados por cercanía"
+            acciones={
+              <Boton tamanio="sm" variante="fantasma" icono={ArrowRight} onClick={() => setFiltros({ tab: 'lista' })}>
+                Ver lista
+              </Boton>
+            }
+            sinPadding
+          >
+            {proximos.length === 0 ? (
+              <Vacio
+                compacto
+                icono={CalendarDays}
+                titulo="Sin eventos próximos"
+                accion={{ texto: 'Cargar evento', icono: Plus, alHacerClic: alCargar }}
+              />
+            ) : (
+              <ul className="divide-y divide-borde/60">
+                {proximos.map((e) => {
+                  const identidad = identidadArea(e.area_organizadora, opcionesArea);
+                  return (
+                    <li key={e.id}>
+                      <button
+                        type="button"
+                        className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-paper"
+                        onClick={() => setFiltros({ tab: 'checklist', evento: e.id })}
+                        aria-label={`Abrir ${e.nombre}, ${identidad.nombreArea}`}
+                      >
+                        <div className="w-12 shrink-0 rounded-chip bg-acento-suave py-1 text-center">
+                          <p className="tabular text-sm font-semibold leading-none text-acento-fuerte">{e.fecha.slice(8, 10)}</p>
+                          <p className="text-[10px] uppercase text-acento">{MES_CORTO[Number(e.fecha.slice(5, 7)) - 1]}</p>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium leading-tight text-tinta">{e.nombre}</p>
+                          <div className="mt-1 flex min-w-0 items-center gap-1.5">
+                            <Chip tono={identidad.tono}>{identidad.sigla}</Chip>
+                            <span className="truncate text-[11px] text-tenue">{e.lugar || 'Lugar sin cargar'}</span>
+                          </div>
+                        </div>
+                        <PreparacionEvento requerimientos={e.requerimientos} />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Tarjeta>
+
+          {conPreparacionPendiente.length > 0 && (
+            <Aviso tono="alerta" titulo="Preparación pendiente">
+              <strong>{conPreparacionPendiente.length} evento{conPreparacionPendiente.length === 1 ? '' : 's'}</strong>{' '}
+              {conPreparacionPendiente.length === 1 ? 'necesita' : 'necesitan'} completar o confirmar requerimientos.{' '}
+              <button type="button" className="font-medium underline" onClick={() => setFiltros({ tab: 'checklist' })}>
+                Revisar checklist
+              </button>
+            </Aviso>
+          )}
+        </div>
+      </div>
     </div>
+  );
+}
+
+function LeyendaAreas({ opciones }) {
+  const identidades = [...opciones.map((opcion) => identidadArea(opcion.valor, opciones)), identidadArea('', opciones)];
+  return (
+    <div className="no-imprimir scroll-fino flex items-center gap-2 overflow-x-auto rounded-card border border-borde bg-card px-3 py-2" aria-label="Colores por área organizadora">
+      <span className="sticky left-0 z-10 shrink-0 bg-card pr-1 text-[11px] font-semibold text-gris">Color por área</span>
+      {identidades.map((identidad) => (
+        <Chip key={identidad.sigla} tono={identidad.tono} className="shrink-0" title={identidad.nombreArea}>
+          {identidad.sigla} · {identidad.nombreCorto}
+        </Chip>
+      ))}
+    </div>
+  );
+}
+
+function PreparacionEvento({ requerimientos }) {
+  if (!requerimientos.total) {
+    return <span className="shrink-0 text-right text-[10px] font-medium text-proximo-texto">Sin cargar</span>;
+  }
+  return (
+    <span className="tabular shrink-0 text-right text-[10px] text-gris">
+      <strong className="block text-xs text-tinta">{requerimientos.confirmados}/{requerimientos.total}</strong>
+      confirmados
+    </span>
   );
 }
 

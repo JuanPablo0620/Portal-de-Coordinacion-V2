@@ -85,6 +85,9 @@
   --color-area-cor: #4a3aa7;
   --color-area-cor-texto: #4a3aa7;
   --color-area-cor-suave: #eae8f7;
+  --color-area-sgr: #52677a;
+  --color-area-sgr-texto: #52677a;
+  --color-area-sgr-suave: #edf1f5;
 
   /* Capas del calendario y del historial de proyecto */
   --color-capa-seguimiento: #1d5fa8;

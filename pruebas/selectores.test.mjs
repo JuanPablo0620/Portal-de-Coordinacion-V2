@@ -123,7 +123,14 @@ test('resumenRequerimientos de un evento sin requerimientos no divide por cero',
 test('un evento de varios días aparece en cada fecha del calendario y abre su detalle', () => {
   const bd = {
     eventos: [
-      { id: 'e1', nombre: 'Festival', fecha: '2026-09-12', fecha_hasta: '2026-09-13', activo: true },
+      {
+        id: 'e1',
+        nombre: 'Festival',
+        fecha: '2026-09-12',
+        fecha_hasta: '2026-09-13',
+        area_organizadora: 'Secretaría de Cultura',
+        activo: true,
+      },
     ],
     seguimientos: [],
     reuniones_mesa: [],
@@ -138,6 +145,7 @@ test('un evento de varios días aparece en cada fecha del calendario y abre su d
   );
   assert.deepEqual(items.map((item) => item.fecha), ['2026-09-12', '2026-09-13']);
   assert.ok(items.every((item) => item.ruta === '/eventos?tab=checklist&evento=e1'));
+  assert.ok(items.every((item) => item.area === 'Secretaría de Cultura'));
 });
 
 test('el filtro de eventos incluye un rango que se superpone con el período pedido', () => {
