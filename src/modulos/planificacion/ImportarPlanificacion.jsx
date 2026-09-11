@@ -27,6 +27,7 @@ export function ImportarPlanificacion({ abierto, alCerrar, anio }) {
   const [texto, setTexto] = useState('');
   const [mapeo, setMapeo] = useState({});
   const [resultado, setResultado] = useState(null);
+  const [fallo, setFallo] = useState(null);
   const [importando, setImportando] = useState(false);
 
   const idsValidos = useMemo(
@@ -53,6 +54,11 @@ export function ImportarPlanificacion({ abierto, alCerrar, anio }) {
     try {
       const r = await acciones.importarPlanificacion(validadas.aceptadas.map(({ id, ...resto }) => resto));
       setResultado({ ...r, rechazadas: validadas.rechazadas.length });
+    } catch (e) {
+      // Los errores por fila ya se informan; este es el de la operacion
+      // entera, que hasta ahora se perdia y dejaba la pantalla como si no
+      // se hubiera apretado nada.
+      setFallo(e?.message ?? 'No se pudo completar la importación.');
     } finally {
       setImportando(false);
     }
@@ -80,6 +86,7 @@ export function ImportarPlanificacion({ abierto, alCerrar, anio }) {
         )
       }
     >
+      {fallo && <Aviso tono="error">{fallo}</Aviso>}
       {resultado ? (
         <div role="status" aria-live="polite">
         <Aviso tono={resultado.errores.length ? 'alerta' : 'info'} titulo="Importación terminada">

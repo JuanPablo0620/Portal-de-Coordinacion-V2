@@ -21,6 +21,9 @@ import * as monitoreosRemotos from './supabaseMonitoreos.js';
 import * as posicionamientoRemoto from './supabasePosicionamiento.js';
 import * as mesasRemotas from './supabaseMesas.js';
 import * as cortesRemotos from './supabaseCortes.js';
+import * as planificacionRemota from './supabasePlanificacion.js';
+import * as auditoriaRemota from './supabaseAuditoria.js';
+import * as catalogosRemotos from './supabaseCatalogos.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -110,6 +113,15 @@ export const estadoRemoto = () => ({ error: errorRemoto });
  * dos cosas distintas y no ayuda a ninguna de las dos.
  */
 const CARGAS_REMOTAS = [
+  // Van primeros: son el vocabulario compartido del que cuelgan los
+  // desplegables y los filtros de todas las demas pantallas.
+  ['los catálogos', catalogosRemotos, async () => {
+    const remotos = await catalogosRemotos.cargar();
+    // Se mezclan sobre la semilla en vez de reemplazarla: si un catalogo no
+    // pudo traerse, la pantalla sigue ofreciendo la lista local en lugar de
+    // quedarse con un desplegable vacio.
+    bdActual.catalogos = { ...bdActual.catalogos, ...remotos };
+  }],
   ['los eventos', eventosRemotos, async () => {
     const remoto = await eventosRemotos.cargar();
     bdActual.eventos = remoto.eventos;
@@ -117,14 +129,6 @@ const CARGAS_REMOTAS = [
   }],
   ['los proyectos', proyectosRemotos, async () => {
     bdActual.proyectos = await proyectosRemotos.cargar();
-    // Los programas REALES, con su secretaria. Pisan la semilla de la maqueta,
-    // que tiene nombres genericos que ningun proyecto usa y no sabe de que area
-    // es cada uno -- por eso el desplegable de Programa mostraba opciones que
-    // no eran y no podia filtrarse por secretaria.
-    bdActual.catalogos = {
-      ...bdActual.catalogos,
-      programas: await proyectosRemotos.cargarProgramas(),
-    };
   }],
   ['los seguimientos', seguimientosRemotos, async () => {
     bdActual.seguimientos = await seguimientosRemotos.cargar();
@@ -147,6 +151,23 @@ const CARGAS_REMOTAS = [
   }],
   ['los cortes de calle', cortesRemotos, async () => {
     bdActual.cortes = await cortesRemotos.cargar();
+  }],
+  ['la planificación anual', planificacionRemota, async () => {
+    bdActual.planificacion_anual = await planificacionRemota.cargarPlanificacion();
+  }],
+  ['los reportes guardados', planificacionRemota, async () => {
+    bdActual.reportes_guardados = await planificacionRemota.cargarReportes();
+  }],
+  ['«Mis áreas»', planificacionRemota, async () => {
+    bdActual.asignaciones_monitoreo = await planificacionRemota.cargarAsignaciones();
+  }],
+  ['la bitácora', auditoriaRemota, async () => {
+    // Va última: necesita los proyectos ya cargados para traducir el uuid de
+    // cada fila auditada al código visible con el que filtran las pantallas.
+    const porUuid = new Map(
+      (bdActual.proyectos ?? []).filter((p) => p.uuid).map((p) => [p.uuid, p.id_proyecto]),
+    );
+    bdActual.historial = await auditoriaRemota.cargar(porUuid);
   }],
 ];
 
@@ -175,7 +196,7 @@ async function traerRemotos() {
       console.error(`No se pudieron traer ${rotulo} de Supabase`, error);
     }
   }
-  errorRemoto = fallos.length ? `No se pudieron traer ${fallos.join(' · ')}` : null;
+  errorRemoto = fallos.length ? `Falló la carga de ${fallos.join(' · ')}` : null;
 }
 
 /**
@@ -228,6 +249,9 @@ export async function refrescar() {
   posicionamientoRemoto.olvidarCatalogos();
   mesasRemotas.olvidarCatalogos();
   cortesRemotos.olvidarCatalogos();
+  planificacionRemota.olvidarCatalogos();
+  catalogosRemotos.olvidarCatalogos();
+  auditoriaRemota.olvidarCatalogos();
   await traerRemotos();
   notificar();
   return bdActual;
@@ -311,8 +335,24 @@ export async function guardarConfig(cambios) {
   return persistir();
 }
 
+/**
+ * Guarda un catalogo entero, como lo manda Configuracion.
+ *
+ * Antes esto escribia solo en el navegador: agregabas una secretaria y no la
+ * veia nadie mas, y al recargar, la lista volvia a la de la base. Un catalogo
+ * es el vocabulario compartido del sistema —de el dependen los desplegables,
+ * los filtros y los nombres que salen en los informes— asi que es justamente
+ * el dato que tiene que ser igual para todos.
+ *
+ * En la base lo escribe solo admin (ver 0025): renombrar una secretaria o un
+ * eje se propaga a todos los informes a la vez.
+ */
 export async function guardarCatalogo(nombre, items) {
   const bd = await obtenerBD();
+  if (catalogosRemotos.activo() && catalogosRemotos.CLAVES.includes(nombre)) {
+    bd.catalogos = { ...bd.catalogos, [nombre]: await catalogosRemotos.guardar(nombre, items) };
+    return persistir();
+  }
   bd.catalogos = { ...bd.catalogos, [nombre]: items };
   return persistir();
 }
@@ -328,6 +368,11 @@ export async function guardarCatalogo(nombre, items) {
  * preferencia de quien usa el sistema, no dato de gestión institucional.
  */
 export async function guardarAsignacionesMonitoreo(usuario, areas) {
+  if (planificacionRemota.activo()) {
+    const bd = await obtenerBD();
+    bd.asignaciones_monitoreo = await planificacionRemota.guardarAsignaciones(areas);
+    return persistir();
+  }
   const bd = await obtenerBD();
   const deOtros = (bd.asignaciones_monitoreo ?? []).filter((a) => a.usuario !== usuario);
   const propias = areas.map((area) => ({ usuario, area }));
@@ -373,8 +418,19 @@ export async function actualizarProyecto(id, cambios, opciones = {}) {
   );
 }
 
+/**
+ * Baja lógica de un proyecto: se cargó mal, está duplicado, no debería estar.
+ *
+ * Pasa por `actualizarProyecto` y no por `actualizar` directo para que tome el
+ * camino a Supabase. Antes escribía solo en la copia local: el proyecto
+ * desaparecía de la pantalla de quien lo dio de baja y seguía ahí para todos
+ * los demás, hasta que esa persona recargaba y volvía a aparecerle.
+ *
+ * Distinto de finalizarlo. Finalizar es un logro de gestión y cuenta en los
+ * informes; esto es sacar del medio algo que no debería figurar.
+ */
 export async function bajaProyecto(id) {
-  return actualizar('proyectos', id, { activo: false }, { id_proyecto: id });
+  return actualizarProyecto(id, { activo: false });
 }
 
 /* ── Datos reales de Posicionamiento (no sintéticos) ──────────────────── */
@@ -802,8 +858,14 @@ export async function actualizarProyectoPosicionamiento(id, cambios) {
   return actualizar('proyectos_posicionamiento', id, cambios, { id_proyecto: idProyecto });
 }
 
+/**
+ * Pasa por `actualizarProyectoPosicionamiento` y no por `bajaLogica`, que
+ * escribe solo en la copia local: dado de baja acá, el proyecto seguía vigente
+ * para todos los demás hasta que quien lo dio de baja recargaba y le volvía a
+ * aparecer. Es el mismo camino que ya usan `eliminarEvento` y `eliminarCorte`.
+ */
 export async function bajaProyectoPosicionamiento(id) {
-  return bajaLogica('proyectos_posicionamiento', id);
+  return actualizarProyectoPosicionamiento(id, { activo: false });
 }
 
 /* ── Seguimientos ───────────────────────────────────────────────────── */
@@ -1250,18 +1312,34 @@ export async function actualizarCorte(id, cambios) {
  * toda la semana, y el histórico mentiría.
  */
 export async function levantarCorte(id, hoy = hoyISO()) {
-  return actualizar('cortes', id, { estado: 'levantado', levantado_en: hoy });
+  // Pasa por `actualizarCorte` y no por `actualizar` directo: si no, el cambio
+  // se quedaba en la copia local. El corte figuraba levantado para quien lo
+  // levantó y seguía activo para todos los demás, hasta que esa persona
+  // recargaba y le volvía a aparecer vigente.
+  return actualizarCorte(id, { estado: 'levantado', levantado_en: hoy });
 }
 
 /** Baja lógica: el corte se cargó por error o duplicado. */
 export async function eliminarCorte(id) {
-  return actualizar('cortes', id, { activo: false });
+  return actualizarCorte(id, { activo: false });
 }
 
 /* ── Planificación ──────────────────────────────────────────────────── */
 
 /** Una planificación por proyecto y año: si ya existe, se actualiza. */
 export async function guardarPlanificacion(datos) {
+  if (planificacionRemota.activo()) {
+    const bd = await obtenerBD();
+    const guardada = await planificacionRemota.guardarPlan(datos);
+    // Una por proyecto y año: si ya estaba, se reemplaza en la copia en
+    // memoria; si no, se agrega. La base ya resolvió cuál de los dos era.
+    const previa = bd.planificacion_anual.find((x) => x.id === guardada.id);
+    bd.planificacion_anual = previa
+      ? bd.planificacion_anual.map((x) => (x.id === guardada.id ? guardada : x))
+      : [...bd.planificacion_anual, guardada];
+    await persistir();
+    return guardada;
+  }
   const bd = await obtenerBD();
   const existente = bd.planificacion_anual.find(
     (p) => p.id_proyecto === datos.id_proyecto && p.anio === datos.anio && p.activo !== false,
@@ -1271,17 +1349,40 @@ export async function guardarPlanificacion(datos) {
 }
 
 export async function actualizarPlanificacion(id, cambios) {
-  return actualizar('planificacion_anual', id, cambios);
+  if (!planificacionRemota.activo()) return actualizar('planificacion_anual', id, cambios);
+  const bd = await obtenerBD();
+  const previa = bd.planificacion_anual.find((x) => x.id === id);
+  return escribirRemoto(
+    'planificacion_anual',
+    () => planificacionRemota.actualizarPlan(id, cambios),
+    { accion: 'edicion', id, previo: previa, id_proyecto: previa?.id_proyecto ?? null },
+  );
 }
 
 /* ── Reportes guardados ─────────────────────────────────────────────── */
 
 export async function guardarReporte(nombre, filtros, bloques) {
-  return crear('reportes_guardados', { nombre, filtros, bloques });
+  if (!planificacionRemota.activo()) {
+    return crear('reportes_guardados', { nombre, filtros, bloques });
+  }
+  return escribirRemoto(
+    'reportes_guardados',
+    () => planificacionRemota.guardarReporte({ nombre, filtros, bloques }),
+    { accion: 'alta' },
+  );
 }
 
+/**
+ * Un reporte guardado se borra de verdad, a diferencia del resto del sistema.
+ * No es dato de gestión: es una vista que alguien armó para sí, y no hay nada
+ * que auditar en que la haya descartado.
+ */
 export async function borrarReporte(id) {
-  return bajaLogica('reportes_guardados', id);
+  if (!planificacionRemota.activo()) return bajaLogica('reportes_guardados', id);
+  await planificacionRemota.borrarReporte(id);
+  const bd = await obtenerBD();
+  bd.reportes_guardados = bd.reportes_guardados.filter((r) => r.id !== id);
+  return persistir();
 }
 
 /* ── Importación masiva ─────────────────────────────────────────────── */

@@ -4,6 +4,7 @@ import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Aviso, Boton, Chip, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { CATALOGOS_ADMINISTRABLES } from '../../datos/catalogos.js';
+import { useOpciones } from '../../utilidades/catalogos.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { acciones, useBD, useCatalogos } from '../../estado/tienda.js';
 import { usePerfil, useSesion } from '../../estado/sesion.js';
@@ -97,9 +98,11 @@ function SeccionCatalogos() {
       sinPadding
     >
       <div className="p-4">
-        <Aviso tono="alerta" titulo="Catálogos provisorios">
-          Las listas cargadas son de muestra. Los catálogos institucionales vigentes del municipio
-          (áreas, programas, ejes y tipos) se vuelcan en la etapa siguiente.
+        <Aviso tono="alerta" titulo="Lo que cambies acá lo ve todo el equipo">
+          Los catálogos son el vocabulario compartido del sistema: de ellos salen los selectores,
+          los filtros y los nombres que aparecen en los informes. Renombrar una secretaría o un eje
+          se propaga a todas las pantallas a la vez. Por eso sólo los administradores pueden
+          editarlos.
         </Aviso>
       </div>
       <div className="grid grid-cols-1 gap-px bg-borde lg:grid-cols-2">
@@ -116,6 +119,33 @@ function PanelCatalogo({ cfg }) {
   const items = catalogos[cfg.clave] ?? [];
   const [nombre, setNombre] = useState('');
   const [prefijo, setPrefijo] = useState('');
+  const [area, setArea] = useState('');
+  // Las areas que ofrece el desplegable salen del catalogo de areas, que es la
+  // misma lista que este panel edita mas arriba.
+  const opcionesArea = useOpciones('areas');
+  /*
+   * Desde que los catalogos se guardan en la base, guardar puede fallar: la
+   * escritura es solo de admin, y un nombre repetido choca con la restriccion
+   * de unicidad. Sin esto, la promesa se rechazaba en silencio y el boton
+   * parecia no hacer nada -- el mismo sintoma que ya habiamos tenido al crear
+   * un evento.
+   */
+  const [error, setError] = useState(null);
+
+  async function guardar(lista) {
+    setError(null);
+    try {
+      await acciones.guardarCatalogo(cfg.clave, lista);
+      return true;
+    } catch (e) {
+      setError(
+        e?.code === '42501' || /permis/i.test(e?.message ?? '')
+          ? 'No tenés permiso para editar los catálogos. Pedíselo a un administrador.'
+          : e?.message ?? 'No se pudo guardar el cambio.',
+      );
+      return false;
+    }
+  }
 
   const activos = items.filter((i) => i.activo !== false);
   const dadosDeBaja = items.filter((i) => i.activo === false);
@@ -126,23 +156,23 @@ function PanelCatalogo({ cfg }) {
     if (activos.some((i) => i.nombre.toLowerCase() === limpio.toLowerCase())) return;
     const item = { id: nuevoId('cat'), nombre: limpio, activo: true };
     if (cfg.conPrefijo) item.prefijo = (prefijo.trim() || limpio.slice(0, 3)).toUpperCase().slice(0, 4);
-    await acciones.guardarCatalogo(cfg.clave, [...items, item]);
-    setNombre('');
-    setPrefijo('');
+    if (cfg.conArea) item.area = area;
+    // El campo se limpia solo si el alta entro: si fallo, lo escrito sigue ahi
+    // para poder reintentar sin volver a tipearlo.
+    if (await guardar([...items, item])) {
+      setNombre('');
+      setPrefijo('');
+      // El area NO se limpia: cargar varios programas de la misma secretaria de
+      // corrido es el caso normal, y volver a elegirla cada vez es friccion.
+    }
   }
 
   async function cambiarEstado(id, activo) {
-    await acciones.guardarCatalogo(
-      cfg.clave,
-      items.map((i) => (i.id === id ? { ...i, activo } : i)),
-    );
+    await guardar(items.map((i) => (i.id === id ? { ...i, activo } : i)));
   }
 
   async function renombrar(id, nuevoNombre) {
-    await acciones.guardarCatalogo(
-      cfg.clave,
-      items.map((i) => (i.id === id ? { ...i, nombre: nuevoNombre } : i)),
-    );
+    await guardar(items.map((i) => (i.id === id ? { ...i, nombre: nuevoNombre } : i)));
   }
 
   return (
@@ -151,6 +181,12 @@ function PanelCatalogo({ cfg }) {
         <h3 className="text-sm font-semibold text-tinta">{cfg.titulo}</h3>
         <p className="text-xs text-gris">{cfg.descripcion}</p>
       </div>
+
+      {error && (
+        <div className="mb-2">
+          <Aviso tono="error">{error}</Aviso>
+        </div>
+      )}
 
       <div className="mb-2.5 flex flex-wrap items-end gap-2">
         <input
@@ -161,6 +197,21 @@ function PanelCatalogo({ cfg }) {
           aria-label={`Nuevo ítem de ${cfg.titulo}`}
           className="campo-base min-w-32 flex-1 py-1.5 text-xs"
         />
+        {cfg.conArea && (
+          <select
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+            aria-label={'Secretaría del nuevo ítem de ' + cfg.titulo}
+            className="campo-base min-w-40 py-1.5 text-xs"
+          >
+            <option value="">Elegí la secretaría…</option>
+            {opcionesArea.map((o) => (
+              <option key={o.id} value={o.nombre}>
+                {o.nombre}
+              </option>
+            ))}
+          </select>
+        )}
         {cfg.conPrefijo && (
           <input
             value={prefijo}
@@ -173,7 +224,12 @@ function PanelCatalogo({ cfg }) {
             className="campo-base w-20 py-1.5 text-xs uppercase"
           />
         )}
-        <Boton tamanio="sm" icono={Plus} onClick={agregar} disabled={!nombre.trim()}>
+        <Boton
+          tamanio="sm"
+          icono={Plus}
+          onClick={agregar}
+          disabled={!nombre.trim() || (cfg.conArea && !area)}
+        >
           Agregar
         </Boton>
       </div>
@@ -193,6 +249,12 @@ function PanelCatalogo({ cfg }) {
                 className="min-w-0 flex-1 rounded bg-transparent px-1 text-sm text-tinta focus:bg-paper focus:outline-2 focus:outline-acento"
               />
               {cfg.conPrefijo && item.prefijo && <Chip tono="acento">{item.prefijo}</Chip>}
+              {/* Sesenta y un programas en una lista plana de nombres no se
+                  pueden distinguir: «Eventos» de Capital Humano y «Eventos» de
+                  Coordinación se leen igual. La secretaría es lo que los separa. */}
+              {cfg.conArea && item.area && (
+                <span className="shrink-0 text-[11px] text-tenue">{item.area}</span>
+              )}
               <button
                 type="button"
                 onClick={() => cambiarEstado(item.id, false)}
@@ -239,6 +301,7 @@ function SeccionDatos() {
   const [confirmando, setConfirmando] = useState(null);
   const [trabajando, setTrabajando] = useState(false);
   const [resumenReales, setResumenReales] = useState(null);
+  const [falloReales, setFalloReales] = useState(null);
 
   const conteos = bd
     ? [
@@ -273,6 +336,8 @@ function SeccionDatos() {
     try {
       const resumen = await acciones.cargarTodosLosProyectosReales();
       setResumenReales(resumen);
+    } catch (e) {
+      setFalloReales(e?.message ?? 'No se pudieron cargar los proyectos reales.');
     } finally {
       setTrabajando(false);
     }
@@ -314,6 +379,7 @@ function SeccionDatos() {
         </Boton>
       </div>
 
+      {falloReales && <Aviso tono="error">{falloReales}</Aviso>}
       {resumenReales && (
         <p className="mt-2 text-xs text-tenue">
           Proyectos reales dados de alta:{' '}

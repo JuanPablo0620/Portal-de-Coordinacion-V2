@@ -209,7 +209,7 @@ export const DIAS_PERIODICIDAD = Object.freeze({
  */
 export const CATALOGOS_SEMILLA = Object.freeze({
   areas: [
-    { id: 'ar_coord', nombre: 'Coordinación', prefijo: 'COR', activo: true },
+    { id: 'ar_coord', slug: 'coordinacion', nombre: 'Coordinación', prefijo: 'COR', activo: true },
     { id: 'ar_r_ambiente', nombre: 'Secretaría de Ambiente y Servicios Públicos', prefijo: 'AMB', activo: true },
     { id: 'ar_r_capital', nombre: 'Secretaría de Capital Humano', prefijo: 'CAH', activo: true },
     { id: 'ar_r_obras', nombre: 'Secretaría de Obras', prefijo: 'OBR', activo: true },
@@ -263,7 +263,7 @@ export const CATALOGOS_SEMILLA = Object.freeze({
     { id: 'ej_mesa_edla', nombre: 'Mesa EDLA', activo: true },
     { id: 'ej_mesa_favelita', nombre: 'Mesa Favelita / El Libertador', activo: true },
     { id: 'ej_posic', nombre: 'Posicionamiento', activo: true },
-    { id: 'ej_compromisos', nombre: 'Compromisos', activo: true },
+    { id: 'ej_compromisos', slug: 'compromisos', nombre: 'Compromisos', activo: true },
   ],
   tipos: [
     { id: 'ti_obra', nombre: 'Obra', es_obra: true, activo: true },
@@ -363,7 +363,9 @@ export const CATALOGOS_SEMILLA = Object.freeze({
 /** Metadatos de presentación de cada catálogo administrable, para Configuración. */
 export const CATALOGOS_ADMINISTRABLES = Object.freeze([
   { clave: 'areas', titulo: 'Áreas', descripcion: 'Secretarías, subsecretarías y direcciones', conPrefijo: true },
-  { clave: 'programas', titulo: 'Programas', descripcion: 'Programas a los que pertenecen los proyectos' },
+  // Un programa pertenece a UNA secretaria; sin ella la base lo rechaza, asi
+  // que el panel tiene que pedirla al darlo de alta.
+  { clave: 'programas', titulo: 'Programas', descripcion: 'Programas a los que pertenecen los proyectos', conArea: true },
   { clave: 'ejes', titulo: 'Ejes estratégicos', descripcion: 'Ejes de gestión' },
   { clave: 'tipos', titulo: 'Tipos de proyecto', descripcion: 'Obra, servicio, programa social, gestión interna, adquisición', conEsObra: true },
   { clave: 'unidades', titulo: 'Unidades de medida', descripcion: 'Unidad en que se mide el objetivo' },

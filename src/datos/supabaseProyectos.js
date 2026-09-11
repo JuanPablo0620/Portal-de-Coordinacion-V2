@@ -154,9 +154,9 @@ const oNumero = (v) => (v === '' || v === null || v === undefined ? null : Numbe
 const CAMPOS_PROYECTO = [
   'id, id_legible, nombre, estado_general, responsable, prioridad',
   'fecha_inicio, fecha_fin_proyectada, causa_atraso, es_obra',
-  'monto_planificado, monto_ejecutado, zona, latitud, longitud, observaciones',
+  'monto_planificado, monto_ejecutado, zona, latitud, longitud, observaciones, activo, fecha_carga',
   'es_estrategico, descripcion_estrategica, estrategico_nota, estrategico_marcado_en',
-  'compromiso_publico, origen_estrategico',
+  'compromiso_publico, origen_estrategico, id_origen_estrategico',
   'created_at',
   'programa:programas(nombre, area:areas(nombre, nombre_formal))',
   'eje:ejes(nombre)',
@@ -191,7 +191,25 @@ function aplanarObservaciones(lista) {
   const ultima = ordenadas[ordenadas.length - 1];
   const conNumero = ordenadas.filter((a) => a.cuanti);
 
+  /*
+   * La serie de avance en el tiempo, para el gráfico de evolución.
+   *
+   * Antes se reconstruía leyendo la BITÁCORA local y buscando cambios del campo
+   * `avance` — un parche que solo funcionaba en la máquina de quien había
+   * cargado, y que dejaba de funcionar si esa persona limpiaba el navegador.
+   *
+   * Ahora sale de donde corresponde: cada observación fechada aporta su punto,
+   * y el acumulado es la suma corrida. Es exactamente para esto que la base
+   * guarda una fila por período en vez de pisar un campo.
+   */
+  let corrido = 0;
+  const serie_avance = conNumero.map((a) => {
+    corrido += Number(a.cuanti.cantidad) || 0;
+    return { fecha: String(a.fecha_actualizacion).slice(0, 10), avance: corrido };
+  });
+
   return {
+    serie_avance,
     avance: conNumero.reduce((suma, a) => suma + (Number(a.cuanti.cantidad) || 0), 0),
     cantidad: ultima.cuanti ? Number(ultima.cuanti.cantidad) || 0 : '',
     objetivo: conNumero.length ? Number(conNumero[conNumero.length - 1].cuanti.objetivo) || '' : '',
@@ -217,6 +235,7 @@ function aFormaLocal(fila, observaciones) {
     tipo: fila.tipo?.nombre ?? '',
     // Sin observaciones todavía, el estado sale del general de la fila.
     estado: obs.estado ?? (fila.estado_general === 'finalizado' ? 'finalizado' : 'planificado'),
+    serie_avance: obs.serie_avance ?? [],
     cantidad: obs.cantidad ?? '',
     objetivo: obs.objetivo ?? '',
     avance: obs.avance ?? 0,
@@ -236,8 +255,14 @@ function aFormaLocal(fila, observaciones) {
     descripcion_estrategica: fila.descripcion_estrategica ?? '',
     compromiso_publico: fila.compromiso_publico ?? '',
     origen_estrategico: fila.origen_estrategico ?? '',
+    id_origen_estrategico: fila.id_origen_estrategico ?? null,
     fecha_marcado_estrategico: fila.estrategico_marcado_en ?? '',
-    activo: true,
+    // Se lee de la base. Estaba fijo en true, asi que dar de baja un proyecto
+    // no tenia efecto: la lectura pisaba el cambio. Ver 0020_proyectos_activo.
+    activo: fila.activo ?? true,
+    // La usa la ficha del proyecto y, sobre todo, el filtro por periodo de la
+    // base maestra: sin ella comparaba contra undefined en cada fila.
+    fecha_carga: fila.fecha_carga ?? (fila.created_at ? String(fila.created_at).slice(0, 10) : ''),
     creado_por: fila.autor?.nombre ?? '',
     creado_en: fila.created_at,
   };
@@ -284,6 +309,8 @@ async function aFilaProyecto(datos, cat) {
   if ('latitud' in datos) fila.latitud = oNumero(datos.latitud);
   if ('longitud' in datos) fila.longitud = oNumero(datos.longitud);
   if ('observaciones' in datos) fila.observaciones = oNulo(datos.observaciones);
+  if ('activo' in datos) fila.activo = Boolean(datos.activo);
+  if ('fecha_carga' in datos) fila.fecha_carga = oNulo(datos.fecha_carga);
 
   if ('eje' in datos) fila.eje_id = resolver(cat.ejes, datos.eje, 'ejes');
   if ('tipo' in datos) fila.tipo_id = resolver(cat.tipos, datos.tipo, 'tipos de proyecto');
@@ -485,10 +512,25 @@ async function observacionesDe(uuid) {
 export async function marcarEstrategico(idLegible, datos, contexto = {}) {
   const uuid = contexto.uuid ?? (await uuidDe(idLegible));
 
+  /*
+   * El origen se manda; antes no, y por eso la columna «Origen» de la cartera
+   * decia «Base maestra» hasta en los proyectos promovidos desde un monitoreo.
+   *
+   * 'base' no viaja: el enum `origen_carga` solo tiene 'monitoreo' y
+   * 'seguimiento', y la ausencia de origen ES la base maestra. Mandarlo como
+   * valor obligaria a inventar un tercer miembro del enum para decir «ninguno
+   * de los dos».
+   */
+  const origen = datos.origen_estrategico === 'monitoreo' || datos.origen_estrategico === 'seguimiento'
+    ? datos.origen_estrategico
+    : null;
+
   const { error } = await supabase.rpc('marcar_estrategico', {
     p_proyecto_id: uuid,
     p_descripcion_estrategica: oNulo(datos.descripcion_estrategica),
     p_compromiso_publico: oNulo(datos.compromiso_publico),
+    p_origen: origen,
+    p_id_origen: origen ? oNulo(datos.id_origen_estrategico) : null,
   });
   if (error) throw error;
 

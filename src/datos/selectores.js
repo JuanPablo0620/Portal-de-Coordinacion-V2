@@ -868,8 +868,21 @@ export function historialArea(bd, area, hoy = hoyISO()) {
   };
 }
 
-/** Serie de avance de un proyecto a lo largo del tiempo, leída de la bitácora. */
+/**
+ * Serie de avance de un proyecto a lo largo del tiempo.
+ *
+ * Sale de las observaciones fechadas que trae el proyecto desde la base. Antes
+ * se reconstruía leyendo la bitácora local y buscando cambios del campo
+ * `avance`: funcionaba solo en la máquina de quien había cargado, y se perdía
+ * al limpiar el navegador.
+ *
+ * El `filter` de abajo es el camino viejo, para la base local que todavía usan
+ * los tests y la prueba de humo, donde no hay observaciones.
+ */
 export function serieAvance(bd, idProyecto) {
+  const proyecto = (bd.proyectos ?? []).find((p) => p.id_proyecto === idProyecto);
+  if (proyecto?.serie_avance?.length) return proyecto.serie_avance;
+
   const puntos = [];
   for (const h of historialProyecto(bd, idProyecto).reverse()) {
     const cambio = (h.cambios ?? []).find((c) => c.campo === 'avance');
@@ -1410,7 +1423,6 @@ export function proyectosPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
     .filter((a) =>
       coincide(resto.tipo, a.tipo) &&
       coincide(resto.organismo, a.organismo) &&
-      coincide(resto.pais, a.pais) &&
       coincide(resto.estado, a.estado) &&
       coincide(resto.alcance, a.alcance) &&
       coincide(resto.area, a.area) &&
@@ -1419,7 +1431,7 @@ export function proyectosPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
       (ods ? a.ods.includes(Number(ods)) : true) &&
       dentroDelRango(a.fecha_inicio, resto.desde, resto.hasta) &&
       (!texto ||
-        `${a.nombre} ${a.organismo ?? ''} ${a.pais ?? ''} ${a.descripcion ?? ''}`
+        `${a.nombre} ${a.organismo ?? ''} ${a.descripcion ?? ''}`
           .toLowerCase()
           .includes(texto.toLowerCase())),
     )
@@ -1478,7 +1490,6 @@ export function resumenPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
     financiamiento_obtenido: financiamientoObtenido,
     financiamiento_en_gestion: financiamientoEnGestion,
     organismos: new Set(lista.map((a) => a.organismo).filter(Boolean)).size,
-    paises: new Set(lista.map((a) => a.pais).filter(Boolean)).size,
     ods_cubiertos: new Set(lista.flatMap((a) => a.ods)).size,
     proyectos_vinculados: new Set(lista.flatMap((a) => a.ids_proyecto)).size,
     por_estado: porEstado,

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Bookmark, Printer, Save, Trash2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
-import { Boton, Chip, Tarjeta } from '../../componentes/Basicos.jsx';
+import { Aviso, Boton, Chip, Tarjeta } from '../../componentes/Basicos.jsx';
 import { Alternadores, GrillaFiltros, TarjetaFiltros } from '../../componentes/Filtros.jsx';
 import { CampoCheck, CampoFecha, CampoSelect, CampoTexto } from '../../componentes/Campo.jsx';
 import { Modal } from '../../componentes/Modal.jsx';
@@ -285,6 +285,29 @@ function ReportesGuardados({ guardados, alAplicar }) {
 
 function ModalGuardar({ abierto, alCerrar, filtros, bloques, cantidadFiltros }) {
   const [nombre, setNombre] = useState('');
+  /*
+   * Desde que los reportes se guardan en Supabase, guardar puede fallar. Sin
+   * esto la promesa se rechazaba en silencio: el modal quedaba abierto, el
+   * reporte no se guardaba y el boton parecia no hacer nada. Es el mismo
+   * sintoma que ya habiamos tenido al crear un evento y al guardar un
+   * compromiso, y la misma causa: un onClick async sin try/catch.
+   */
+  const [error, setError] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+
+  async function confirmar() {
+    setError(null);
+    setGuardando(true);
+    try {
+      await acciones.guardarReporte(nombre.trim(), filtros, bloques);
+      alCerrar();
+    } catch (e) {
+      setError(e?.message ?? 'No se pudo guardar el reporte.');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
   return (
     <Modal
       abierto={abierto}
@@ -298,17 +321,19 @@ function ModalGuardar({ abierto, alCerrar, filtros, bloques, cantidadFiltros }) 
           <Boton
             variante="primario"
             icono={Save}
-            disabled={!nombre.trim()}
-            onClick={async () => {
-              await acciones.guardarReporte(nombre.trim(), filtros, bloques);
-              alCerrar();
-            }}
+            disabled={!nombre.trim() || guardando}
+            onClick={confirmar}
           >
-            Guardar
+            {guardando ? 'Guardando…' : 'Guardar'}
           </Boton>
         </>
       }
     >
+      {error && (
+        <div className="mb-3">
+          <Aviso tono="error">{error}</Aviso>
+        </div>
+      )}
       <CampoTexto
         etiqueta="Nombre"
         requerido

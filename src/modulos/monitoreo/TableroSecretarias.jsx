@@ -7,8 +7,8 @@
  * justamente lo que impedía ver que el problema estaba en un área concreta.
  *
  * La hoja está pensada para llegar impresa a la reunión con el secretario: por
- * eso cierra los pendientes en línea (marcar un tema resuelto, un compromiso
- * cumplido) en lugar de mandar a otra pantalla a hacerlo después.
+ * eso cierra los pendientes en línea (marcar un compromiso cumplido) en lugar
+ * de mandar a otra pantalla a hacerlo después.
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -35,7 +35,6 @@ import {
   Boton,
   Buscador,
   Chip,
-  Criticidad,
   EstadoProyecto,
   Metrica,
   Semaforo,
@@ -50,7 +49,7 @@ import { Tabla } from '../../componentes/Tabla.jsx';
 import { CampoFecha } from '../../componentes/Campo.jsx';
 import { SelectorPeriodo } from './periodo.jsx';
 import { CLAVES_FILTRO, DEFAULTS } from './filtros.js';
-import { GraficoBarras, GraficoTorta } from '../../componentes/Graficos.jsx';
+import { GraficoBarras } from '../../componentes/Graficos.jsx';
 import { COLUMNAS_COMPROMISO } from '../seguimiento/columnasCompromiso.jsx';
 import { filtrarAlertas, UMBRALES } from '../../datos/alertas.js';
 import {
@@ -66,7 +65,6 @@ import {
   resumenSecretaria,
   resumenSecretarias,
   seguimientos as selSeguimientos,
-  temasDeArea,
   trimestreDe,
 } from '../../datos/selectores.js';
 import { fecha as fFecha, fechaLarga, moneda, numero, sufijoArchivo } from '../../utilidades/formato.js';
@@ -76,18 +74,12 @@ import { acciones } from '../../estado/tienda.js';
 /** Rótulo del semáforo de cada tarjeta, para que el color no viaje solo. */
 const TEXTO_NIVEL = {
   vencido: 'compromisos vencidos',
-  proximo: 'temas críticos abiertos',
+  proximo: 'requiere seguimiento',
   atencion: 'requiere atención',
   enregla: 'al día',
   sindato: 'sin monitorear',
 };
 
-/** El color de la criticidad ES la información: no se deja al orden de la serie. */
-const COLOR_CRITICIDAD = {
-  alta: 'var(--color-vencido)',
-  media: 'var(--color-proximo)',
-  baja: 'var(--color-enregla)',
-};
 
 export function TableroSecretarias({ bd, filtros, setFiltros, alertas = [], rango }) {
   const hoy = hoyISO();
@@ -241,7 +233,7 @@ function Grilla({ bd, periodo, filtros, setFiltros, alertas, areas, hoy }) {
  * para no duplicar el semáforo, la mini-serie ni el resto de esta tarjeta.
  */
 export function TarjetaSecretaria({ resumen, prefijo, alertas, alAbrir }) {
-  const { temas, compromisos, proyectos, comparativo } = resumen;
+  const { compromisos, proyectos, comparativo } = resumen;
   const maximo = Math.max(1, ...resumen.serie.map((s) => s.monitoreos));
 
   return (
@@ -274,9 +266,11 @@ export function TarjetaSecretaria({ resumen, prefijo, alertas, alAbrir }) {
       </header>
 
       <div className="flex flex-1 flex-col gap-3 p-4">
-        <div className="grid grid-cols-4 gap-2">
+        {/* Tres datos, no cuatro: los temas de monitoreo se dieron de baja del
+            circuito y su conteo era siempre cero — un dato que no puede variar
+            no informa, solo ocupa la columna que necesitan los que sí varían. */}
+        <div className="grid grid-cols-3 gap-2">
           <Dato valor={resumen.monitoreos} etiqueta="monitoreos" delta={comparativo?.delta_monitoreos} />
-          <Dato valor={temas.sin_resolver} etiqueta="temas abiertos" tono={temas.sin_resolver ? 'proximo' : 'neutro'} />
           <Dato
             valor={compromisos.vencidos}
             etiqueta="vencidos"
@@ -287,8 +281,6 @@ export function TarjetaSecretaria({ resumen, prefijo, alertas, alAbrir }) {
 
         <MiniSerie serie={resumen.serie} maximo={maximo} area={resumen.area} />
 
-        <BarraCriticidad temas={temas} />
-
         <div>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-tenue">
             Avance agregado de sus proyectos
@@ -296,27 +288,9 @@ export function TarjetaSecretaria({ resumen, prefijo, alertas, alAbrir }) {
           <BarraAvance valor={proyectos.porcentaje_avance} />
         </div>
 
-        {(temas.acciones_pendientes > 0 || resumen.proximo_seguimiento) && (
+        {resumen.proximo_seguimiento && (
           <div className="flex flex-wrap gap-1">
-            {temas.acciones_pendientes > 0 && (
-              <Chip tono="proximo">
-                {temas.acciones_pendientes} acción{temas.acciones_pendientes === 1 ? '' : 'es'} comprometida
-                {temas.acciones_pendientes === 1 ? '' : 's'}
-              </Chip>
-            )}
-            {resumen.proximo_seguimiento && (
-              <Chip tono="acento">seguimiento el {fFecha(resumen.proximo_seguimiento.fecha)}</Chip>
-            )}
-          </div>
-        )}
-
-        {resumen.categorias.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {resumen.categorias.slice(0, 3).map((c) => (
-              <Chip key={c.nombre} tono="neutro">
-                {c.nombre} · {c.cantidad}
-              </Chip>
-            ))}
+            <Chip tono="acento">seguimiento el {fFecha(resumen.proximo_seguimiento.fecha)}</Chip>
           </div>
         )}
       </div>
@@ -380,7 +354,7 @@ function MiniSerie({ serie, maximo, area }) {
           <div
             key={s.mes}
             className="flex flex-1 flex-col items-center gap-1"
-            title={`${s.etiqueta}: ${s.monitoreos} monitoreo(s), ${s.temas} tema(s)`}
+            title={`${s.etiqueta}: ${s.monitoreos} monitoreo(s)`}
           >
             <div
               className="w-full rounded-t-sm"
@@ -397,51 +371,6 @@ function MiniSerie({ serie, maximo, area }) {
   );
 }
 
-/** Distribución de criticidad como una sola barra apilada. */
-function BarraCriticidad({ temas }) {
-  const total = temas.total;
-  const tramos = ['alta', 'media', 'baja'].map((clave) => ({
-    clave,
-    cantidad: temas[clave],
-    color: COLOR_CRITICIDAD[clave],
-  }));
-
-  return (
-    <div>
-      <div className="mb-1 flex items-baseline justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-tenue">Criticidad de los temas</p>
-        <span className="tabular text-[11px] text-tenue">{total}</span>
-      </div>
-      {total === 0 ? (
-        <div className="h-2 rounded-full bg-sindato-suave" title="Sin temas en el período" />
-      ) : (
-        <>
-          <div className="flex h-2 overflow-hidden rounded-full">
-            {tramos
-              .filter((t) => t.cantidad > 0)
-              .map((t) => (
-                <div
-                  key={t.clave}
-                  style={{ width: `${(t.cantidad / total) * 100}%`, background: t.color }}
-                  title={`${t.cantidad} de criticidad ${t.clave}`}
-                />
-              ))}
-          </div>
-          <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5">
-            {tramos
-              .filter((t) => t.cantidad > 0)
-              .map((t) => (
-                <span key={t.clave} className="flex items-center gap-1 text-[10px] text-tenue">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: t.color }} />
-                  {t.clave} {t.cantidad}
-                </span>
-              ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 /* ── Hoja de una secretaría ─────────────────────────────────────────── */
 
@@ -453,7 +382,6 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
     () => (bd ? resumenSecretaria(bd, area, periodo, hoy) : null),
     [bd, area, periodo, hoy],
   );
-  const temas = useMemo(() => (bd ? temasDeArea(bd, area, periodo) : []), [bd, area, periodo]);
   const monitoreos = useMemo(
     () => (bd ? selMonitoreos(bd, { area, ...periodo }) : []),
     [bd, area, periodo],
@@ -499,9 +427,6 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
   if (!resumen) return null;
 
   const sufijo = sufijoArchivo(area);
-  const porCriticidad = ['alta', 'media', 'baja']
-    .map((nombre) => ({ nombre, cantidad: resumen.temas[nombre] }))
-    .filter((c) => c.cantidad > 0);
 
   const rutaReporte = [
     '/reportes?area=' + encodeURIComponent(area),
@@ -530,11 +455,6 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
             <div className="flex flex-wrap items-center gap-1.5">
               {prefijo && <Chip tono="acento">{prefijo}</Chip>}
               <Semaforo nivel={resumen.nivel} texto={TEXTO_NIVEL[resumen.nivel]} />
-              {resumen.criticidad_maxima && (
-                <span className="flex items-center gap-1 text-[11px] text-tenue">
-                  criticidad máxima <Criticidad nivel={resumen.criticidad_maxima} />
-                </span>
-              )}
             </div>
             <h2 className="mt-1.5 text-base font-semibold text-tinta">{area}</h2>
             <p className="mt-0.5 text-xs text-gris">
@@ -575,7 +495,7 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
 
       {/* Seis columnas recién a 2xl: más apretadas, las etiquetas se truncan y
           «Compromisos vencidos» queda en «Compromisos ven…». */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metrica
           valor={resumen.monitoreos}
           etiqueta="Monitoreos del período"
@@ -585,14 +505,6 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
               ? `${resumen.comparativo.delta_monitoreos >= 0 ? '+' : ''}${resumen.comparativo.delta_monitoreos} vs. período anterior`
               : undefined
           }
-        />
-        <Metrica valor={resumen.temas.total} etiqueta="Temas registrados" icono={Radar} />
-        <Metrica
-          valor={resumen.temas.sin_resolver}
-          etiqueta="Temas sin resolver"
-          tono={resumen.temas.sin_resolver ? 'vencido' : 'neutro'}
-          detalle={resumen.temas.alta_sin_resolver ? `${resumen.temas.alta_sin_resolver} de criticidad alta` : undefined}
-          icono={AlertTriangle}
         />
         <Metrica valor={resumen.seguimientos} etiqueta="Seguimientos" icono={CalendarCheck} />
         <Metrica
@@ -626,38 +538,17 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
         </Tarjeta>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Tarjeta
-          titulo="Monitoreos y temas por mes"
-          descripcion="Serie histórica del área: un mes en cero significa que no se monitoreó, no que el filtro lo excluyó."
-          className="lg:col-span-2"
-        >
-          <GraficoBarras
-            datos={resumen.serie}
-            clave="etiqueta"
-            alto={220}
-            series={[
-              { clave: 'monitoreos', titulo: 'Monitoreos' },
-              { clave: 'temas', titulo: 'Temas' },
-            ]}
-          />
-        </Tarjeta>
-
-        <Tarjeta titulo="Temas por criticidad">
-          <GraficoTorta datos={porCriticidad} alto={220} colorPorItem={(d) => COLOR_CRITICIDAD[d.nombre]} />
-        </Tarjeta>
-      </div>
-
-      {resumen.categorias.length > 0 && (
-        <Tarjeta titulo="Temas por categoría" descripcion="De qué habla esta secretaría cuando se la monitorea.">
-          <GraficoBarras
-            datos={resumen.categorias}
-            horizontal
-            anchoEtiqueta={190}
-            alto={Math.max(180, resumen.categorias.length * 32)}
-          />
-        </Tarjeta>
-      )}
+      <Tarjeta
+        titulo="Monitoreos por mes"
+        descripcion="Serie histórica del área: un mes en cero significa que no se monitoreó, no que el filtro lo excluyó."
+      >
+        <GraficoBarras
+          datos={resumen.serie}
+          clave="etiqueta"
+          alto={220}
+          series={[{ clave: 'monitoreos', titulo: 'Monitoreos' }]}
+        />
+      </Tarjeta>
 
       {alertasArea.length > 0 && (
         <Tarjeta
@@ -678,73 +569,6 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
         navegar={navegar}
       />
 
-      <Tarjeta
-        titulo="Temas del período"
-        descripcion="Los que requieren acción muestran la fecha comprometida; se pueden cerrar acá mismo."
-        sinPadding
-      >
-        <Tabla
-          nombreExport={`temas-${sufijo}`}
-          filas={temas}
-          columnas={[
-            { clave: 'fecha', titulo: 'Fecha', ancho: 100, render: (f) => fFecha(f.fecha), formatoCSV: fFecha },
-            { clave: 'categoria', titulo: 'Categoría', ancho: 160 },
-            { clave: 'descripcion', titulo: 'Tema' },
-            {
-              clave: 'criticidad',
-              titulo: 'Criticidad',
-              ancho: 100,
-              render: (f) => <Criticidad nivel={f.criticidad} />,
-            },
-            {
-              clave: 'fecha_limite',
-              titulo: 'Acción comprometida',
-              ancho: 160,
-              render: (f) =>
-                f.requiere_accion && f.fecha_limite ? (
-                  <Semaforo
-                    nivel={f.resuelto ? 'enregla' : nivelPorDias(diasHasta(f.fecha_limite, hoy))}
-                    texto={fFecha(f.fecha_limite)}
-                  />
-                ) : (
-                  <span className="text-tenue">—</span>
-                ),
-            },
-            {
-              clave: 'resuelto',
-              titulo: 'Estado',
-              ancho: 130,
-              render: (f) =>
-                f.resuelto ? (
-                  <Chip tono="enregla">resuelto</Chip>
-                ) : (
-                  <Boton
-                    tamanio="sm"
-                    icono={Check}
-                    className="no-imprimir"
-                    aria-label={`Marcar como resuelto: ${f.descripcion}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCerrando({ clase: 'tema', registro: f });
-                    }}
-                  >
-                    Resolver
-                  </Boton>
-                ),
-            },
-          ]}
-          alHacerClicFila={(f) => navegar(`/monitoreo?tab=ultimos&monitoreo=${f.id_monitoreo}`)}
-          vacio={
-            <Vacio
-              compacto
-              icono={Radar}
-              titulo="Sin temas en el período"
-              descripcion="Ajustá el período o cargá un monitoreo para esta secretaría."
-            />
-          }
-        />
-      </Tarjeta>
-
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Tarjeta titulo="Monitoreos del período" sinPadding>
           <Tabla
@@ -753,13 +577,6 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
             conBusqueda={false}
             columnas={[
               { clave: 'fecha', titulo: 'Fecha', ancho: 100, render: (f) => fFecha(f.fecha), formatoCSV: fFecha },
-              { clave: 'cantidad_temas', titulo: 'Temas', ancho: 70, alinear: 'derecha' },
-              {
-                clave: 'criticidad_maxima',
-                titulo: 'Criticidad máx.',
-                ancho: 120,
-                render: (f) => <Criticidad nivel={f.criticidad_maxima} />,
-              },
               { clave: 'creado_por', titulo: 'Cargado por' },
             ]}
             alHacerClicFila={(f) => navegar(`/monitoreo?tab=ultimos&monitoreo=${f.id}`)}
@@ -935,7 +752,7 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
 
       <footer className="solo-impresion pie-impresion">
         Hoja generada por el sistema de Coordinación. Los compromisos y proyectos se listan vigentes al{' '}
-        {fFecha(hoy)}; los monitoreos, temas y seguimientos corresponden al período indicado.
+        {fFecha(hoy)}; los monitoreos y seguimientos corresponden al período indicado.
       </footer>
 
       {cerrando && <ModalCierre item={cerrando} hoy={hoy} alCerrar={() => setCerrando(null)} />}
@@ -1025,20 +842,26 @@ function PanelPlanificacion({ desvios, presupuesto, anio, trimestre, sufijo, nav
 /* ── Cierre en línea ────────────────────────────────────────────────── */
 
 /**
- * Confirmación única para las dos acciones de cierre. Pasa por el repositorio,
- * así que el cambio queda asentado en la bitácora como cualquier otra edición.
+ * Confirmación para cerrar un compromiso desde la hoja. Pasa por el
+ * repositorio, así que el cambio queda asentado en la bitácora como cualquier
+ * otra edición.
+ *
+ * Antes servía también para dar por resuelto un tema de monitoreo; los temas
+ * salieron del circuito y con ellos esa rama.
  */
 function ModalCierre({ item, hoy, alCerrar }) {
   const [fecha, setFecha] = useState(hoy);
   const [trabajando, setTrabajando] = useState(false);
-  const esTema = item.clase === 'tema';
+  const [error, setError] = useState(null);
 
   async function confirmar() {
     setTrabajando(true);
+    setError(null);
     try {
-      if (esTema) await acciones.actualizarTema(item.registro.id, { resuelto: true });
-      else await acciones.marcarCumplido(item.registro.id, fecha);
+      await acciones.marcarCumplido(item.registro.id, fecha);
       alCerrar();
+    } catch (e) {
+      setError(e?.message ?? 'No se pudo marcar el compromiso como cumplido.');
     } finally {
       setTrabajando(false);
     }
@@ -1049,7 +872,7 @@ function ModalCierre({ item, hoy, alCerrar }) {
       abierto
       alCerrar={alCerrar}
       ancho="sm"
-      titulo={esTema ? 'Marcar el tema como resuelto' : 'Marcar el compromiso como cumplido'}
+      titulo="Marcar el compromiso como cumplido"
       pie={
         <>
           <Boton onClick={alCerrar}>Cancelar</Boton>
@@ -1060,9 +883,12 @@ function ModalCierre({ item, hoy, alCerrar }) {
       }
     >
       <p className="mb-3 text-sm leading-relaxed text-gris">{item.registro.descripcion}</p>
-      {!esTema && (
-        <CampoFecha etiqueta="Fecha de cumplimiento" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+      {error && (
+        <div className="mb-3">
+          <Aviso tono="error">{error}</Aviso>
+        </div>
       )}
+      <CampoFecha etiqueta="Fecha de cumplimiento" value={fecha} onChange={(e) => setFecha(e.target.value)} />
     </Modal>
   );
 }

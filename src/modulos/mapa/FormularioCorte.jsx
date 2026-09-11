@@ -138,6 +138,11 @@ export function FormularioCorte({ abierto, alCerrar, corte, seleccion, alVolverA
       if (esEdicion) await acciones.actualizarCorte(corte.id, payload);
       else await acciones.crearCorte(payload);
       alCerrar();
+    } catch (e) {
+      // Habia un try sin catch: si la base rechazaba el corte, el error se
+      // perdia y el modal quedaba abierto sin decir nada, como si el boton no
+      // hubiera hecho nada. Quien lo cargaba se iba pensando que quedo.
+      setError(e?.message ?? 'No se pudo guardar el corte. Probá de nuevo.');
     } finally {
       setGuardando(false);
     }

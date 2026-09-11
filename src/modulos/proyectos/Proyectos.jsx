@@ -22,7 +22,7 @@ import { COLUMNAS_CSV_PROYECTO } from '../../datos/importacion.js';
 import { proyectos as selProyectos, hoyISO } from '../../datos/selectores.js';
 import { fecha as fFecha, haceCuanto, moneda, numero } from '../../utilidades/formato.js';
 import { acciones, useBD } from '../../estado/tienda.js';
-import { useOpciones, useOpcionesPrograma } from '../../utilidades/catalogos.js';
+import { esItem, useOpciones, useOpcionesPrograma } from '../../utilidades/catalogos.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
 const DEFAULTS = {
@@ -63,7 +63,7 @@ export default function Proyectos() {
   // proyecto— así que filtrar por él siempre da la lista vacía. Se saca del
   // filtro (no del catálogo: sigue en Configuración como vocabulario
   // institucional, ver catalogos.js).
-  const opcionesEje = useOpciones('ejes').filter((o) => o.id !== 'ej_compromisos');
+  const opcionesEje = useOpciones('ejes').filter((o) => !esItem(o, 'compromisos', 'ej_compromisos'));
   const opcionesTipo = useOpciones('tipos');
 
   const filas = useMemo(() => (bd ? selProyectos(bd, filtros) : []), [bd, filtros]);
@@ -142,7 +142,14 @@ export default function Proyectos() {
       />
 
       <Pagina className="flex flex-col gap-4">
-        {errorRemoto && <Aviso tono="error">No se pudieron actualizar los proyectos: {errorRemoto}</Aviso>}
+        {/* El error es el de la carga remota COMPLETA, no el de los proyectos:
+            decía "no se pudieron actualizar los proyectos" aunque lo que hubiera
+            fallado fuera la bitácora. El mensaje ya nombra la colección real. */}
+        {errorRemoto && (
+          <Aviso tono="error" titulo="No se pudo traer todo desde la base">
+            Lo que ves puede estar desactualizado. {errorRemoto}
+          </Aviso>
+        )}
         <TarjetaFiltros filtros={filtros} defaults={DEFAULTS} alLimpiar={limpiarFiltros}>
           <GrillaFiltros columnas={6}>
             <CampoSelect etiqueta="Área" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
