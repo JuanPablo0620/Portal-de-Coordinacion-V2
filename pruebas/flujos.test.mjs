@@ -463,6 +463,41 @@ test('actualizarEstadoCompromiso estampa y limpia la fecha de cumplimiento sola'
 });
 
 /**
+ * "Agregar actualización" es lo que usa el formulario de verdad (no manda
+ * `descripcion`): tiene que sumarse abajo de lo que ya había, nunca pisarlo.
+ */
+test('actualizarEstadoCompromiso agrega la novedad debajo de la descripción, sin pisarla', async () => {
+  await limpio();
+  const p = await repo.crearProyecto(PROYECTO_BASE);
+  const m = await repo.crearMonitoreo({ fecha: HOY, area: p.area });
+  const c = await repo.crearCompromiso({
+    origen_tipo: 'monitoreo', id_origen: m.id, id_proyecto: p.id_proyecto,
+    area: p.area, descripcion: 'Elevar el expediente', fecha_limite: FUTURO,
+  });
+
+  const actualizado = await repo.actualizarEstadoCompromiso(
+    c.id, { estado: 'en curso', nuevaActualizacion: 'Se envió a Legales, a la espera de respuesta.' }, HOY,
+  );
+  assert.equal(actualizado.estado, 'en curso');
+  assert.ok(actualizado.descripcion.startsWith('Elevar el expediente'), 'no pisa el texto original');
+  assert.ok(
+    actualizado.descripcion.includes('Se envió a Legales, a la espera de respuesta.'),
+    'agrega la novedad',
+  );
+
+  // Una segunda novedad se suma sobre la anterior, no la reemplaza.
+  const conDosNovedades = await repo.actualizarEstadoCompromiso(
+    c.id, { estado: 'en curso', nuevaActualizacion: 'Legales confirmó para la próxima semana.' }, HOY,
+  );
+  assert.ok(conDosNovedades.descripcion.includes('Se envió a Legales'), 'la primera novedad sigue');
+  assert.ok(conDosNovedades.descripcion.includes('Legales confirmó para la próxima semana.'));
+
+  // Sin nueva actualización, la descripción no cambia.
+  const sinNovedad = await repo.actualizarEstadoCompromiso(c.id, { estado: 'cumplido' }, HOY);
+  assert.equal(sinNovedad.descripcion, conDosNovedades.descripcion);
+});
+
+/**
  * La ventana de seguimiento de un área —lo que muestra la Parte 2 de la
  * carga de Monitoreo— sale de sus propios seguimientos, nunca de una fecha
  * fija: cada secretaría agenda la suya.

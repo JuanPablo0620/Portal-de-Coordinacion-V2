@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   CalendarPlus,
   CalendarRange,
-  Check,
   ChevronDown,
   ClipboardList,
   History,
@@ -28,7 +27,8 @@ import { Alternadores, GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../.
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { Calendario, useMesVisible } from '../../componentes/Calendario.jsx';
 import { Modal } from '../../componentes/Modal.jsx';
-import { CampoArea, CampoFecha, CampoHora, CampoRadios, CampoSelect, GrillaCampos } from '../../componentes/Campo.jsx';
+import { CampoFecha, CampoHora, CampoSelect, GrillaCampos } from '../../componentes/Campo.jsx';
+import { EditorCompromiso } from '../../componentes/EditorCompromiso.jsx';
 import { CargarSeguimiento } from './CargarSeguimiento.jsx';
 import { HistorialArea } from './HistorialArea.jsx';
 import { COLUMNAS_COMPROMISO, nivelDe } from './columnasCompromiso.jsx';
@@ -322,7 +322,7 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
       return;
     }
     setExpandidoId(f.id);
-    setBorrador({ estado: f.estado, descripcion: f.descripcion });
+    setBorrador({ estado: f.estado });
   }
 
   async function guardarCompromiso(f) {
@@ -447,30 +447,14 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
                 </div>
               </div>
 
-              <div className="border-t border-dashed border-borde-fuerte/50 pt-3">
-                <p className="mb-2 text-xs font-semibold text-tinta">Actualizar compromiso</p>
-                <CampoRadios
-                  opciones={ESTADOS_COMPROMISO}
-                  valor={borrador?.estado ?? f.estado}
-                  alCambiar={(v) => setBorrador((b) => ({ ...b, estado: v }))}
-                />
-                <CampoArea
-                  etiqueta="Descripción"
-                  className="mt-2.5"
-                  filas={2}
-                  value={borrador?.descripcion ?? f.descripcion}
-                  onChange={(e) => setBorrador((b) => ({ ...b, descripcion: e.target.value }))}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Boton tamanio="sm" onClick={() => alternarFila(f)}>
-                  Cerrar
-                </Boton>
-                <Boton variante="primario" tamanio="sm" icono={Check} onClick={() => guardarCompromiso(f)}>
-                  Guardar cambios
-                </Boton>
-              </div>
+              <EditorCompromiso
+                compromiso={f}
+                borrador={borrador}
+                alCambiarBorrador={(parcial) => setBorrador((b) => ({ ...b, ...parcial }))}
+                alGuardar={() => guardarCompromiso(f)}
+                alCancelar={() => alternarFila(f)}
+                conFechaLimite={false}
+              />
             </div>
           )}
           vacio={

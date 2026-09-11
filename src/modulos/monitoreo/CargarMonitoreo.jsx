@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { BarraAvance, Boton, Aviso, Chip, Criticidad, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoCheck, CampoFecha, CampoNumero, CampoRadios, CampoSelect, GrillaCampos } from '../../componentes/Campo.jsx';
+import { EditorCompromiso } from '../../componentes/EditorCompromiso.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarTemas } from '../../datos/minutas/separarTemas.js';
@@ -621,7 +622,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
       setBorradorCompromiso(null);
     } else {
       setAbiertoCompromiso(c.id);
-      setBorradorCompromiso({ estado: c.estado, descripcion: c.descripcion, fecha_limite: c.fecha_limite ?? '' });
+      setBorradorCompromiso({ estado: c.estado, fecha_limite: c.fecha_limite ?? '' });
     }
   }
 
@@ -755,32 +756,12 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
                   <ChevronDown size={14} className={`shrink-0 text-tenue transition-transform ${cAbierto ? 'rotate-180' : ''}`} />
                 </button>
                 {cAbierto && (
-                  <div className="border-t border-dashed border-borde-fuerte/40 p-2.5">
-                    <CampoRadios
-                      etiqueta="Nuevo estado"
-                      opciones={ESTADOS_COMPROMISO}
-                      valor={borradorCompromiso?.estado}
-                      alCambiar={(v) => setBorradorCompromiso((b) => ({ ...b, estado: v }))}
-                    />
-                    <CampoArea
-                      etiqueta="Descripción"
-                      className="mt-2.5"
-                      filas={2}
-                      value={borradorCompromiso?.descripcion ?? ''}
-                      onChange={(e) => setBorradorCompromiso((b) => ({ ...b, descripcion: e.target.value }))}
-                    />
-                    <CampoFecha
-                      etiqueta="Fecha límite"
-                      className="mt-2.5 max-w-48"
-                      value={borradorCompromiso?.fecha_limite ?? ''}
-                      onChange={(e) => setBorradorCompromiso((b) => ({ ...b, fecha_limite: e.target.value }))}
-                    />
-                    <div className="mt-2 flex justify-end">
-                      <Boton variante="primario" tamanio="sm" icono={Check} onClick={() => guardarCompromiso(c, null)}>
-                        Guardar cambios
-                      </Boton>
-                    </div>
-                  </div>
+                  <EditorCompromiso
+                    compromiso={c}
+                    borrador={borradorCompromiso}
+                    alCambiarBorrador={(parcial) => setBorradorCompromiso((b) => ({ ...b, ...parcial }))}
+                    alGuardar={() => guardarCompromiso(c, null)}
+                  />
                 )}
               </div>
             );
@@ -1028,32 +1009,12 @@ function TarjetaProyectoVentana({
                     <ChevronDown size={14} className={`shrink-0 text-tenue transition-transform ${cAbierto ? 'rotate-180' : ''}`} />
                   </button>
                   {cAbierto && (
-                    <div className="border-t border-dashed border-borde-fuerte/40 p-2.5">
-                      <CampoRadios
-                        etiqueta="Nuevo estado"
-                        opciones={ESTADOS_COMPROMISO}
-                        valor={borradorCompromiso?.estado}
-                        alCambiar={(v) => alCambiarBorradorCompromiso({ estado: v })}
-                      />
-                      <CampoArea
-                        etiqueta="Descripción"
-                        className="mt-2.5"
-                        filas={2}
-                        value={borradorCompromiso?.descripcion ?? ''}
-                        onChange={(e) => alCambiarBorradorCompromiso({ descripcion: e.target.value })}
-                      />
-                      <CampoFecha
-                        etiqueta="Fecha límite"
-                        className="mt-2.5 max-w-48"
-                        value={borradorCompromiso?.fecha_limite ?? ''}
-                        onChange={(e) => alCambiarBorradorCompromiso({ fecha_limite: e.target.value })}
-                      />
-                      <div className="mt-2 flex justify-end">
-                        <Boton variante="primario" tamanio="sm" icono={Check} onClick={() => alGuardarCompromiso(c)}>
-                          Guardar cambios
-                        </Boton>
-                      </div>
-                    </div>
+                    <EditorCompromiso
+                      compromiso={c}
+                      borrador={borradorCompromiso}
+                      alCambiarBorrador={alCambiarBorradorCompromiso}
+                      alGuardar={() => alGuardarCompromiso(c)}
+                    />
                   )}
                 </div>
               );

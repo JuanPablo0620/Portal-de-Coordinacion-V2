@@ -982,17 +982,35 @@ export async function marcarCumplido(id, fecha) {
  * compromiso" en Monitoreo y del detalle desplegable de Seguimiento, donde se
  * corrige un compromiso sin abrir el módulo donde nació.
  *
+ * `nuevaActualizacion` es la novedad de HOY, no una reescritura: se agrega
+ * abajo de la descripción existente, con fecha, en vez de pisarla. Antes esta
+ * misma pantalla abría con el texto completo del compromiso en una caja
+ * editable — para dejar una novedad había que reescribirlo encima a mano, y
+ * quien no copiaba primero el texto anterior lo perdía. `descripcion` sigue
+ * aceptando una reescritura completa cuando hace falta corregir el texto
+ * original (no cuando se usa junto con `nuevaActualizacion`: ahí es la base
+ * sobre la que se agrega la novedad).
+ *
  * Gestiona sola `fecha_cumplimiento`: la estampa con `hoy` al entrar a
  * cumplido (si no traía una de antes) y la limpia al salir de cumplido — así
  * nunca queda una fecha de cumplimiento colgada de un compromiso que dejó de
  * estarlo.
  */
-export async function actualizarEstadoCompromiso(id, { estado, descripcion, fecha_limite }, hoy = hoyISO()) {
+export async function actualizarEstadoCompromiso(
+  id,
+  { estado, descripcion, fecha_limite, nuevaActualizacion },
+  hoy = hoyISO(),
+) {
   const bd = await obtenerBD();
   const previo = bd.compromisos.find((c) => c.id === id);
   if (!previo) throw new Error(`No existe el compromiso ${id}`);
 
-  const cambios = { descripcion };
+  const base = descripcion ?? previo.descripcion;
+  const cambios = {
+    descripcion: nuevaActualizacion?.trim()
+      ? `${base}\n\n[${hoy.slice(8, 10)}/${hoy.slice(5, 7)}/${hoy.slice(0, 4)}] ${nuevaActualizacion.trim()}`
+      : base,
+  };
   if (fecha_limite !== undefined) cambios.fecha_limite = fecha_limite || null;
   if (estado !== previo.estado) {
     cambios.estado = estado;
