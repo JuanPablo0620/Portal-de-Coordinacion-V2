@@ -3,11 +3,17 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton, Chip } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoFecha } from '../../componentes/Campo.jsx';
-import { hoyISO } from '../../datos/selectores.js';
+import { hoyISO, proximaReunionMesa } from '../../datos/selectores.js';
+import { fecha as fFecha } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
-import { acciones } from '../../estado/tienda.js';
+import { acciones, useBD } from '../../estado/tienda.js';
 
-const filaVacia = () => ({ clave: Math.random().toString(36).slice(2), descripcion: '', fecha_limite: '', area: '' });
+const filaVacia = (fechaLimitePropuesta = '') => ({
+  clave: Math.random().toString(36).slice(2),
+  descripcion: '',
+  fecha_limite: fechaLimitePropuesta,
+  area: '',
+});
 
 /**
  * Los compromisos que salen de una reunión de mesa se crean con
@@ -15,11 +21,17 @@ const filaVacia = () => ({ clave: Math.random().toString(36).slice(2), descripci
  * una lista aparte por mesa.
  */
 export function RegistrarReunion({ abierto, alCerrar, mesa }) {
+  const bd = useBD();
   const hoy = hoyISO();
   const opcionesArea = useOpciones('areas');
   const [datos, setDatos] = useState({ fecha: hoy, temas: '' });
   const [compromisos, setCompromisos] = useState([]);
   const [error, setError] = useState('');
+
+  // La fecha límite que se propone al agregar un compromiso: la próxima
+  // reunión YA AGENDADA de esta mesa, si hay una. Si todavía no se agendó la
+  // siguiente, el campo queda en blanco y se completa a mano, como antes.
+  const proximaFecha = bd ? proximaReunionMesa(bd, mesa.id, hoy)?.fecha ?? '' : '';
 
   const cambiar = (campo) => (e) => setDatos((d) => ({ ...d, [campo]: e.target.value }));
   const actualizarFila = (clave, campo, valor) =>
@@ -102,6 +114,7 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
             {compromisos.length === 0 && (
               <p className="py-1 text-center text-xs text-tenue">
                 Se integran a la lista general de compromisos del módulo Seguimiento.
+                {proximaFecha && ` La fecha límite se propone en la próxima reunión de la mesa (${fFecha(proximaFecha)}).`}
               </p>
             )}
             {compromisos.map((fila) => (
@@ -148,7 +161,7 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
               tamanio="sm"
               variante="fantasma"
               icono={Plus}
-              onClick={() => setCompromisos((f) => [...f, filaVacia()])}
+              onClick={() => setCompromisos((f) => [...f, filaVacia(proximaFecha)])}
               className="self-start"
             >
               Agregar compromiso

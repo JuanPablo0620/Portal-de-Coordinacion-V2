@@ -759,6 +759,22 @@ export function reunionesDe(bd, idMesa) {
     .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
 }
 
+/**
+ * La próxima reunión ya agendada de una mesa (la de fecha más próxima que
+ * todavía no pasó), o `null` si no hay ninguna.
+ *
+ * Es lo que usa `RegistrarReunion` para proponer la fecha límite de los
+ * compromisos que salen de esa mesa: igual que en Seguimiento, el compromiso
+ * se revisa "la próxima vez que nos juntemos", que acá es la próxima reunión
+ * de la MISMA mesa, no una fecha calculada por periodicidad.
+ */
+export function proximaReunionMesa(bd, idMesa, hoy = hoyISO()) {
+  const futuras = reunionesDe(bd, idMesa)
+    .filter((r) => diasHasta(r.fecha, hoy) >= 0)
+    .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+  return futuras[0] ?? null;
+}
+
 /** Mesas activas cuya última reunión excede la periodicidad declarada. */
 export function mesasSinReunion(bd, hoy = hoyISO()) {
   return mesas(bd, {})

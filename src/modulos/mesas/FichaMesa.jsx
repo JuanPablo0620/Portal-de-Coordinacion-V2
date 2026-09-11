@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CalendarPlus, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CalendarPlus, Pencil, Trash2 } from 'lucide-react';
 import {
   BarraAvance,
   Boton,
@@ -13,13 +13,13 @@ import {
 } from '../../componentes/Basicos.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
-import { compromisos as selCompromisos, hoyISO, proyectoPorId, reunionesDe, diasHasta } from '../../datos/selectores.js';
+import { compromisos as selCompromisos, hoyISO, proyectoPorId, proximaReunionMesa, reunionesDe, diasHasta } from '../../datos/selectores.js';
 import { DIAS_PERIODICIDAD } from '../../datos/catalogos.js';
 import { fecha as fFecha, textoVencimiento } from '../../utilidades/formato.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 import { configDe } from './tipos.js';
 
-export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar }) {
+export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar, alAgendar }) {
   const bd = useBD();
   const navegar = useNavigate();
   const hoy = hoyISO();
@@ -38,7 +38,7 @@ export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar }) {
     [bd, mesa.proyectos_vinculados],
   );
 
-  const proxima = reuniones.filter((r) => diasHasta(r.fecha, hoy) >= 0).sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
+  const proxima = useMemo(() => (bd ? proximaReunionMesa(bd, mesa.id, hoy) : null), [bd, mesa.id, hoy]);
   const pasadas = reuniones.filter((r) => diasHasta(r.fecha, hoy) < 0);
   const limite = DIAS_PERIODICIDAD[mesa.periodicidad];
   const diasSinReunion = pasadas[0] ? Math.abs(diasHasta(pasadas[0].fecha, hoy)) : null;
@@ -74,6 +74,9 @@ export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar }) {
             <Boton icono={Trash2} onClick={() => setBorrando(true)}>
               Eliminar
             </Boton>
+            <Boton icono={CalendarClock} onClick={alAgendar}>
+              Agendar reunión
+            </Boton>
             <Boton variante="primario" icono={CalendarPlus} onClick={alRegistrar}>
               Registrar reunión
             </Boton>
@@ -99,7 +102,7 @@ export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar }) {
             <Vacio
               compacto
               titulo="Sin próxima reunión agendada"
-              accion={{ texto: 'Registrar reunión', icono: CalendarPlus, alHacerClic: alRegistrar }}
+              accion={{ texto: 'Agendar reunión', icono: CalendarClock, alHacerClic: alAgendar }}
             />
           )}
         </Tarjeta>

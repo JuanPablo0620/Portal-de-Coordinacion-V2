@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { CalendarPlus, Pencil, Plus } from 'lucide-react';
+import { CalendarClock, CalendarPlus, Pencil, Plus } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Boton, Chip, Pestanias, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
+import { AgendarReunion } from './AgendarReunion.jsx';
 import { FichaMesa } from './FichaMesa.jsx';
 import { FormularioMesa } from './FormularioMesa.jsx';
 import { RegistrarReunion } from './RegistrarReunion.jsx';
@@ -25,6 +26,7 @@ export default function Mesas() {
   const [filtros, setFiltros] = useFiltrosUrl(DEFAULTS);
   const [formulario, setFormulario] = useState(null);
   const [registrando, setRegistrando] = useState(null);
+  const [agendando, setAgendando] = useState(null);
 
   const todas = useMemo(() => (bd ? selMesas(bd, {}) : []), [bd]);
   const atrasadas = useMemo(() => (bd ? new Set(mesasSinReunion(bd, hoy).map((m) => m.id)) : new Set()), [bd, hoy]);
@@ -63,6 +65,7 @@ export default function Mesas() {
             alVolver={() => setFiltros({ mesa: '' })}
             alEditar={() => setFormulario(mesaAbierta)}
             alRegistrar={() => setRegistrando(mesaAbierta)}
+            alAgendar={() => setAgendando(mesaAbierta)}
           />
         ) : (
           <>
@@ -96,6 +99,7 @@ export default function Mesas() {
                     atrasada={atrasadas.has(m.id)}
                     alAbrir={() => setFiltros({ mesa: m.id })}
                     alRegistrar={() => setRegistrando(m)}
+                    alAgendar={() => setAgendando(m)}
                     alEditar={() => setFormulario(m)}
                   />
                 ))}
@@ -107,11 +111,12 @@ export default function Mesas() {
 
       {formulario && <FormularioMesa abierto alCerrar={() => setFormulario(null)} mesa={formulario.id ? formulario : null} tipoInicial={formulario.tipo} />}
       {registrando && <RegistrarReunion abierto alCerrar={() => setRegistrando(null)} mesa={registrando} />}
+      {agendando && <AgendarReunion abierto alCerrar={() => setAgendando(null)} mesa={agendando} />}
     </>
   );
 }
 
-function TarjetaMesa({ mesa, color, atrasada, alAbrir, alRegistrar, alEditar }) {
+function TarjetaMesa({ mesa, color, atrasada, alAbrir, alRegistrar, alAgendar, alEditar }) {
   const TONO_ESTADO = { activa: 'enregla', latente: 'atencion', cerrada: 'neutro' };
   return (
     <article className="tarjeta flex flex-col overflow-hidden border-l-4" style={{ borderLeftColor: color }}>
@@ -164,6 +169,9 @@ function TarjetaMesa({ mesa, color, atrasada, alAbrir, alRegistrar, alEditar }) 
       <footer className="flex gap-2 border-t border-borde bg-paper px-3 py-2">
         <Boton tamanio="sm" variante="fantasma" onClick={alAbrir} className="flex-1">
           Ver ficha
+        </Boton>
+        <Boton tamanio="sm" icono={CalendarClock} onClick={alAgendar} aria-label="Agendar próxima reunión">
+          Agendar
         </Boton>
         <Boton tamanio="sm" icono={CalendarPlus} onClick={alRegistrar}>
           Reunión
