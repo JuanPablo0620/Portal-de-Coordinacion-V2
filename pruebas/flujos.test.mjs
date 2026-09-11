@@ -16,6 +16,7 @@ import { hoyISO } from '../src/datos/tiempo.js';
 import {
   compromisos as selCompromisos,
   compromisosEnVentana,
+  compromisosSueltosVentana,
   historialArea,
   historialProyecto,
   proyectoPorId,
@@ -520,6 +521,33 @@ test('compromisosEnVentana filtra por fecha límite, sin límite del lado que fa
   const sinPiso = compromisosEnVentana(bd, p.id_proyecto, { ultimo: null, proximo: { fecha: HOY } }, HOY).map((c) => c.id);
   assert.ok(sinPiso.includes(antes.id));
   assert.ok(!sinPiso.includes(despues.id));
+});
+
+test('compromisosSueltosVentana encuentra los del área sin proyecto, y descarta los que sí tienen uno', async () => {
+  await limpio();
+  const p = await repo.crearProyecto(PROYECTO_BASE);
+  const m = await repo.crearMonitoreo({ fecha: HOY, area: p.area });
+  // Nace de un seguimiento y no corresponde a ningún proyecto del catálogo —
+  // el caso real: "coordinar la visita de Roco al predio".
+  const suelto = await repo.crearCompromiso({
+    origen_tipo: 'seguimiento', id_origen: m.id, id_proyecto: null,
+    area: p.area, descripcion: 'Sin proyecto asociado', fecha_limite: HOY,
+  });
+  const conProyecto = await repo.crearCompromiso({
+    origen_tipo: 'monitoreo', id_origen: m.id, id_proyecto: p.id_proyecto,
+    area: p.area, descripcion: 'Con proyecto asociado', fecha_limite: HOY,
+  });
+  const otraArea = await repo.crearCompromiso({
+    origen_tipo: 'seguimiento', id_origen: m.id, id_proyecto: null,
+    area: 'Secretaría de Salud', descripcion: 'De otra área', fecha_limite: HOY,
+  });
+
+  const bd = await repo.obtenerBD();
+  const ventana = { ultimo: { fecha: AYER }, proximo: { fecha: HOY } };
+  const ids = compromisosSueltosVentana(bd, p.area, ventana, HOY).map((c) => c.id);
+  assert.ok(ids.includes(suelto.id), 'un compromiso sin proyecto del área tiene que aparecer');
+  assert.ok(!ids.includes(conProyecto.id), 'uno con proyecto ya se ve dentro de esa tarjeta, acá no');
+  assert.ok(!ids.includes(otraArea.id), 'no mezcla compromisos de otra secretaría');
 });
 
 /* ── Flujo del módulo 5: mesa con compromisos ───────────────────────── */

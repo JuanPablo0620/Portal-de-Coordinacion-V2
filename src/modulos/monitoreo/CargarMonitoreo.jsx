@@ -32,6 +32,7 @@ import { CRITICIDADES, ESTADOS_COMPROMISO, ESTADOS_PROYECTO } from '../../datos/
 import {
   compromisos as selCompromisos,
   compromisosEnVentana,
+  compromisosSueltosVentana,
   hoyISO,
   proyectos as selProyectos,
   ventanaSeguimiento,
@@ -557,6 +558,10 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
     () => (bd ? selProyectos(bd, { area, solo_activos: true }) : []),
     [bd, area],
   );
+  const compromisosSueltos = useMemo(
+    () => (bd ? compromisosSueltosVentana(bd, area, ventana, hoy) : []),
+    [bd, area, ventana, hoy],
+  );
 
   const [abiertoProyecto, setAbiertoProyecto] = useState(null);
   const [borradorProyecto, setBorradorProyecto] = useState(null);
@@ -670,6 +675,38 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
     }
   }
 
+  // Estado aparte del de arriba: "crear nuevo compromiso" de un proyecto vive
+  // adentro de SU acordeón, y esto no tiene acordeón de proyecto que lo
+  // contenga — compartir el mismo estado haría que abrir uno mostrara
+  // también el formulario del otro.
+  const [creandoSuelto, setCreandoSuelto] = useState(false);
+  const [nuevoSuelto, setNuevoSuelto] = useState(null);
+
+  function abrirNuevoSuelto() {
+    setCreandoSuelto(true);
+    setNuevoSuelto({ descripcion: '', fecha_limite: '' });
+  }
+
+  async function guardarNuevoSuelto() {
+    setErrorAccion(null);
+    setGuardando(true);
+    try {
+      await acciones.crearCompromisoDirecto({
+        id_origen: monitoreoId,
+        id_proyecto: null,
+        area,
+        descripcion: nuevoSuelto.descripcion.trim(),
+        fecha_limite: nuevoSuelto.fecha_limite || null,
+      });
+      setCreandoSuelto(false);
+      setNuevoSuelto(null);
+    } catch (error) {
+      setErrorAccion({ idProyecto: null, mensaje: `No se pudo crear el compromiso: ${error.message}` });
+    } finally {
+      setGuardando(false);
+    }
+  }
+
     return (
       <Tarjeta
       titulo="Proyectos y compromisos de esta ventana"
@@ -684,6 +721,120 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
           <b>{ventana.proximo ? fFecha(ventana.proximo.fecha) : 'sin próximo seguimiento agendado'}</b>
         </span>
         <span className="ml-auto text-acento">{area}</span>
+      </div>
+
+      {/* Compromisos vigentes del área en esta ventana que no están atados a
+          ningún proyecto puntual de la Base maestra — los que salen de un
+          seguimiento y no corresponden a una obra o proyecto del catálogo
+          (p. ej. "coordinar la visita de Roco al predio"). Sin esto quedaban
+          invisibles: `compromisosEnVentana` sólo los busca DENTRO de la
+          tarjeta de un proyecto. */}
+      <div className="mb-3 rounded-card border border-borde bg-card p-3">
+        {errorAccion?.idProyecto === null && <Aviso tono="error">{errorAccion.mensaje}</Aviso>}
+        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-tinta">
+          <ClipboardCheck size={13} className="text-acento" />
+          Compromisos sin proyecto asociado ({compromisosSueltos.length})
+        </p>
+        {compromisosSueltos.length === 0 && !creandoSuelto && (
+          <p className="text-[11px] text-tenue">Ninguno vigente en esta ventana.</p>
+        )}
+        <div className="flex flex-col gap-1.5">
+          {compromisosSueltos.map((c) => {
+            const cAbierto = abiertoCompromiso === c.id;
+            const nivel = c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes);
+            return (
+              <div key={c.id} className={`rounded-chip border ${cAbierto ? 'border-acento' : 'border-borde'}`}>
+                <button
+                  type="button"
+                  onClick={() => alternarCompromiso(c)}
+                  className="flex w-full items-center gap-2 p-2.5 text-left"
+                >
+                  <Semaforo nivel={nivel} soloPunto texto={c.estado_efectivo} />
+                  <span className="text-sm text-tinta">{c.descripcion}</span>
+                  <span className="ml-auto text-[11px] text-tenue">{fFecha(c.fecha_limite)}</span>
+                  <ChevronDown size={14} className={`shrink-0 text-tenue transition-transform ${cAbierto ? 'rotate-180' : ''}`} />
+                </button>
+                {cAbierto && (
+                  <div className="border-t border-dashed border-borde-fuerte/40 p-2.5">
+                    <CampoRadios
+                      etiqueta="Nuevo estado"
+                      opciones={ESTADOS_COMPROMISO}
+                      valor={borradorCompromiso?.estado}
+                      alCambiar={(v) => setBorradorCompromiso((b) => ({ ...b, estado: v }))}
+                    />
+                    <CampoArea
+                      etiqueta="Descripción"
+                      className="mt-2.5"
+                      filas={2}
+                      value={borradorCompromiso?.descripcion ?? ''}
+                      onChange={(e) => setBorradorCompromiso((b) => ({ ...b, descripcion: e.target.value }))}
+                    />
+                    <CampoFecha
+                      etiqueta="Fecha límite"
+                      className="mt-2.5 max-w-48"
+                      value={borradorCompromiso?.fecha_limite ?? ''}
+                      onChange={(e) => setBorradorCompromiso((b) => ({ ...b, fecha_limite: e.target.value }))}
+                    />
+                    <div className="mt-2 flex justify-end">
+                      <Boton variante="primario" tamanio="sm" icono={Check} onClick={() => guardarCompromiso(c, null)}>
+                        Guardar cambios
+                      </Boton>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {creandoSuelto ? (
+          <div className="mt-2.5 rounded-chip border border-acento bg-acento-suave/40 p-2.5">
+            <p className="mb-2 text-xs font-semibold text-acento-fuerte">Crear nuevo compromiso sin proyecto asociado</p>
+            <CampoArea
+              etiqueta="Descripción"
+              requerido
+              filas={2}
+              value={nuevoSuelto?.descripcion ?? ''}
+              onChange={(e) => setNuevoSuelto((n) => ({ ...n, descripcion: e.target.value }))}
+            />
+            <CampoFecha
+              etiqueta="Fecha límite"
+              min={hoy}
+              value={nuevoSuelto?.fecha_limite ?? ''}
+              onChange={(e) => setNuevoSuelto((n) => ({ ...n, fecha_limite: e.target.value }))}
+              className="mt-2.5"
+            />
+            <p className="mt-2 text-[11px] text-tenue">Se crea con estado <b>pendiente</b>.</p>
+            <div className="mt-2 flex justify-end gap-2">
+              <Boton
+                tamanio="sm"
+                onClick={() => {
+                  setCreandoSuelto(false);
+                  setNuevoSuelto(null);
+                }}
+              >
+                Cancelar
+              </Boton>
+              <Boton
+                variante="primario"
+                tamanio="sm"
+                icono={Check}
+                onClick={guardarNuevoSuelto}
+                disabled={guardando || !nuevoSuelto?.descripcion?.trim()}
+              >
+                Crear compromiso
+              </Boton>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={abrirNuevoSuelto}
+            className="mt-2.5 flex w-full items-center gap-2 rounded-chip border border-dashed border-acento/50 p-2.5 text-xs font-medium text-acento transition hover:bg-acento-suave/40"
+          >
+            <Plus size={14} /> Crear nuevo compromiso sin proyecto asociado
+          </button>
+        )}
       </div>
 
       {proyectosArea.length === 0 ? (

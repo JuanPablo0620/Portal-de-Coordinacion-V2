@@ -701,6 +701,27 @@ export function compromisosEnVentana(bd, idProyecto, ventana, hoy = hoyISO()) {
 }
 
 /**
+ * Los compromisos vigentes del área, en la misma ventana, que NO están
+ * atados a ningún proyecto de la Base maestra.
+ *
+ * `compromisosEnVentana` sólo los encuentra si coinciden con el
+ * `id_proyecto` de una tarjeta — un compromiso que salió de un seguimiento
+ * ("coordinar la visita de Roco al predio", por ejemplo) muchas veces no
+ * corresponde a ningún proyecto puntual del catálogo, y quedaba sin ningún
+ * lugar donde mostrarse en el monitoreo, aunque estuviera vigente y viniera
+ * del último seguimiento del área.
+ */
+export function compromisosSueltosVentana(bd, area, ventana, hoy = hoyISO()) {
+  return compromisos(bd, { area, solo_vigentes: true }, hoy).filter((c) => {
+    if (c.id_proyecto) return false;
+    if (!c.fecha_limite) return true;
+    if (ventana.ultimo && c.fecha_limite < ventana.ultimo.fecha) return false;
+    if (ventana.proximo && c.fecha_limite > ventana.proximo.fecha) return false;
+    return true;
+  });
+}
+
+/**
  * Variación contra la ventana inmediatamente anterior, del mismo largo.
  *
  * Sólo se calcula si hay un `desde`: sin ventana explícita no existe un
