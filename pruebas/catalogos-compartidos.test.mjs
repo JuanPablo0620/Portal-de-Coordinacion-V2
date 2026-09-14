@@ -13,6 +13,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CATALOGOS_SEMILLA, CATALOGOS_ADMINISTRABLES } from '../src/datos/catalogos.js';
 import { CLAVES } from '../src/datos/supabaseCatalogos.js';
+import { programasDeArea } from '../src/utilidades/catalogos.js';
 
 const porNombre = (clave, nombre) =>
   CATALOGOS_SEMILLA[clave].find((i) => i.nombre === nombre);
@@ -38,4 +39,37 @@ test('no se ofrece guardar un catálogo que Configuración no edita', () => {
   const administrables = new Set(CATALOGOS_ADMINISTRABLES.map((c) => c.clave));
   const sobrantes = CLAVES.filter((clave) => !administrables.has(clave));
   assert.deepEqual(sobrantes, []);
+});
+
+
+/* ── Programas homónimos entre secretarías ──────────────────────────── */
+
+/**
+ * «Proyectos estratégicos» existe en cada área (ver 0035). Son filas distintas
+ * en la base —el unique de `programas` es (area_id, nombre)— pero en un
+ * desplegable sin área elegida se verían como ocho opciones iguales.
+ */
+const PROGRAMAS = [
+  { id: '1', nombre: 'Proyectos estratégicos', area: 'Secretaría de Obras' },
+  { id: '2', nombre: 'Proyectos estratégicos', area: 'Secretaría de Salud' },
+  { id: '3', nombre: 'Plan de Bacheo', area: 'Secretaría de Obras' },
+];
+
+test('sin área elegida, los programas homónimos se ofrecen una sola vez', () => {
+  assert.deepEqual(
+    programasDeArea(PROGRAMAS, '').map((o) => o.nombre),
+    ['Proyectos estratégicos', 'Plan de Bacheo'],
+  );
+});
+
+test('con área elegida se ofrecen los de esa secretaría, sin deduplicar', () => {
+  assert.deepEqual(
+    programasDeArea(PROGRAMAS, 'Secretaría de Obras').map((o) => o.id),
+    ['1', '3'],
+  );
+});
+
+test('el «Proyectos estratégicos» que se ofrece es el de la secretaría elegida', () => {
+  const [elegido] = programasDeArea(PROGRAMAS, 'Secretaría de Salud');
+  assert.equal(elegido.id, '2');
 });
