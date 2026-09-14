@@ -15,6 +15,7 @@ import Seguimiento from './modulos/seguimiento/Seguimiento.jsx';
 import Monitoreo from './modulos/monitoreo/Monitoreo.jsx';
 import Estrategicos from './modulos/estrategicos/Estrategicos.jsx';
 import Posicionamiento from './modulos/posicionamiento/Posicionamiento.jsx';
+import FichaPrograma from './modulos/posicionamiento/FichaPrograma.jsx';
 import Planificacion from './modulos/planificacion/Planificacion.jsx';
 import Mesas from './modulos/mesas/Mesas.jsx';
 import Eventos from './modulos/eventos/Eventos.jsx';
@@ -97,6 +98,7 @@ function Portal() {
         <Route path="monitoreo" element={<Monitoreo />} />
         <Route path="estrategicos" element={<Estrategicos />} />
         <Route path="posicionamiento" element={<Posicionamiento />} />
+        <Route path="posicionamiento/:id" element={<FichaPrograma />} />
         <Route path="planificacion" element={<Planificacion />} />
         <Route path="mesas" element={<Mesas />} />
         <Route path="eventos" element={<Eventos />} />

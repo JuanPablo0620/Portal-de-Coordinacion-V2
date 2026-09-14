@@ -13,7 +13,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, BarChart3, Globe2, Handshake, History, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Award, BarChart3, Globe2, Handshake, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import {
   Aviso,
@@ -39,8 +39,6 @@ import {
   accionesPorDimension,
   hoyISO,
   resumenPosicionamiento,
-  historialUnificado,
-  proyectoPorId,
 } from '../../datos/selectores.js';
 import { dolares, fecha as fFecha, textoVencimiento } from '../../utilidades/formato.js';
 import { esItem, useOpciones } from '../../utilidades/catalogos.js';
@@ -77,7 +75,6 @@ export default function Posicionamiento() {
   const [filtros, setFiltros] = useFiltrosUrl(DEFAULTS);
   const [formulario, setFormulario] = useState(null);
   const [aBorrar, setABorrar] = useState(null);
-  const [proyectoSeleccionado, setProyectoSeleccionado] = useState(null);
 
   const criterios = useMemo(
     () => ({
@@ -116,7 +113,7 @@ export default function Posicionamiento() {
         <Pestanias opciones={pestanias} valor={filtros.tab} alCambiar={(v) => setFiltros({ tab: v, accion: '' })} />
 
         {filtros.tab === 'tablero' && (
-          <Tablero resumen={resumen} lista={lista} setFiltros={setFiltros} bd={bd} proyectoSeleccionado={proyectoSeleccionado} setProyectoSeleccionado={setProyectoSeleccionado} hoy={hoy} />
+          <Tablero resumen={resumen} lista={lista} setFiltros={setFiltros} bd={bd} hoy={hoy} />
         )}
         {filtros.tab === 'acciones' && (
           <PanelAcciones
@@ -154,7 +151,7 @@ export default function Posicionamiento() {
 
 /* ── Tablero ────────────────────────────────────────────────────────── */
 
-function Tablero({ resumen, lista, setFiltros, bd, proyectoSeleccionado, setProyectoSeleccionado, hoy }) {
+function Tablero({ resumen, lista, setFiltros, bd, hoy }) {
   if (!resumen) return null;
 
   const cierres = resumen.proximos_cierres.slice(0, 8);
@@ -177,7 +174,7 @@ function Tablero({ resumen, lista, setFiltros, bd, proyectoSeleccionado, setProy
         />
       </div>
 
-      <ProyectosEnCurso bd={bd} proyectoSeleccionado={proyectoSeleccionado} setProyectoSeleccionado={setProyectoSeleccionado} hoy={hoy} />
+      <ProyectosEnCurso bd={bd} />
 
       <Tarjeta
         titulo="Qué cierra primero"
@@ -242,7 +239,8 @@ function Tablero({ resumen, lista, setFiltros, bd, proyectoSeleccionado, setProy
  * mañana— la migración real desde Supabase. La interfaz no sabe ni le
  * importa de dónde salió el dato.
  */
-function ProyectosEnCurso({ bd, proyectoSeleccionado, setProyectoSeleccionado, hoy }) {
+function ProyectosEnCurso({ bd }) {
+  const navegar = useNavigate();
   const [cargando, setCargando] = useState(false);
   const [fallo, setFallo] = useState(null);
 
@@ -270,7 +268,7 @@ function ProyectosEnCurso({ bd, proyectoSeleccionado, setProyectoSeleccionado, h
     <>
       <Tarjeta
         titulo="Proyectos de posicionamiento en curso"
-        descripcion="Se lee de la base maestra de proyectos, filtrado por programa — no es una lista fija. Hacé clic en una tarjeta para ver el historial."
+        descripcion="Se lee de la base maestra de proyectos, filtrado por programa — no es una lista fija. Hacé clic en una tarjeta para abrir la ficha del programa."
       >
         {fallo && (
           <div className="mb-3">
@@ -294,7 +292,7 @@ function ProyectosEnCurso({ bd, proyectoSeleccionado, setProyectoSeleccionado, h
               <button
                 key={p.id_proyecto}
                 type="button"
-                onClick={() => setProyectoSeleccionado(p.id_proyecto)}
+                onClick={() => navegar(`/posicionamiento/${p.id_proyecto}`)}
                 className="flex flex-col gap-2 rounded-chip border border-borde p-3 text-left transition-colors hover:border-acento/50 hover:bg-acento/5"
               >
                 <div className="flex items-start justify-between gap-2">
@@ -313,10 +311,6 @@ function ProyectosEnCurso({ bd, proyectoSeleccionado, setProyectoSeleccionado, h
           </div>
         )}
       </Tarjeta>
-
-      {proyectoSeleccionado && (
-        <HistorialProyectoPos bd={bd} idProyecto={proyectoSeleccionado} hoy={hoy} alCerrar={() => setProyectoSeleccionado(null)} />
-      )}
     </>
   );
 }
@@ -335,55 +329,6 @@ function agrupar(lista, campo) {
 }
 
 /** Panel de historial para un proyecto de posicionamiento seleccionado. */
-function HistorialProyectoPos({ bd, idProyecto, hoy, alCerrar }) {
-  const proyecto = useMemo(() => (bd ? proyectoPorId(bd, idProyecto) : null), [bd, idProyecto]);
-  const historial = useMemo(
-    () => (bd && proyecto ? historialUnificado(bd, idProyecto, {}, hoy) : []),
-    [bd, idProyecto, proyecto, hoy],
-  );
-
-  if (!proyecto) return null;
-
-  return (
-    <Tarjeta
-      titulo={
-        <div className="flex items-center gap-2">
-          <History size={18} />
-          <span>Historial — {proyecto.proyecto}</span>
-        </div>
-      }
-      descripcion={`${proyecto.id_proyecto} · Cambios y eventos registrados`}
-      acciones={
-        <Boton tamanio="sm" variante="fantasma" onClick={alCerrar}>
-          Cerrar
-        </Boton>
-      }
-      sinPadding
-    >
-      {historial.length === 0 ? (
-        <div className="p-4">
-          <Vacio compacto titulo="Sin historial registrado" descripcion="Este proyecto aún no tiene cambios registrados." />
-        </div>
-      ) : (
-        <ul className="divide-y divide-borde/60">
-          {historial.map((item, idx) => (
-            <li key={idx} className="flex flex-col gap-1.5 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-medium uppercase text-gris">{item.tipo}</span>
-                <span className="text-[11px] text-tenue">
-                  {fFecha(item.fecha)} · {item.usuario}
-                </span>
-              </div>
-              <p className="text-sm text-tinta">{item.titulo}</p>
-              {item.detalle && <p className="text-[11px] text-gris">{item.detalle}</p>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Tarjeta>
-  );
-}
-
 /* ── Acciones ───────────────────────────────────────────────────────── */
 
 function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {

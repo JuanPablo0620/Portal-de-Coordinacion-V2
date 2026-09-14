@@ -145,7 +145,7 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
   });
   const [monitoreo, setMonitoreo] = useState(monitoreoInicial);
   const [temasCargados, setTemasCargados] = useState([]);
-  const [huboActualizacionProyecto, setHuboActualizacionProyecto] = useState(false);
+  const [huboActualizacion, setHuboActualizacion] = useState(false);
 
   const [texto, setTexto] = useState('');
   const [transferido, setTransferido] = useState(false);
@@ -283,9 +283,22 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
     }
   }
 
+  /**
+   * Cerrar el monitoreo pide que se haya guardado algo: un monitoreo sin
+   * ninguna actualizacion no deja rastro de que la reunion pasó.
+   *
+   * "Algo" incluye los compromisos, no solo los proyectos. Antes el flag lo
+   * prendia unicamente `guardarProyecto()`, asi que un area que repasaba sus
+   * compromisos quedaba trabada: guardaba bien, la cabecera seguia diciendo
+   * "Sin actualizaciones todavia" y el boton nunca se habilitaba. Peor en las
+   * areas sin ningun proyecto cargado —Trabajo y Produccion al 14/09/2026—,
+   * donde no habia forma de cerrar el monitoreo. Un compromiso puede no colgar
+   * de ningun proyecto (ver `docs/ciclo-de-vida-del-compromiso.md`), asi que
+   * exigir un proyecto contradecia el modelo.
+   */
   async function finalizar() {
-    if (!huboActualizacionProyecto) {
-      marcar('cierre', 'Guardá al menos una actualización de proyecto antes de finalizar.');
+    if (!huboActualizacion) {
+      marcar('cierre', 'Guardá al menos una actualización de proyecto o de compromiso antes de finalizar.');
       return;
     }
     setTrabajando(true);
@@ -342,20 +355,20 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
           <Chip tono="acento">{fFecha(monitoreo.fecha)}</Chip>
           <span className="text-sm font-medium text-tinta">{monitoreo.area}</span>
           <span className="text-xs text-gris">
-            {huboActualizacionProyecto ? 'Actualización de proyecto registrada' : 'Sin actualizaciones todavía'}
+            {huboActualizacion ? 'Actualización registrada' : 'Sin actualizaciones todavía'}
           </span>
           <Boton
             variante="primario"
             icono={ClipboardCheck}
             onClick={finalizar}
-            disabled={trabajando || !huboActualizacionProyecto}
+            disabled={trabajando || !huboActualizacion}
             className="ml-auto"
           >
             Finalizar monitoreo
           </Boton>
         </div>
-        {!huboActualizacionProyecto && (
-          <p className="mt-2 text-xs text-tenue">Guardá al menos una actualización de proyecto para poder finalizar.</p>
+        {!huboActualizacion && (
+          <p className="mt-2 text-xs text-tenue">Guardá al menos una actualización de proyecto o de compromiso para poder finalizar.</p>
         )}
         {errores.cierre && (
           <div className="mt-3">
@@ -528,7 +541,7 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
         area={monitoreo.area}
         monitoreoId={monitoreo.id}
         hoy={hoy}
-        alActualizarProyecto={() => setHuboActualizacionProyecto(true)}
+        alRegistrarActualizacion={() => setHuboActualizacion(true)}
       />
     </div>
   );
@@ -545,11 +558,14 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
  * cualquiera de sus compromisos, o crear un compromiso nuevo — sin salir de
  * acá ni pasar por Seguimiento.
  *
+ * Las tres cosas avisan por `alRegistrarActualizacion`, que es lo que habilita
+ * el cierre del monitoreo: las tres son actividad de la reunión.
+ *
  * Se exporta por el mismo motivo que `FormularioTema`: vive detrás del
  * estado local de "monitoreo iniciado", así que ninguna URL lo alcanza y sin
  * esto no entraría en el render de control (ver `pruebas/humo/entrada.jsx`).
  */
-export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
+export function PanelVentana({ area, monitoreoId, hoy, alRegistrarActualizacion }) {
   const bd = useBD();
 
   const ventana = useMemo(
@@ -607,7 +623,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
         // que despues muestra la pestania de ultimos monitoreos.
         { monitoreoId: monitoreoId },
       );
-      alActualizarProyecto?.();
+      alRegistrarActualizacion?.();
       setAbiertoProyecto(null);
       setBorradorProyecto(null);
     } catch (error) {
@@ -640,6 +656,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
     setGuardando(true);
     try {
       await acciones.actualizarEstadoCompromiso(c.id, borradorCompromiso);
+      alRegistrarActualizacion?.();
       setAbiertoCompromiso(null);
       setBorradorCompromiso(null);
     } catch (error) {
@@ -670,6 +687,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alActualizarProyecto }) {
         descripcion: nuevoCompromiso.descripcion.trim(),
         fecha_limite: nuevoCompromiso.fecha_limite || null,
       });
+      alRegistrarActualizacion?.();
       setCreandoCompromiso(false);
       setNuevoCompromiso(null);
     } catch (error) {

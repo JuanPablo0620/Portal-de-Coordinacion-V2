@@ -154,7 +154,7 @@ const oNumero = (v) => (v === '' || v === null || v === undefined ? null : Numbe
 const CAMPOS_PROYECTO = [
   'id, id_legible, nombre, estado_general, responsable, prioridad',
   'fecha_inicio, fecha_fin_proyectada, causa_atraso, es_obra',
-  'monto_planificado, monto_ejecutado, zona, latitud, longitud, observaciones, activo, fecha_carga',
+  'monto_planificado, monto_ejecutado, zona, latitud, longitud, observaciones, url_drive, activo, fecha_carga',
   'es_estrategico, descripcion_estrategica, estrategico_nota, estrategico_marcado_en',
   'compromiso_publico, origen_estrategico, id_origen_estrategico',
   'created_at',
@@ -165,7 +165,11 @@ const CAMPOS_PROYECTO = [
 ].join(', ');
 
 const CAMPOS_ACTUALIZACION =
-  'proyecto_id, fecha_actualizacion, estado:estados(nombre), ' +
+  // `id` y `comentarios` los pide la ficha de un programa de posicionamiento,
+  // que muestra la lista fechada entera en vez del último aplanado: es el
+  // historial que la base viene guardando desde siempre y que ninguna pantalla
+  // mostraba.
+  'id, proyecto_id, fecha_actualizacion, comentarios, estado:estados(nombre), ' +
   'cuanti:act_cuantitativas(cantidad, objetivo, unidad:unidades(nombre))';
 
 /**
@@ -223,6 +227,24 @@ const nombreArea = (a) => a?.nombre_formal ?? a?.nombre ?? '';
 function aFormaLocal(fila, observaciones) {
   const obs = aplanarObservaciones(observaciones ?? []);
   return {
+    /*
+     * El historial completo, de la más nueva a la más vieja.
+     *
+     * `aplanarObservaciones` devuelve la foto de hoy —el acumulado, el último
+     * estado— porque es lo que esperan las pantallas viejas. Esto es la otra
+     * mitad: la serie tal cual está guardada, que es lo que hace falta para
+     * responder «qué venía pasando con este programa».
+     */
+    actualizaciones: [...(observaciones ?? [])]
+      .sort((a, b) => String(b.fecha_actualizacion).localeCompare(String(a.fecha_actualizacion)))
+      .map((a) => ({
+        id: a.id,
+        fecha: String(a.fecha_actualizacion).slice(0, 10),
+        estado: a.estado?.nombre ? a.estado.nombre.toLowerCase() : '',
+        comentarios: a.comentarios ?? '',
+        cantidad: a.cuanti ? Number(a.cuanti.cantidad) || 0 : null,
+        unidad: a.cuanti?.unidad?.nombre ?? '',
+      })),
     // El portal identifica por el código visible, no por el uuid: es lo que se
     // muestra como chip y lo que referencian eventos, compromisos y mesas.
     id_proyecto: fila.id_legible,
@@ -251,6 +273,7 @@ function aFormaLocal(fila, observaciones) {
     latitud: fila.latitud ?? '',
     longitud: fila.longitud ?? '',
     observaciones: fila.observaciones ?? '',
+    url_drive: fila.url_drive ?? '',
     estrategico: fila.es_estrategico,
     descripcion_estrategica: fila.descripcion_estrategica ?? '',
     compromiso_publico: fila.compromiso_publico ?? '',
@@ -309,6 +332,7 @@ async function aFilaProyecto(datos, cat) {
   if ('latitud' in datos) fila.latitud = oNumero(datos.latitud);
   if ('longitud' in datos) fila.longitud = oNumero(datos.longitud);
   if ('observaciones' in datos) fila.observaciones = oNulo(datos.observaciones);
+  if ('url_drive' in datos) fila.url_drive = oNulo(datos.url_drive);
   if ('activo' in datos) fila.activo = Boolean(datos.activo);
   if ('fecha_carga' in datos) fila.fecha_carga = oNulo(datos.fecha_carga);
 
