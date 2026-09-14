@@ -980,6 +980,21 @@ export async function actualizarCompromiso(id, cambios) {
   return actualizar('compromisos', id, cambios);
 }
 
+/**
+ * Historial de un compromiso, lo más nuevo primero.
+ *
+ * Es lo que reemplaza al agregado al final de la descripción: cada novedad y
+ * cada cambio de estado es una fila propia, con su fecha. Ver 0031.
+ */
+export async function historialCompromiso(id) {
+  if (compromisosRemotos.activo()) return compromisosRemotos.historial(id);
+  const bd = await obtenerBD();
+  return (bd.actualizaciones_compromisos ?? [])
+    .filter((a) => a.compromiso_id === id)
+    .slice()
+    .reverse();
+}
+
 export async function marcarCumplido(id, fecha) {
   return actualizarCompromiso(id, { estado: 'cumplido', fecha_cumplimiento: fecha });
 }
@@ -990,14 +1005,16 @@ export async function marcarCumplido(id, fecha) {
  * compromiso" en Monitoreo y del detalle desplegable de Seguimiento, donde se
  * corrige un compromiso sin abrir el módulo donde nació.
  *
- * `nuevaActualizacion` es la novedad de HOY, no una reescritura: se agrega
- * abajo de la descripción existente, con fecha, en vez de pisarla. Antes esta
- * misma pantalla abría con el texto completo del compromiso en una caja
- * editable — para dejar una novedad había que reescribirlo encima a mano, y
- * quien no copiaba primero el texto anterior lo perdía. `descripcion` sigue
- * aceptando una reescritura completa cuando hace falta corregir el texto
- * original (no cuando se usa junto con `nuevaActualizacion`: ahí es la base
- * sobre la que se agrega la novedad).
+ * `nuevaActualizacion` es la novedad de HOY y va al HISTORIAL
+ * (`actualizaciones_compromisos`), NO a la descripción. Hasta el 14/09/2026 se
+ * concatenaba al final del texto del compromiso, con la fecha entre corchetes:
+ * el nombre crecía sin parar y mezclaba dos cosas distintas —qué se comprometió
+ * el área y cómo viene—, hasta quedar «Definir fecha del evento Premio Pala
+ * [13/09/2026] Posiblemente el 14/10 [14/09/2026] dddd», que ya no es el nombre
+ * de nada. Ver `supabase/migrations/0031_novedad_compromiso_al_historial.sql`.
+ *
+ * `descripcion` sigue aceptando una reescritura cuando hay que CORREGIR el
+ * texto original: eso no es una novedad, es una corrección, y pisa el valor.
  *
  * Gestiona sola `fecha_cumplimiento`: la estampa con `hoy` al entrar a
  * cumplido (si no traía una de antes) y la limpia al salir de cumplido — así
@@ -1013,12 +1030,8 @@ export async function actualizarEstadoCompromiso(
   const previo = bd.compromisos.find((c) => c.id === id);
   if (!previo) throw new Error(`No existe el compromiso ${id}`);
 
-  const base = descripcion ?? previo.descripcion;
-  const cambios = {
-    descripcion: nuevaActualizacion?.trim()
-      ? `${base}\n\n[${hoy.slice(8, 10)}/${hoy.slice(5, 7)}/${hoy.slice(0, 4)}] ${nuevaActualizacion.trim()}`
-      : base,
-  };
+  const novedad = nuevaActualizacion?.trim() || null;
+  const cambios = { descripcion: descripcion ?? previo.descripcion };
   if (fecha_limite !== undefined) cambios.fecha_limite = fecha_limite || null;
   if (id_subsecretaria !== undefined) cambios.id_subsecretaria = id_subsecretaria || null;
   if (id_direccion !== undefined) cambios.id_direccion = id_direccion || null;
@@ -1026,7 +1039,33 @@ export async function actualizarEstadoCompromiso(
     cambios.estado = estado;
     cambios.fecha_cumplimiento = estado === 'cumplido' ? previo.fecha_cumplimiento || hoy : null;
   }
-  return actualizarCompromiso(id, cambios);
+
+  // Contra Supabase la novedad viaja junto al UPDATE y la asienta el trigger
+  // de 0014/0031: un solo viaje, una sola fila de historial, y nada que se
+  // pueda perder a mitad de camino. Sin Supabase hay que emular al trigger.
+  if (compromisosRemotos.activo()) {
+    return actualizarCompromiso(id, novedad ? { ...cambios, nuevaActualizacion: novedad } : cambios);
+  }
+
+  return enLote(async () => {
+    const fila = await actualizarCompromiso(id, cambios);
+    const registrable =
+      novedad !== null
+      || cambios.estado !== undefined
+      || (fecha_limite !== undefined && (fecha_limite || null) !== (previo.fecha_limite || null));
+    if (registrable) {
+      await crear('actualizaciones_compromisos', {
+        compromiso_id: id,
+        fecha_actualizacion: hoy,
+        estado: cambios.estado ?? previo.estado,
+        estado_anterior: cambios.estado !== undefined ? previo.estado : null,
+        fecha_limite: cambios.fecha_limite ?? previo.fecha_limite ?? null,
+        fecha_cumplimiento: cambios.fecha_cumplimiento ?? previo.fecha_cumplimiento ?? null,
+        comentarios: novedad,
+      });
+    }
+    return fila;
+  });
 }
 
 /* ── Monitoreos ─────────────────────────────────────────────────────── */

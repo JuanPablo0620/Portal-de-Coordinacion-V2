@@ -154,7 +154,23 @@ export async function crearCompromiso(datos) {
   return aFormaLocal(data);
 }
 
+/**
+ * Actualiza un compromiso. Si viene `nuevaActualizacion`, el camino es otro.
+ *
+ * Un UPDATE comun no puede llevar el texto de la novedad a ningun lado: la
+ * tabla del historial NO acepta INSERT desde la API (RLS de 0014, a proposito
+ * — un historial que se puede editar no sirve como historial), y el trigger
+ * que la llena no tiene de donde sacar ese texto.
+ *
+ * Por eso la novedad va por la funcion `actualizar_compromiso_con_novedad`
+ * (0031), que deja el comentario en una variable local a la transaccion y hace
+ * el UPDATE ahi mismo: el trigger la lee y asienta la fila. Un solo viaje, una
+ * sola fila, y el compromiso y su historial no pueden quedar desincronizados.
+ */
 export async function actualizarCompromiso(id, cambios) {
+  const novedad = cambios.nuevaActualizacion?.trim();
+  if (novedad) return actualizarConNovedad(id, cambios, novedad);
+
   const fila = await aFilaBase(cambios);
   const { data, error } = await supabase
     .from('compromisos')
@@ -164,4 +180,59 @@ export async function actualizarCompromiso(id, cambios) {
     .single();
   if (error) throw error;
   return aFormaLocal(data);
+}
+
+async function actualizarConNovedad(id, cambios, novedad) {
+  const fila = await aFilaBase(cambios);
+  const { error } = await supabase.rpc('actualizar_compromiso_con_novedad', {
+    p_id: id,
+    p_comentario: novedad,
+    p_estado: fila.estado ?? null,
+    p_fecha_limite: fila.fecha_limite ?? null,
+    // `fecha_limite: null` es ambiguo en un objeto de cambios: puede querer
+    // decir «no la toques» o «borrala». La RPC no adivina, se lo decimos.
+    p_limpiar_fecha: 'fecha_limite' in fila && fila.fecha_limite === null,
+    p_descripcion: fila.descripcion ?? null,
+    p_subsecretaria_id: fila.subsecretaria_id ?? null,
+    p_direccion_id: fila.direccion_id ?? null,
+    p_tocar_unidad: 'subsecretaria_id' in fila || 'direccion_id' in fila,
+  });
+  if (error) throw error;
+
+  // La RPC devuelve la fila cruda de `compromisos`, sin el area ni el proyecto
+  // embebidos que `aFormaLocal` necesita. Se relee con el mismo SELECT de
+  // siempre en vez de armar a mano una forma que quedaria distinta.
+  const { data, error: errorLectura } = await supabase
+    .from('compromisos')
+    .select(CAMPOS)
+    .eq('id', id)
+    .single();
+  if (errorLectura) throw errorLectura;
+  return aFormaLocal(data);
+}
+
+/**
+ * Historial de un compromiso, lo mas nuevo primero.
+ *
+ * Se pide por compromiso y no de una para todos: el historial completo son
+ * cientos de filas que casi nunca se miran, y la unica pantalla que lo muestra
+ * es el desplegable de un compromiso a la vez.
+ */
+export async function historial(compromisoId) {
+  const { data, error } = await supabase
+    .from('actualizaciones_compromisos')
+    .select('id, compromiso_id, fecha_actualizacion, estado, estado_anterior, fecha_limite, comentarios, created_at')
+    .eq('compromiso_id', compromisoId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data.map((f) => ({
+    id: f.id,
+    compromiso_id: f.compromiso_id,
+    fecha_actualizacion: f.fecha_actualizacion,
+    estado: f.estado,
+    estado_anterior: f.estado_anterior ?? null,
+    fecha_limite: f.fecha_limite ?? null,
+    comentarios: f.comentarios ?? '',
+    creado_en: f.created_at,
+  }));
 }

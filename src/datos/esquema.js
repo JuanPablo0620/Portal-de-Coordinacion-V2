@@ -13,6 +13,12 @@ export const COLECCIONES = Object.freeze([
   'proyectos',
   'seguimientos',
   'compromisos',
+  // Historial de cada compromiso: una fila por novedad o cambio de estado.
+  // Es lo que evita que la novedad de hoy se pegue al nombre del compromiso,
+  // que es como se guardaba antes (ver 0031). Contra Supabase la escribe un
+  // trigger; acá la escribe `actualizarEstadoCompromiso`, que es el único
+  // camino por el que se toca un compromiso ya cargado.
+  'actualizaciones_compromisos',
   'monitoreos',
   'temas_monitoreo',
   'mesas',

@@ -19,7 +19,7 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 11/09/2026 · Codex, por pedido de JP
+**Última actualización:** 14/09/2026 · Claude, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
@@ -34,9 +34,12 @@ que el otro no puede deducir leyendo el repo.
 | Producción | Bundles `index-DANmeyC1.js` y `index-D03l_d4H.css` verificados en el dominio público |
 | Migraciones `0001` a `0010` | El front vigente depende de ellas; su historial remoto no se re-auditó en esta sesión |
 | Migración `0011` | **Escrita, todavía no aplicada**: agrega `eventos.fecha_hasta` y normaliza los rangos temporales |
+| Migración `0031` | **Escrita, todavía no aplicada** (mismo motivo que `0011`: necesita el SQL Editor). Ver el punto 1 de "Lo próximo" |
+| Cierre de Monitoreo | El botón "Finalizar monitoreo" ya cuenta las actualizaciones de compromiso, no solo las de proyecto — antes un área sin proyectos cargados (Trabajo y Producción) no podía cerrar nunca su monitoreo |
+| Novedad de un compromiso | Deja de concatenarse a `descripcion`. Va a `actualizaciones_compromisos`, que ya existía (0014) pero solo la llenaba el trigger con etiquetas fijas — ver el punto 1 de "Lo próximo" |
 | Secretaría General | Agregada y verificada en el catálogo real de Supabase por API REST |
 | Datos remotos del portal | Proyectos, seguimientos, compromisos, eventos y requerimientos de evento leen y escriben en Supabase |
-| `npm run verificar` | Pasa con 362 tests, build, humo y accesibilidad |
+| `npm run verificar` | Pasa con 369 tests, build, humo y accesibilidad |
 | Cartera estratégica | El formulario usa la prioridad general del proyecto y una descripción libre obligatoria; ya no muestra prioridad estratégica propia, motivo, responsable político, fecha comprometida ni compromiso público |
 | Agenda de seguimiento | Al agendar sólo pide área, fecha y hora; no asocia proyectos ni adelanta participantes o temas |
 | Magnitudes de proyecto | Cantidad, objetivo, avance y unidad son opcionales en el formulario y la importación; una magnitud ausente no se guarda como cero |
@@ -50,10 +53,21 @@ oculta al mostrar el detalle y la propia `0010` migra esas marcas a la columna.
 
 ## 2. Lo próximo, en orden de lo que más desbloquea
 
-1. **Aplicar `supabase/migrations/0011_eventos_rango_y_secretaria_general.sql`**
-   desde el SQL Editor de Supabase. Después, verificar por REST que
-   `eventos.fecha_hasta` existe; la migración es re-ejecutable y convierte las
-   marcas temporales que se hayan creado antes.
+1. **Aplicar las dos migraciones pendientes desde el SQL Editor de Supabase**
+   (la red del municipio bloquea 5432/6543, así que esto necesita una sesión
+   de navegador contra `supabase.com`, no se puede por API REST):
+   - `0011_eventos_rango_y_secretaria_general.sql` — agrega `eventos.fecha_hasta`.
+   - `0031_novedad_compromiso_al_historial.sql` — hace que la novedad de un
+     compromiso vaya a `actualizaciones_compromisos` en vez de pegarse al
+     final de `descripcion`. Trae función RPC nueva
+     (`actualizar_compromiso_con_novedad`) y reescribe el trigger de 0014;
+     también migra en el mismo script las 3 novedades que ya habían quedado
+     pegadas (2 compromisos). El front YA está escrito para esto —
+     `supabaseCompromisos.js` llama a la RPC cuando hay novedad—, así que
+     hasta que se aplique, **guardar una novedad contra Supabase va a fallar**
+     (la función no existe todavía en la base real). Verificar después con
+     `select * from actualizaciones_compromisos order by created_at desc limit 5;`
+     que las filas nuevas traen el comentario, no `null`.
 2. **Completar una prueba funcional con una sesión real:** crear un evento de sábado a
    domingo, abrir ambos días desde el calendario, editarlo y comprobar la
    confirmación de eliminación; en Mapa, probar rueda, límite y encuadre.
@@ -77,9 +91,21 @@ oculta al mostrar el detalle y la propia `0010` migra esas marcas a la columna.
 
 ## 4. Deudas anotadas, ninguna urgente
 
-1. **124 de los 130 compromisos no tienen fecha límite.** Como la alerta por
-   vencimiento se deduce de esa fecha, hoy el motor de alertas no opera sobre el
-   95% de los datos. Solo los 6 del PDF de Obras la tienen.
+1. **79 de los 99 compromisos no tienen fecha límite.** Como la alerta por
+   vencimiento se deduce de esa fecha, el motor de alertas no opera sobre el 80%
+   de los datos. Quedan sin fecha Seguridad (37 de 37), Ambiente (33 de 45) y
+   Salud (9 de 9); Obras, Capital Humano y Trabajo y Producción ya no tienen
+   ninguno.
+
+   El 13/09/2026, por decisión de JP, se **borraron definitivamente** los 46
+   compromisos sin fecha límite de **Obras (13), Capital Humano (24) y Trabajo y
+   Producción (9)** — todos del histórico cargado el 04/09 desde los `_db`, sin
+   proyecto asociado y mudos para el motor de alertas. El borrado arrastró en
+   cascada sus 46 filas de `actualizaciones_compromisos`; ningún
+   `temas_monitoreo` los referenciaba. Backup previo en el repo de trabajo de JP:
+   `archivos_varios/backup_compromisos_sin_fecha_obras_th_cap-humano_2026-09-13.csv`
+   (y el `.json` con las actualizaciones). Trabajo y Producción quedó sin ningún
+   compromiso cargado.
 2. **Los 130 compromisos están sin responsable.** El `_db` de origen no lo registra.
 3. **`marcarEstrategico()` escribe dos campos que no existen** en el esquema:
    `id_origen_estrategico` y `fecha_marcado_estrategico` (en la base se llama

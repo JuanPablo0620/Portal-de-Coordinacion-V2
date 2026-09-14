@@ -468,9 +468,13 @@ test('actualizarEstadoCompromiso estampa y limpia la fecha de cumplimiento sola'
 
 /**
  * "Agregar actualización" es lo que usa el formulario de verdad (no manda
- * `descripcion`): tiene que sumarse abajo de lo que ya había, nunca pisarlo.
+ * `descripcion`). La novedad va al HISTORIAL: la descripción es el nombre del
+ * compromiso y tiene que quedar exactamente como estaba.
+ *
+ * Este test fija lo contrario de lo que fijaba antes del 14/09/2026, cuando la
+ * novedad se concatenaba al final del texto. Ver 0031.
  */
-test('actualizarEstadoCompromiso agrega la novedad debajo de la descripción, sin pisarla', async () => {
+test('actualizarEstadoCompromiso manda la novedad al historial y NO toca la descripción', async () => {
   await limpio();
   const p = await repo.crearProyecto(PROYECTO_BASE);
   const m = await repo.crearMonitoreo({ fecha: HOY, area: p.area });
@@ -483,22 +487,35 @@ test('actualizarEstadoCompromiso agrega la novedad debajo de la descripción, si
     c.id, { estado: 'en curso', nuevaActualizacion: 'Se envió a Legales, a la espera de respuesta.' }, HOY,
   );
   assert.equal(actualizado.estado, 'en curso');
-  assert.ok(actualizado.descripcion.startsWith('Elevar el expediente'), 'no pisa el texto original');
-  assert.ok(
-    actualizado.descripcion.includes('Se envió a Legales, a la espera de respuesta.'),
-    'agrega la novedad',
-  );
+  assert.equal(actualizado.descripcion, 'Elevar el expediente', 'la descripción queda intacta');
 
-  // Una segunda novedad se suma sobre la anterior, no la reemplaza.
-  const conDosNovedades = await repo.actualizarEstadoCompromiso(
+  const unaNovedad = await repo.historialCompromiso(c.id);
+  assert.equal(unaNovedad[0].comentarios, 'Se envió a Legales, a la espera de respuesta.');
+  assert.equal(unaNovedad[0].fecha_actualizacion, HOY);
+  assert.equal(unaNovedad[0].estado_anterior, 'pendiente', 'deja asentado de dónde venía');
+
+  // Una segunda novedad se suma como fila nueva, no reemplaza a la anterior.
+  await repo.actualizarEstadoCompromiso(
     c.id, { estado: 'en curso', nuevaActualizacion: 'Legales confirmó para la próxima semana.' }, HOY,
   );
-  assert.ok(conDosNovedades.descripcion.includes('Se envió a Legales'), 'la primera novedad sigue');
-  assert.ok(conDosNovedades.descripcion.includes('Legales confirmó para la próxima semana.'));
+  const dosNovedades = await repo.historialCompromiso(c.id);
+  const textos = dosNovedades.map((h) => h.comentarios);
+  assert.ok(textos.includes('Se envió a Legales, a la espera de respuesta.'), 'la primera novedad sigue');
+  assert.ok(textos.includes('Legales confirmó para la próxima semana.'));
+  assert.equal(dosNovedades[0].comentarios, 'Legales confirmó para la próxima semana.', 'lo más nuevo primero');
 
-  // Sin nueva actualización, la descripción no cambia.
+  // Un cambio de estado sin novedad también queda registrado, sin comentario.
   const sinNovedad = await repo.actualizarEstadoCompromiso(c.id, { estado: 'cumplido' }, HOY);
-  assert.equal(sinNovedad.descripcion, conDosNovedades.descripcion);
+  assert.equal(sinNovedad.descripcion, 'Elevar el expediente');
+  const conCierre = await repo.historialCompromiso(c.id);
+  assert.equal(conCierre[0].estado, 'cumplido');
+  assert.equal(conCierre[0].comentarios, null);
+
+  // Y `descripcion` sigue sirviendo para corregir el texto original.
+  const corregido = await repo.actualizarEstadoCompromiso(
+    c.id, { estado: 'cumplido', descripcion: 'Elevar el expediente a Legales' }, HOY,
+  );
+  assert.equal(corregido.descripcion, 'Elevar el expediente a Legales');
 });
 
 /**
