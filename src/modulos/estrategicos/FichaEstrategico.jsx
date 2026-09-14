@@ -13,7 +13,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, ClipboardList, NotebookPen, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, ClipboardList, NotebookPen, Plus, Trash2, XCircle } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import {
   Aviso,
@@ -47,6 +47,12 @@ export default function FichaEstrategico() {
   const navegar = useNavigate();
   const hoy = hoyISO();
   const [parametros] = useSearchParams();
+  // Dos estados y no uno: «se está preguntando» y «se está guardando» son
+  // momentos distintos, y mezclarlos en una variable con dos tipos de valor es
+  // de lo que después nadie se acuerda.
+  const [confirmandoBaja, setConfirmandoBaja] = useState(false);
+  const [quitando, setQuitando] = useState(false);
+  const [errorQuitar, setErrorQuitar] = useState(null);
 
   const marcado = parametros.get('compromiso') || parametros.get('nota') || '';
 
@@ -56,6 +62,27 @@ export default function FichaEstrategico() {
     [bd, id, hoy],
   );
   const notas = useMemo(() => (bd ? notasDeProyecto(bd, id) : []), [bd, id]);
+
+  /*
+   * Sacar el proyecto de la cartera. NO lo borra ni lo da de baja como
+   * proyecto: sigue en la base maestra y se sigue monitoreando como cualquier
+   * otro. Lo que se pierde es la vigilancia mas estrecha de lo estrategico.
+   *
+   * `ModalConfirmacion` no espera la promesa —llama y cierra—, asi que el
+   * error se atiende aca o se pierde.
+   */
+  async function quitarDeLaCartera() {
+    setQuitando(true);
+    setErrorQuitar(null);
+    try {
+      await acciones.quitarEstrategico(id);
+      navegar('/estrategicos');
+    } catch (e) {
+      setErrorQuitar(e?.message ?? 'No se pudo sacar el proyecto de la cartera.');
+    } finally {
+      setQuitando(false);
+    }
+  }
 
   if (!proyecto) {
     return (
@@ -86,13 +113,20 @@ export default function FichaEstrategico() {
         titulo={proyecto.proyecto}
         descripcion={proyecto.observaciones || undefined}
         acciones={
-          <Boton icono={ArrowLeft} onClick={() => navegar('/estrategicos')}>
-            Volver
-          </Boton>
+          <>
+            <Boton icono={ArrowLeft} onClick={() => navegar('/estrategicos')}>
+              Volver
+            </Boton>
+            <Boton icono={XCircle} onClick={() => setConfirmandoBaja(true)} disabled={quitando}>
+              Sacar de la cartera
+            </Boton>
+          </>
         }
       />
 
       <Pagina className="flex flex-col gap-4">
+        {errorQuitar && <Aviso tono="error">{errorQuitar}</Aviso>}
+
         <Tarjeta>
           <div className="flex flex-wrap items-center gap-2">
             <Chip tono="acento">{proyecto.id_proyecto}</Chip>
@@ -119,6 +153,15 @@ export default function FichaEstrategico() {
           <PanelNotas notas={notas} idProyecto={id} marcado={marcado} hoy={hoy} />
         </div>
       </Pagina>
+
+      <ModalConfirmacion
+        abierto={confirmandoBaja}
+        alCerrar={() => setConfirmandoBaja(false)}
+        alConfirmar={quitarDeLaCartera}
+        titulo="Sacar de la cartera estratégica"
+        mensaje={`«${proyecto.proyecto}» vuelve a seguirse como cualquier otro proyecto. No se borra nada: el motivo, los compromisos y las notas quedan, y se puede volver a declarar cuando haga falta.`}
+        textoConfirmar="Sacar de la cartera"
+      />
     </>
   );
 }
