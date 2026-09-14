@@ -1595,6 +1595,16 @@ export function carteraPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
       // «En curso» es no haber terminado ni haberse suspendido. Un proyecto
       // demorado sigue en curso: por eso no alcanza con mirar «en ejecución».
       en_curso: p.estado !== 'finalizado' && p.estado !== 'suspendido',
+      // Lo que la tabla del módulo espera y un proyecto de la base maestra no
+      // tiene. Van explícitos y vacíos para que las pantallas no tengan que
+      // preguntar de qué origen es cada fila antes de leer un campo.
+      organismo: '',
+      tipo: '',
+      fecha_limite: null,
+      financiamiento_usd: 0,
+      ods: [],
+      nivel: 'sindato',
+      ultima_actualizacion: p.ultima_actualizacion ?? null,
     }));
 
   const yaEstan = new Set(deLaBase.map((p) => p.id));
@@ -1603,14 +1613,7 @@ export function carteraPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
   const acciones = proyectosPosicionamiento(bd, filtros, hoy)
     .filter((a) => !(a.ids_proyecto ?? []).some((id) => yaEstan.has(id)))
     .filter((a) => !porNombre.has(aClave(a.nombre)))
-    .map((a) => ({
-      id: a.id,
-      nombre: a.nombre,
-      estado: a.estado,
-      area: a.area ?? '',
-      fuente: 'posicionamiento',
-      en_curso: a.abierta,
-    }));
+    .map((a) => ({ ...a, fuente: 'posicionamiento', en_curso: a.abierta }));
 
   return [...deLaBase, ...acciones];
 }

@@ -15,6 +15,7 @@ import {
   proyectosPosicionamiento,
   accionesPorDimension,
   nivelProyectoPosicionamiento,
+  carteraPosicionamiento,
   resumenPosicionamiento,
   sumarDias,
 } from '../src/datos/selectores.js';
@@ -249,4 +250,25 @@ test('un proyecto finalizado está registrado pero no en curso', async () => {
   const resumen = resumenPosicionamiento(bd, {}, HOY);
   assert.equal(resumen.registrados, 1);
   assert.equal(resumen.en_curso, 0);
+});
+
+test('un proyecto de la base maestra entra a la lista con los campos que la tabla lee', async () => {
+  await repo.vaciarSistema();
+  await repo.crearProyecto({
+    proyecto: 'Bloomberg WWC',
+    area: 'Coordinación',
+    programa: 'Posicionamiento',
+    estado: 'en ejecución',
+    fecha_carga: HOY,
+  });
+
+  const bd = await repo.obtenerBD();
+  const [fila] = carteraPosicionamiento(bd, {}, HOY);
+
+  assert.equal(fila.fuente, 'base maestra');
+  // La tabla hace `a.ods.length` sin preguntar de qué origen es la fila: si
+  // `ods` no viniera como arreglo, la pantalla se rompe al listar.
+  assert.deepEqual(fila.ods, []);
+  assert.equal(fila.tipo, '');
+  assert.equal(fila.fecha_limite, null);
 });
