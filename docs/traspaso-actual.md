@@ -30,6 +30,7 @@ que el otro no puede deducir leyendo el repo.
 | Qué | Estado |
 |---|---|
 | Implementación Eventos/Mapa | `9cd03a9`, publicada en `fork/main` |
+| Base cartográfica del Mapa | OpenFreeMap con estilo Liberty queda como base predeterminada; el Geoportal conserva el callejero municipal alternativo y sigue aportando límites y cuadras oficiales |
 | Rediseño de Eventos | `9b344bf`, Agenda ejecutiva publicada en `fork/main`, con identidad por área y preparación visible |
 | Producción | Bundles `index-DANmeyC1.js` y `index-D03l_d4H.css` verificados en el dominio público |
 | Migraciones `0001` a `0010` | El front vigente depende de ellas; su historial remoto no se re-auditó en esta sesión |

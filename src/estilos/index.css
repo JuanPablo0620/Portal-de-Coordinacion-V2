@@ -267,6 +267,18 @@ body {
   background: var(--color-card);
 }
 
+/* La base vectorial conserva la tipografía del portal y queda debajo de las
+   formas SVG de Leaflet: los cortes y el límite del partido. */
+.mapa-leaflet .maplibregl-map {
+  font: inherit;
+}
+
+.mapa-leaflet .maplibregl-canvas-container,
+.mapa-leaflet .maplibregl-canvas {
+  position: absolute;
+  inset: 0;
+}
+
 /* En modo dibujo el cursor dice que el mapa espera un clic. */
 .mapa-dibujando .leaflet-container {
   cursor: crosshair;

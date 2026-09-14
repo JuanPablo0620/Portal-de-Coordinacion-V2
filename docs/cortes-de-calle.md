@@ -71,7 +71,8 @@ Capas que además sirven para responder "a quién hay que avisar":
 **Riesgo asumido:** el geoportal es de otra dirección y puede caerse o cambiar.
 Mitigación: cada corte guarda sus **coordenadas propias y el texto de las
 calles**, no solo los ids del geoportal — así el corte se sigue dibujando y
-leyendo aunque el servicio no responda. La capa base cae a OpenStreetMap.
+leyendo aunque el servicio no responda. La capa base predeterminada es
+OpenFreeMap/Liberty y el callejero municipal queda disponible como alternativa.
 
 Hay además un par de detalles de configuración del geoportal que conviene
 comentarle a quien lo administra. No van escritos acá: este repositorio es
@@ -190,7 +191,9 @@ Va junto a `estadoCompromiso()` en `src/datos/selectores.js`.
 
 Dos pestañas, siguiendo el patrón de `src/modulos/eventos/Eventos.jsx`:
 
-1. **Mapa** — Leaflet con el callejero del geoportal como base. Arriba, un
+1. **Mapa** — Leaflet con OpenFreeMap/Liberty como base predeterminada y el
+   callejero del geoportal como alternativa. Las cuadras seleccionables y el
+   límite del partido salen siempre del geoportal oficial. Arriba, un
    **selector de fecha que arranca en hoy**, con paso rápido a mañana y a esta
    semana. Es la pantalla que contesta la pregunta del jefe.
 2. **Lista** — los mismos cortes en tabla, con filtros por área solicitante,
