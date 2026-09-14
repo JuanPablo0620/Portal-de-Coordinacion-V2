@@ -137,9 +137,20 @@ export function SelectorProyecto({
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
               onFocus={() => setAbierto(true)}
-              // El timeout deja que el click sobre una fila (que primero dispara
-              // este blur) alcance a procesarse antes de que la lista se cierre.
-              onBlur={() => setTimeout(() => setAbierto(false), 150)}
+              /*
+               * Cerrar al perder el foco, sin carreras. Antes esto era un
+               * `setTimeout` de 150 ms que le daba tiempo al click de la fila
+               * antes de desmontar la lista, y el click se perdía cada vez que
+               * alguien apretaba el botón un instante de más: el blur salta en
+               * el mousedown, la lista se iba a los 150 ms y el mouseup ya no
+               * encontraba a quién avisarle. En pantalla se veía como que
+               * elegir un proyecto no hacía nada y quedaba el texto tipeado.
+               *
+               * Ahora la lista no deja que el input pierda el foco (ver el
+               * `onMouseDown` de abajo), así que este blur sólo corre cuando el
+               * foco se va de verdad a otro lado.
+               */
+              onBlur={() => setAbierto(false)}
               placeholder={placeholder}
               aria-label={etiqueta ? `Buscar en ${etiqueta.toLowerCase()}` : 'Buscar proyecto'}
               className="w-full bg-card py-2 pl-8 pr-2.5 text-sm text-tinta placeholder:text-tenue focus:outline-2 focus:outline-offset-[-2px] focus:outline-acento"
@@ -147,7 +158,10 @@ export function SelectorProyecto({
           </div>
 
           {mostrarLista && (
-            <>
+            // Evita que el input pierda el foco al apretar una fila: sin esto
+            // el blur desmonta la lista antes de que el click llegue a
+            // procesarse. El teclado no se ve afectado — no dispara mousedown.
+            <div onMouseDown={(e) => e.preventDefault()}>
               <div className="scroll-fino overflow-y-auto bg-card" style={{ maxHeight: maxAltura }}>
                 {filtrados.length === 0 ? (
                   <Vacio
@@ -197,7 +211,7 @@ export function SelectorProyecto({
                   {texto.trim() ? ' coincidencias' : ' proyectos'} · afiná la búsqueda para ver el resto
                 </p>
               )}
-            </>
+            </div>
           )}
         </div>
       )}

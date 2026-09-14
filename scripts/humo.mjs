@@ -177,6 +177,7 @@ const RUTAS_PROFUNDAS = [
  */
 const COMPONENTES = [
   ['HistorialProyecto', 'Historial del proyecto'],
+  ['SelectorProyectoElegido', '{proyecto}'],
   ['HistorialProyecto', 'Cambios de ficha'],
   ['HistorialProyecto', 'Hitos planificados'],
   // El formulario de tema con un borrador transferido adentro: el compromiso
