@@ -1589,8 +1589,14 @@ export function itemsCalendario(bd, capas, desde, hasta) {
       items.push({
         fecha: s.fecha.slice(0, 10),
         capa: 'seguimientos',
+        // El título lleva el área adentro para el calendario del inicio, que
+        // mezcla las cuatro capas y colorea por capa, no por secretaría. El
+        // de Seguimiento la colorea por área y la saca de `area`, sin repetirla
+        // en el texto de una celda que mide cuatro centímetros.
         titulo: `${s.tipo === 'programado' ? 'Seguimiento' : 'Seguimiento realizado'} · ${s.area}`,
         detalle: s.hora ?? '',
+        area: s.area ?? '',
+        tipo: s.tipo ?? 'programado',
         ruta: `/seguimiento?vista=lista&seguimiento=${s.id}`,
       });
     }

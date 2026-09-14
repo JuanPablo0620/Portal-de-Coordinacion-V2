@@ -142,24 +142,35 @@ export function Calendario({
               <div
                 key={celda.clave}
                 className={`${compacto ? 'min-h-16' : 'min-h-24'} border-b border-r border-borde/60 p-1 last:border-r-0 ${
-                  celda.esHoy ? 'bg-acento-suave/60' : 'bg-card'
+                  celda.esHoy ? 'bg-acento-suave' : 'bg-card'
                 }`}
               >
-                <div className="mb-0.5 flex items-center justify-between px-0.5">
-                  <span
-                    className={`tabular text-[11px] ${
-                      celda.esHoy ? 'font-semibold text-acento-fuerte' : 'text-tenue'
-                    }`}
-                  >
-                    {celda.numero}
-                  </span>
+                <div className="mb-0.5 flex items-center gap-1 px-0.5">
+                  {/* Hoy va en círculo lleno, la convención de cualquier
+                      calendario. Antes era el mismo número de siempre con un
+                      tono de azul apenas distinto: había que buscarlo. */}
+                  {celda.esHoy ? (
+                    <span className="tabular inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-acento px-1 text-[11px] font-bold leading-none text-white">
+                      {celda.numero}
+                    </span>
+                  ) : (
+                    <span className="tabular text-[11px] text-tenue">{celda.numero}</span>
+                  )}
+                  {celda.esHoy && !compacto && (
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-acento-fuerte">hoy</span>
+                  )}
                   {celda.items.length > (compacto ? 2 : 3) && (
-                    <span className="tabular text-[10px] text-tenue">{celda.items.length}</span>
+                    <span className="tabular ml-auto text-[10px] text-tenue">{celda.items.length}</span>
                   )}
                 </div>
                 <div className="flex flex-col gap-0.5">
                   {celda.items.slice(0, compacto ? 2 : 3).map((item, i) => {
                     const presentacion = presentarItem?.(item);
+                    // El texto de la celda puede ser más corto que el título:
+                    // donde el color ya dice de qué secretaría es, repetirlo
+                    // en el texto no deja lugar para lo demás. El `title` del
+                    // botón sí lo lleva entero.
+                    const etiqueta = presentacion?.etiqueta ?? item.titulo;
                     const titulo = [presentacion?.nombreArea, item.titulo, item.detalle].filter(Boolean).join(' · ');
                     return (
                       <button
@@ -184,7 +195,7 @@ export function Calendario({
                             style={{ background: colorDeCapa(item.capa) }}
                           />
                         )}
-                        <span className="truncate">{item.titulo}</span>
+                        <span className="truncate">{etiqueta}</span>
                       </button>
                     );
                   })}

@@ -29,6 +29,7 @@ import { Calendario, useMesVisible } from '../../componentes/Calendario.jsx';
 import { Modal } from '../../componentes/Modal.jsx';
 import { CampoFecha, CampoHora, CampoSelect, GrillaCampos } from '../../componentes/Campo.jsx';
 import { EditorCompromiso } from '../../componentes/EditorCompromiso.jsx';
+import { LeyendaAreas, identidadArea } from '../../componentes/identidadArea.jsx';
 import { CargarSeguimiento } from './CargarSeguimiento.jsx';
 import { HistorialArea } from './HistorialArea.jsx';
 import { COLUMNAS_COMPROMISO, nivelDe } from './columnasCompromiso.jsx';
@@ -144,11 +145,26 @@ function PanelCalendario({ bd, filtros, setFiltros, alAgendar }) {
       mes.rango[0],
       mes.rango[1],
     );
-    if (!filtros.area) return todos;
-    // El título del ítem de calendario termina en « · área»: el selector lo
-    // arma así para todas las capas, y filtrar acá evita duplicar el armado.
-    return todos.filter((i) => i.titulo.endsWith(`· ${filtros.area}`));
+    return filtros.area ? todos.filter((i) => i.area === filtros.area) : todos;
   }, [bd, mes.rango, filtros.area]);
+
+  /**
+   * Cada seguimiento se pinta con el color de su secretaría, igual que la
+   * agenda de eventos. El calendario mezclaba ocho secretarías en un único
+   * azul: había que abrir cada uno para saber con quién era la reunión.
+   *
+   * La etiqueta queda en «Seguimiento» o «Realizado» a secas —el área ya la
+   * dicen el color y la sigla— porque el nombre formal de una secretaría solo
+   * no entra en una celda del mes.
+   */
+  const presentarItem = (item) => ({
+    ...identidadArea(item.area, opcionesArea),
+    etiqueta: item.tipo === 'programado' ? 'Seguimiento' : 'Realizado',
+  });
+
+  // Sólo las secretarías que tienen algo este mes: una referencia de ocho
+  // colores para los dos que se usan ocupa más de lo que explica.
+  const areasDelMes = useMemo(() => new Set(items.map((i) => i.area ?? '')), [items]);
 
   const conmutador = (
     <Conmutador
@@ -237,14 +253,18 @@ function PanelCalendario({ bd, filtros, setFiltros, alAgendar }) {
     <div className="flex flex-col gap-4">
       {filtrosCalendario}
       <Tarjeta titulo="Próximos seguimientos" acciones={conmutador}>
-        <Calendario
-          anio={mes.anio}
-          mes={mes.mes}
-          items={items}
-          hoy={hoy}
-          alMover={mes.mover}
-          alVolverAHoy={mes.volverAHoy}
-        />
+        <LeyendaAreas opciones={opcionesArea} areasPresentes={areasDelMes} />
+        <div className="mt-3">
+          <Calendario
+            anio={mes.anio}
+            mes={mes.mes}
+            items={items}
+            hoy={hoy}
+            alMover={mes.mover}
+            alVolverAHoy={mes.volverAHoy}
+            presentarItem={presentarItem}
+          />
+        </div>
         {programados.length === 0 && (
           <div className="mt-3">
             <Vacio
