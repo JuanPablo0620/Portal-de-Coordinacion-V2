@@ -14,7 +14,7 @@ import { useOpciones } from '../../utilidades/catalogos.js';
 import { contarFiltros, useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
 const DEFAULTS = {
-  area: '', programa: '', eje: '', tipo: '', estado: '', prioridad: '', responsable: '',
+  area: '', programa: '', eje: '', tipo: '', estado: '', prioridad: '',
   id_proyecto: '', modulo: '', rango: '', desde: '', hasta: '',
   solo_obras: false, solo_prioritarios: false, solo_con_alertas: false,
 };
@@ -94,11 +94,6 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
   const opcionesEje = useOpciones('ejes');
   const opcionesTipo = useOpciones('tipos');
 
-  const responsables = useMemo(() => {
-    const set = new Set(activos(bd?.proyectos ?? []).map((p) => p.responsable).filter(Boolean));
-    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
-  }, [bd]);
-
   /**
    * Programas EN CASCADA: solo los del área elegida, derivados de los
    * proyectos reales (no del catálogo plano) — así funciona sin importar si
@@ -151,7 +146,6 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
         <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={filtros.tipo} onChange={(e) => setFiltros({ tipo: e.target.value })} placeholder="Todos" />
         <CampoSelect etiqueta="Estado" opciones={ESTADOS_PROYECTO} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
         <CampoSelect etiqueta="Prioridad" opciones={PRIORIDADES} value={filtros.prioridad} onChange={(e) => setFiltros({ prioridad: e.target.value })} placeholder="Todas" />
-        <CampoSelect etiqueta="Responsable" opciones={responsables} value={filtros.responsable} onChange={(e) => setFiltros({ responsable: e.target.value })} placeholder="Todos" />
         <CampoSelect
           etiqueta="Proyecto"
           opciones={proyectos}

@@ -4,7 +4,7 @@
  * Valentín (jefe de gabinete) trata directamente con las áreas sobre los ejes
  * estratégicos. Este formulario es su herramienta: registra en una sola operación
  * qué pasó (novedad), cómo está el proyecto ahora (estado + avance), y qué asumió
- * el área (compromisos con responsable y plazo).
+ * el área (compromisos con su unidad y su plazo).
  *
  * Internamente:
  * - La novedad es un tema de monitoreo vinculado al proyecto.

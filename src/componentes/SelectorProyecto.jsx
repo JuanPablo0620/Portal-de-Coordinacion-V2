@@ -19,7 +19,7 @@ export function SelectorProyecto({
   etiqueta = 'Proyecto',
   requerido = false,
   ayuda,
-  placeholder = 'Buscar por nombre, id o responsable…',
+  placeholder = 'Buscar por nombre o id…',
   className = '',
   maxAltura = 220,
 }) {
@@ -48,7 +48,7 @@ export function SelectorProyecto({
     if (!texto.trim()) return todos;
     const t = texto.toLowerCase();
     return todos.filter((p) =>
-      `${p.proyecto} ${p.id_proyecto} ${p.area} ${p.responsable ?? ''}`.toLowerCase().includes(t),
+      `${p.proyecto} ${p.id_proyecto} ${p.area}`.toLowerCase().includes(t),
     );
   }, [todos, texto]);
 

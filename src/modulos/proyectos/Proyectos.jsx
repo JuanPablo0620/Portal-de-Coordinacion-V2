@@ -110,7 +110,6 @@ export default function Proyectos() {
         </div>
       ),
     },
-    { clave: 'responsable', titulo: 'Responsable', ancho: 130 },
     {
       clave: 'fecha_fin_prevista',
       titulo: 'Fin previsto',

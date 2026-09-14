@@ -27,7 +27,6 @@ const VACIO = {
   avance: '',
   unidad: '',
   estado: 'planificado',
-  responsable: '',
   prioridad: 'media',
   fecha_inicio: '',
   fecha_fin_prevista: '',
@@ -95,7 +94,6 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
     const e = {};
     if (!datos.proyecto.trim()) e.proyecto = 'Requerido';
     if (!datos.area) e.area = 'Requerido';
-    if (!datos.tipo) e.tipo = 'Requerido';
     if (
       datos.fecha_inicio &&
       datos.fecha_fin_prevista &&
@@ -207,10 +205,9 @@ export function FormularioProyecto({ abierto, alCerrar, proyecto, modoObra = fal
           />
           <CampoSelect etiqueta="Eje estratégico" opciones={opcionesEje} value={datos.eje} onChange={cambiar('eje')} />
           {!modoObra && (
-            <CampoSelect etiqueta="Tipo" requerido opciones={opcionesTipo} value={datos.tipo} onChange={cambiar('tipo')} error={errores.tipo} />
+            <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={datos.tipo} onChange={cambiar('tipo')} error={errores.tipo} placeholder="Sin tipo" />
           )}
           <CampoSelect etiqueta="Estado" requerido opciones={ESTADOS_PROYECTO} value={datos.estado} onChange={cambiar('estado')} placeholder="" />
-          <CampoTexto etiqueta="Responsable" value={datos.responsable} onChange={cambiar('responsable')} placeholder="Referente del área" />
         </GrillaCampos>
 
         <CampoRadios

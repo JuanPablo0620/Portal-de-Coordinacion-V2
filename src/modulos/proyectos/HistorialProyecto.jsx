@@ -90,7 +90,7 @@ export function HistorialProyecto({ bd, proyecto, historial }) {
       { clave: 'capa', titulo: 'Capa', formatoCSV: (v) => TITULO_CAPA[v] ?? v },
       { clave: 'titulo', titulo: 'Detalle' },
       { clave: 'detalle', titulo: 'Observación' },
-      { clave: 'extra', titulo: 'Área y responsable' },
+      { clave: 'extra', titulo: 'Área' },
       { clave: 'estado', titulo: 'Estado' },
     ]);
   }

@@ -101,7 +101,6 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     tipo: filtros.tipo,
     estado: filtros.estado,
     prioridad: filtros.prioridad,
-    responsable: filtros.responsable,
     id_proyecto: filtros.id_proyecto,
     es_obra: filtros.solo_obras || undefined,
     solo_prioritarios: filtros.solo_prioritarios || undefined,
@@ -117,7 +116,7 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
   // limitan a esos proyectos; si no, sólo se filtran por área y fecha.
   const hayRecorteProyecto = Boolean(
     filtros.area || filtros.programa || filtros.eje || filtros.tipo || filtros.estado ||
-      filtros.prioridad || filtros.responsable || filtros.id_proyecto ||
+      filtros.prioridad || filtros.id_proyecto ||
       filtros.solo_obras || filtros.solo_prioritarios || filtros.solo_con_alertas,
   );
 
@@ -258,7 +257,6 @@ export function describirFiltros(filtros, rango) {
   agregar('Tipo', filtros.tipo);
   agregar('Estado', filtros.estado);
   agregar('Prioridad', filtros.prioridad);
-  agregar('Responsable', filtros.responsable);
   agregar('Proyecto', filtros.id_proyecto);
   agregar('Módulo de origen', MODULOS_ORIGEN.find((m) => m.valor === filtros.modulo)?.titulo);
 

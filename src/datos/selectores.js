@@ -140,14 +140,13 @@ export function proyectos(bd, filtros = {}) {
       coincide(resto.tipo, p.tipo) &&
       coincide(resto.estado, p.estado) &&
       coincide(resto.prioridad, p.prioridad) &&
-      coincide(resto.responsable, p.responsable) &&
       coincide(resto.id_proyecto, p.id_proyecto) &&
       (resto.es_obra ? p.es_obra === true : true) &&
       (resto.solo_activos ? esProyectoActivo(p) : true) &&
       (resto.solo_prioritarios ? p.prioridad === 'alta' : true) &&
       (resto.solo_estrategicos ? p.estrategico === true : true) &&
       dentroDelRango(p.fecha_carga, resto.desde, resto.hasta) &&
-      (!texto || `${p.proyecto} ${p.id_proyecto} ${p.responsable ?? ''}`.toLowerCase().includes(texto.toLowerCase())),
+      (!texto || `${p.proyecto} ${p.id_proyecto}`.toLowerCase().includes(texto.toLowerCase())),
     )
     .map((p) => ({
       ...p,
@@ -1003,7 +1002,7 @@ export function historialUnificado(bd, idProyecto, capas = {}, hoy = hoyISO()) {
         detalle: [t.categoria, t.criticidad ? `criticidad ${t.criticidad}` : null]
           .filter(Boolean)
           .join(' · '),
-        extra: [m?.area, t.responsable].filter(Boolean).join(' · '),
+        extra: m?.area ?? '',
         estado: t.resuelto ? 'resuelto' : 'sin resolver',
         nivel: t.resuelto ? 'enregla' : t.criticidad === 'alta' ? 'vencido' : 'atencion',
         ruta: m ? `/monitoreo?tab=ultimos&monitoreo=${m.id}` : '/monitoreo',
