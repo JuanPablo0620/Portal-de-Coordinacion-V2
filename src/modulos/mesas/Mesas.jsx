@@ -6,7 +6,7 @@ import { AgendarReunion } from './AgendarReunion.jsx';
 import { FichaMesa } from './FichaMesa.jsx';
 import { FormularioMesa } from './FormularioMesa.jsx';
 import { RegistrarReunion } from './RegistrarReunion.jsx';
-import { CONFIG_TIPO, configDe } from './tipos.js';
+import { CONFIG_TIPO, coloresPorMesa, configDe } from './tipos.js';
 import { TIPOS_MESA } from '../../datos/catalogos.js';
 import { hoyISO, mesas as selMesas, mesasSinReunion } from '../../datos/selectores.js';
 import { fecha as fFecha } from '../../utilidades/formato.js';
@@ -42,6 +42,10 @@ export default function Mesas() {
   const delTipo = todas.filter((m) => m.tipo === filtros.tipo);
   const cfg = configDe(filtros.tipo);
   const mesaAbierta = filtros.mesa ? todas.find((m) => m.id === filtros.mesa) : null;
+  // Un color por mesa, no por tipo: ver `coloresPorMesa`. Se calcula sobre las
+  // del tipo ABIERTO, que son las que se ven juntas.
+  const colores = useMemo(() => coloresPorMesa(delTipo), [delTipo]);
+  const colorDe = (mesa) => colores.get(mesa.id) ?? cfg.color;
 
   return (
     <>
@@ -61,6 +65,7 @@ export default function Mesas() {
         {mesaAbierta ? (
           <FichaMesa
             mesa={mesaAbierta}
+            color={colorDe(mesaAbierta)}
             atrasada={atrasadas.has(mesaAbierta.id)}
             alVolver={() => setFiltros({ mesa: '' })}
             alEditar={() => setFormulario(mesaAbierta)}
@@ -95,7 +100,7 @@ export default function Mesas() {
                   <TarjetaMesa
                     key={m.id}
                     mesa={m}
-                    color={cfg.color}
+                    color={colorDe(m)}
                     atrasada={atrasadas.has(m.id)}
                     alAbrir={() => setFiltros({ mesa: m.id })}
                     alRegistrar={() => setRegistrando(m)}
