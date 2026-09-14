@@ -71,7 +71,7 @@ import { fecha as fFecha } from '../../utilidades/formato.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
-const DEFAULTS = { periodo: 'hoy', desde: '', hasta: '', q: '', corte: '', capa: 'osm' };
+const DEFAULTS = { periodo: 'hoy', desde: '', hasta: '', q: '', corte: '', capa: 'libre' };
 
 /**
  * Zoom a partir del cual se dibujan las cuadras.

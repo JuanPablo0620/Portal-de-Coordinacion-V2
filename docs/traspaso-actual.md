@@ -44,6 +44,7 @@ memoria.
 | Organigrama | Subsecretaría y dirección en cada compromiso, en cascada (`0027`) |
 | Mesas | Agendar y editar reuniones, carpeta de Drive por mesa y por reunión, color por mesa |
 | Eventos | Rediseñado como agenda ejecutiva |
+| Base cartográfica del Mapa | OpenFreeMap con estilo Liberty queda como base predeterminada; el Geoportal conserva el callejero municipal alternativo y sigue aportando límites y cuadras oficiales |
 | Posicionamiento | Ficha propia por programa, con su carpeta de Drive |
 | Compromisos | La novedad va a `actualizaciones_compromisos`, ya no se concatena a `descripcion` |
 | `npm run verificar` | Pasa: 369 tests, build, humo y accesibilidad |

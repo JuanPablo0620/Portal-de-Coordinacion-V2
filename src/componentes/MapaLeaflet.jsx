@@ -9,8 +9,10 @@
  * Lavalle y Hornos" sólo se entiende sobre un mapa que tenga esas calles
  * dibujadas y con su nombre.
  *
- * Las teselas las pide el navegador de quien mira, por HTTPS, directo al
- * servidor de mapas: el portal no proxea nada y no necesita backend para esto.
+ * La base predeterminada usa OpenFreeMap con el estilo vectorial Liberty. Da
+ * una lectura familiar de calles, edificios, parques y etiquetas sin clave,
+ * cuenta ni facturación. El callejero municipal sigue como alternativa y las
+ * cuadras seleccionables siempre salen del Geoportal oficial.
  *
  * ── Leaflet se importa DENTRO del efecto, no arriba del archivo. Dos razones,
  * y la primera es dura: Leaflet toca `window` al evaluarse, así que un import
@@ -38,11 +40,13 @@ const CENTRO_PARTIDO = [-34.6, -58.565];
 const ZOOM_PARTIDO = 13;
 
 export const CAPAS_BASE = Object.freeze([
-  { valor: 'osm', titulo: 'Mapa claro' },
+  { valor: 'libre', titulo: 'Mapa claro' },
   { valor: 'municipal', titulo: 'Callejero municipal' },
 ]);
 
-function crearCapaBase(L, cual) {
+const ESTILO_MAPA_CLARO = 'https://tiles.openfreemap.org/styles/liberty';
+
+function crearCapaBase(L, cual, maplibreGL) {
   if (cual === 'municipal') {
     // La capa oficial del municipio. Es el respaldo natural si el servicio de
     // teselas público no está disponible desde la red del municipio.
@@ -55,23 +59,20 @@ function crearCapaBase(L, cual) {
     });
   }
   /*
-   * Teselas de OpenStreetMap, no de CARTO.
-   *
-   * CARTO pasó a exigir clave para sus mapas base: sus teselas siguen
-   * respondiendo HTTP 200, pero devuelven la imagen con «API KEY REQUIRED»
-   * estampada encima. Por eso el mapa se veía "roto" sin dar ningún error —
-   * técnicamente cargaba bien, solo que la imagen decía otra cosa.
-   *
-   * OSM no pide clave. Su política de uso pide atribución visible y volumen
-   * razonable; nueve personas de Coordinación entran holgadas.
-   *
-   * Si algún día OSM también cambiara, el reemplazo ya está acá al lado: la
-   * capa «Callejero municipal» sale del geoportal del propio municipio y no
-   * depende de ningún tercero.
+   * OpenFreeMap sirve datos abiertos de OpenStreetMap. El adaptador conserva a
+   * Leaflet a cargo de los clics y las formas, por lo que el cambio de fondo
+   * no modifica la carga de cortes. La rama también acepta el valor viejo
+   * `osm` para no romper enlaces que ya lo tengan en la URL.
    */
-  return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; colaboradores de OpenStreetMap',
+  return maplibreGL({
+    style: ESTILO_MAPA_CLARO,
+    interactive: false,
+    attributionControl: {
+      customAttribution:
+        '<a href="https://openfreemap.org">OpenFreeMap</a> &middot; ' +
+        '<a href="https://openmaptiles.org">&copy; OpenMapTiles</a> &middot; datos ' +
+        '<a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    },
   });
 }
 
@@ -91,7 +92,7 @@ export function MapaLeaflet({
   alClicMapa,
   alMoverse,
   zoomMinimo = null,
-  capaBase = 'osm',
+  capaBase = 'libre',
   encuadrar = null,
   alto = 520,
   className = '',
@@ -119,11 +120,20 @@ export function MapaLeaflet({
     let reloj = null;
 
     (async () => {
-      const [modulo] = await Promise.all([import('leaflet'), import('leaflet/dist/leaflet.css')]);
+      const [modulo, adaptador, maplibre, worker] = await Promise.all([
+        import('leaflet'),
+        import('@maplibre/maplibre-gl-leaflet'),
+        import('maplibre-gl'),
+        import('maplibre-gl/dist/maplibre-gl-worker.mjs?url'),
+        import('leaflet/dist/leaflet.css'),
+        import('maplibre-gl/dist/maplibre-gl.css'),
+      ]);
       // Desmontado mientras se descargaba la biblioteca.
       if (!vivo || !contenedor.current) return;
       const L = modulo.default ?? modulo;
+      maplibre.setWorkerUrl(worker.default);
       leaflet.current = L;
+      leaflet.current.maplibreGL = adaptador.maplibreGL;
 
       instancia = L.map(contenedor.current, {
         center: CENTRO_PARTIDO,
@@ -198,9 +208,9 @@ export function MapaLeaflet({
     const L = leaflet.current;
     if (!listo || !L || !mapa.current) return;
     capaTeselas.current?.remove();
-    capaTeselas.current = crearCapaBase(L, capaBase).addTo(mapa.current);
+    capaTeselas.current = crearCapaBase(L, capaBase, L.maplibreGL).addTo(mapa.current);
     // Las teselas van SIEMPRE por debajo de los cortes.
-    capaTeselas.current.bringToBack();
+    capaTeselas.current.bringToBack?.();
   }, [capaBase, listo]);
 
   /* Zoom mínimo. Entrar a elegir cuadras con el partido entero en pantalla no
