@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarClock, CalendarPlus, Pencil, Plus } from 'lucide-react';
+import { CalendarClock, CalendarDays, CalendarPlus, Pencil, Plus } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Boton, Chip, Pestanias, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { AgendarReunion } from './AgendarReunion.jsx';
@@ -7,8 +7,9 @@ import { FichaMesa } from './FichaMesa.jsx';
 import { FormularioMesa } from './FormularioMesa.jsx';
 import { RegistrarReunion } from './RegistrarReunion.jsx';
 import { CONFIG_TIPO, coloresPorMesa, configDe } from './tipos.js';
+import Eventos from '../eventos/Eventos.jsx';
 import { TIPOS_MESA } from '../../datos/catalogos.js';
-import { hoyISO, mesas as selMesas, mesasSinReunion } from '../../datos/selectores.js';
+import { eventos as selEventos, hoyISO, mesas as selMesas, mesasSinReunion } from '../../datos/selectores.js';
 import { fecha as fFecha } from '../../utilidades/formato.js';
 import { useBD } from '../../estado/tienda.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
@@ -17,6 +18,15 @@ import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
  * La separación por tipo es ESTRUCTURAL, no un filtro: cada tipo tiene su
  * pestaña y su color. Es criterio de aceptación que se vean separadas sin que
  * el usuario tenga que aplicar nada.
+ *
+ * `eventos` es una pestaña más de esta misma familia (14/09/2026): la reunión
+ * de agenda de eventos la coordina Coordinación, sin periodicidad fija, igual
+ * que estas mesas — pero NO es una mesa (`mesas`/`reuniones_mesa`): en el
+ * vocabulario institucional «mesa» son las mesas de barrio popular, y
+ * mezclarlas hubiera obligado a excluir «eventos» de cada filtro por mesa.
+ * Por eso el valor 'eventos' no está en `TIPOS_MESA` ni en `CONFIG_TIPO`: se
+ * agrega a mano a la lista de pestañas y, al elegirlo, se renderiza el módulo
+ * de Eventos completo en vez de la grilla de mesas.
  */
 const DEFAULTS = { tipo: 'temática', mesa: '' };
 
@@ -30,18 +40,30 @@ export default function Mesas() {
 
   const todas = useMemo(() => (bd ? selMesas(bd, {}) : []), [bd]);
   const atrasadas = useMemo(() => (bd ? new Set(mesasSinReunion(bd, hoy).map((m) => m.id)) : new Set()), [bd, hoy]);
+  const totalEventos = useMemo(() => (bd ? selEventos(bd, {}).length : 0), [bd]);
 
-  const pestanias = TIPOS_MESA.map((tipo) => ({
-    valor: tipo,
-    titulo: CONFIG_TIPO[tipo].titulo,
-    icono: CONFIG_TIPO[tipo].icono,
-    color: CONFIG_TIPO[tipo].color,
-    cantidad: todas.filter((m) => m.tipo === tipo).length,
-  }));
+  const enEventos = filtros.tipo === 'eventos';
+
+  const pestanias = [
+    ...TIPOS_MESA.map((tipo) => ({
+      valor: tipo,
+      titulo: CONFIG_TIPO[tipo].titulo,
+      icono: CONFIG_TIPO[tipo].icono,
+      color: CONFIG_TIPO[tipo].color,
+      cantidad: todas.filter((m) => m.tipo === tipo).length,
+    })),
+    {
+      valor: 'eventos',
+      titulo: 'Eventos',
+      icono: CalendarDays,
+      color: 'var(--color-serie-6)',
+      cantidad: totalEventos,
+    },
+  ];
 
   const delTipo = todas.filter((m) => m.tipo === filtros.tipo);
   const cfg = configDe(filtros.tipo);
-  const mesaAbierta = filtros.mesa ? todas.find((m) => m.id === filtros.mesa) : null;
+  const mesaAbierta = !enEventos && filtros.mesa ? todas.find((m) => m.id === filtros.mesa) : null;
   // Un color por mesa, no por tipo: ver `coloresPorMesa`. Se calcula sobre las
   // del tipo ABIERTO, que son las que se ven juntas.
   const colores = useMemo(() => coloresPorMesa(delTipo), [delTipo]);
@@ -51,18 +73,30 @@ export default function Mesas() {
     <>
       <EncabezadoPagina
         titulo="Mesas de trabajo"
-        descripcion="Mesas temáticas, barriales y otros proyectos, con su historial de reuniones y compromisos."
+        descripcion={
+          enEventos
+            ? 'Agenda y preparación operativa de eventos municipales, coordinada por Coordinación.'
+            : 'Mesas temáticas, barriales y otros proyectos, con su historial de reuniones y compromisos.'
+        }
         acciones={
-          <Boton variante="primario" icono={Plus} onClick={() => setFormulario({ tipo: filtros.tipo })}>
-            Nueva mesa
-          </Boton>
+          // El botón de alta de eventos vive dentro de Eventos, junto a sus
+          // propias sub-pestañas (calendario/lista/checklist): no tiene
+          // sentido acá arriba porque "Nueva mesa" y "Cargar evento" abren
+          // formularios distintos con estado propio en cada módulo.
+          !enEventos && (
+            <Boton variante="primario" icono={Plus} onClick={() => setFormulario({ tipo: filtros.tipo })}>
+              Nueva mesa
+            </Boton>
+          )
         }
       />
 
       <Pagina className="flex flex-col gap-4">
         <Pestanias opciones={pestanias} valor={filtros.tipo} alCambiar={(v) => setFiltros({ tipo: v, mesa: '' })} />
 
-        {mesaAbierta ? (
+        {enEventos ? (
+          <Eventos />
+        ) : mesaAbierta ? (
           <FichaMesa
             mesa={mesaAbierta}
             color={colorDe(mesaAbierta)}

@@ -217,7 +217,7 @@ function eventosIncompletos(bd, hoy) {
         dias_atraso: 0,
         dias_restantes: dias,
         id_origen: e.id,
-        ruta_origen: `/eventos?tab=checklist&evento=${e.id}`,
+        ruta_origen: `/mesas?tipo=eventos&tab=checklist&evento=${e.id}`,
       };
     });
 }

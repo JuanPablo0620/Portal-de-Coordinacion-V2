@@ -11,6 +11,239 @@ y el resultado de `npm run verificar`.
 
 ---
 
+## 14/09/2026 (noche, después) — Coordinación y Secretaría General fuera de la cobertura de Monitoreo
+
+**Pedido de JP**, sobre el gráfico «Monitoreos por secretaría»: sacar a
+Coordinación («somos nosotros») y a Secretaría General.
+
+**Qué cambió**
+
+- `datos/selectores.js` suma `AREAS_SIN_MONITOREO_PROPIO` (Coordinación,
+  Secretaría General) y la aplica en **las dos** funciones de cobertura,
+  `monitoreosPorArea` y `monitoreosPorSemana` — el pedido nombraba un solo
+  gráfico, pero las dos alimentan la misma pestaña «Cobertura» con la misma
+  pregunta («¿a quién le falta el Monitoreo?»), así que dejar una sin el
+  filtro hubiera sido inconsistente en la misma pantalla.
+- La exclusión es total, no sólo visual: `monitoreosPorArea` ya no las
+  incluye en el `Map` que arma, así que tampoco cuentan en las métricas
+  «Monitoreos en el período» / «Secretarías con cobertura» / «Secretarías
+  sin cobertura» de arriba, ni en la tabla de abajo — las tres leen el mismo
+  array que alimenta al gráfico.
+- **Por qué las dos y no una lista configurable:** Coordinación es quien
+  monitorea a las demás áreas, no una secretaría que se monitorea a sí
+  misma. Secretaría General es una etiqueta que sólo se usa como
+  organizadora de eventos (`conSecretariaGeneral()` en
+  `utilidades/catalogos.js`), no una secretaría real con Monitoreo a cargo.
+  Las dos están afuera por la misma razón de fondo (no les corresponde
+  Monitoreo propio), así que van en la misma constante en vez de un filtro
+  ad hoc por pantalla.
+
+**Archivos:** `src/datos/selectores.js`, `pruebas/aceptacion.test.mjs`
+(el test de "vaciar el sistema" contaba las 7 áreas del catálogo semilla;
+ahora espera 6, sin Coordinación).
+
+### Verificación
+
+```
+npm run verificar
+```
+
+369/369 tests · build OK · 124 comprobaciones de render · 29 rutas de
+accesibilidad auditadas. Sin fallas.
+
+---
+
+## 14/09/2026 (noche) — Pendientes agrupados por vencimiento y filtros plegables
+
+**Dos pedidos de JP**, sobre bocetos que se armaron antes para comparar
+opciones.
+
+### 1. Mis áreas: «Compromisos pendientes» deja de ser una tabla
+
+La tabla tenía cuatro columnas y **tres escribían el mismo valor en todas las
+filas**. Con los seis compromisos de Ambiente de ese día era «Secretaría de
+Ambiente y Servicios Públicos · 21/10/2026 · pendiente» repetido seis veces:
+cerca del 45% del ancho ocupado por texto que no distingue una fila de otra. Y
+el dato que decide si algo se trata hoy —cuántos días faltan— no estaba.
+
+Ahora cada vencimiento es un **encabezado de grupo** que se enuncia una vez:
+punto del semáforo, «Vence en 37 días», la fecha al lado en gris y cuántos
+compromisos caen ahí. La fila queda en una línea: sigla del área con su color
+de identidad, el texto, y el origen a la derecha.
+
+- **El estado no se escribe más.** A esa lista no llegan ni cumplidos
+  (`solo_vigentes`) ni vencidos (tienen su tabla arriba), así que el chip
+  «pendiente» repetido no informaba nada. Lo que sí varía —cuán cerca está el
+  vencimiento— lo dice el punto, con la escala de `nivelPorDias` de siempre.
+- **El CSV no cambió.** Un CSV agrupado no se abre en una planilla, así que la
+  exportación sigue siendo tabular y con las mismas columnas: el archivo que
+  baja hoy es idéntico al de ayer.
+- Las filas son `<button>`, así que el clic que abre el compromiso en
+  Seguimiento ahora también se llega con el teclado.
+
+### 2. Monitoreo: los filtros arrancan plegados
+
+Ocupaban tres bloques —área, período y alternadores— arriba de todo, así que lo
+primero que se veía al entrar era el panel de filtros. `TarjetaFiltros` acepta
+`desplegable`; plegada es una línea y desplegada se ve **exactamente como
+antes**. Está activado en los tres filtros del módulo (Últimos monitoreos,
+Cobertura y el tablero Por secretaría) y en ningún otro: es una opción, no un
+cambio del componente compartido.
+
+**Plegada no esconde estado**: si hay filtros puestos, la línea dice cuántos y
+deja el botón de limpiar a mano. Una lista filtrada que parece completa es peor
+que una tarjeta grande. El estado abierto/cerrado no se recuerda entre visitas
+—persistirlo obligaría a pasar por la capa de datos—, pero los filtros sí:
+siguen viviendo en la URL.
+
+**Dos cosas que saltaron en la verificación**
+
+1. El comentario que explicaba por qué no se persiste el estado **nombraba la
+   API de almacenamiento del navegador**, y el chequeo de aislamiento es un
+   grep sobre el archivo entero: daba infractor sin que hubiera ninguna
+   llamada. Se reescribió sin nombrarla.
+2. El título plegado era un `<span>` y sacaba a la tarjeta de la cadena de
+   encabezados: /monitoreo pasaba de `h1` a `h3`. Ahora es un `<h2>` con el
+   botón adentro, que además es el patrón de *disclosure* accesible.
+
+**Archivos**: `src/modulos/mis-areas/MisAreas.jsx`,
+`src/componentes/Filtros.jsx`, `src/modulos/monitoreo/Monitoreo.jsx`,
+`src/modulos/monitoreo/TableroSecretarias.jsx`.
+
+**Verificación**: `npm run verificar` completo — 369 tests, aislamiento,
+circulares, importaciones sin uso, build, 124 comprobaciones de humo y 29 rutas
+de accesibilidad.
+
+## 14/09/2026 (tarde) — Cobertura semanal de Monitoreo, gráfico apilado por secretaría
+
+**Pedido de JP:** un gráfico que muestre, semana a semana del mes en curso,
+qué secretarías ya tuvieron su Monitoreo y cuáles todavía no — con las
+semanas en el eje X y cada secretaría apilada en el eje Y. El pedido original
+decía «gráfico de compromisos», pero JP aclaró después que fue un error de
+tipeo: es de **Monitoreo**, sin relación con los compromisos de la sesión
+anterior (eventos).
+
+**Qué cambió**
+
+- `datos/selectores.js` suma `monitoreosPorSemana(bd, { anio, mes })`:
+  parte el mes en semanas de lunes a domingo (recortadas a los días del mes,
+  mismo criterio que ya usa `Calendario.jsx`) y por cada una cuenta, por
+  secretaría, si tuvo Monitoreo (`0`/`1`, con clave = `prefijo` del área) más
+  una columna `sin_cobertura` con la cantidad de áreas que ese semana todavía
+  no lo tuvieron.
+- `componentes/Graficos.jsx` — `GraficoBarras` suma la prop `apilado`: hasta
+  ahora varias `series` siempre se dibujaban agrupadas (una al lado de la
+  otra), nunca apiladas, porque ningún `Bar` llevaba `stackId`. Con
+  `apilado` los agrega todos al mismo `stackId` y saca el radio de esquina
+  (con esquinas redondas cada franja del medio de la torre dibuja un
+  escalón contra la de al lado).
+- `modulos/monitoreo/Monitoreo.jsx` — la pestaña **Cobertura**
+  (`PanelCobertura`) suma la tarjeta «Cobertura semanal de Monitoreo»: una
+  serie apilada por secretaría (color y sigla de `identidadArea`, el mismo
+  sistema de colores que ya usan Eventos y Seguimiento) más una franja gris
+  «Sin monitorear». Es **siempre el mes en curso**, no el período que tenga
+  elegido el filtro de arriba — la pregunta que responde («¿a quién le falta
+  el Monitoreo esta semana?») es de esta semana puntual, y se lo aclara en
+  la descripción de la tarjeta para que no parezca un bug que no reaccione
+  al selector de período.
+
+**Archivos:** `src/datos/selectores.js`, `src/componentes/Graficos.jsx`,
+`src/modulos/monitoreo/Monitoreo.jsx`, `scripts/humo.mjs`.
+
+### Verificación
+
+```
+npm run verificar
+```
+
+369/369 tests · build OK · 124 comprobaciones de render · 29 rutas de
+accesibilidad auditadas. Sin fallas.
+
+### Pendiente para más adelante, no resuelto hoy
+
+- Cada secretaría aporta como máximo 1 por semana en el gráfico porque el
+  Monitoreo es semanal por diseño (ver glosario). Si alguna vez una
+  secretaría carga más de un Monitoreo en la misma semana, la franja de esa
+  secretaría igual mide 1 — el gráfico responde "¿tuvo o no tuvo", no
+  "cuántos tuvo". Es la lectura correcta para lo que se pidió, pero vale
+  dejarlo anotado si en algún momento se quiere la cantidad real.
+
+---
+
+## 14/09/2026 — Eventos se mudó a una pestaña de Mesas de trabajo
+
+**Pedido de JP:** al mismo tiempo que se armó la propuesta de DER para que
+los eventos puedan generar compromisos entre áreas (ver
+`docs/decisiones/2026-09-14-compromisos-de-eventos.md`), pidió reflejar en el
+front que Eventos ya no es un ítem propio de la navegación: pasa a ser una
+pestaña más de Mesas de trabajo, junto a Temáticas/Barriales/Otros proyectos.
+Confirmó dos datos que estaban pendientes: la reunión de eventos no tiene
+periodicidad fija (a diferencia de Monitoreo semanal o Seguimiento cada 6
+semanas) y la coordina Coordinación.
+
+**Qué cambió**
+
+- Sacado de la navegación lateral. `Mesas.jsx` suma una cuarta pestaña
+  **«Eventos»** (icono `CalendarDays`, color propio para no pisar los tres
+  colores ya usados por tipo de mesa) con la cantidad total de eventos como
+  badge, igual que "Barriales 3" en la captura que trajo JP.
+- Al elegir esa pestaña, `Mesas.jsx` renderiza el módulo de Eventos completo
+  (calendario/lista/checklist, sin tocar su lógica interna) en vez de la
+  grilla de mesas. El título de la página sigue siendo "Mesas de trabajo";
+  la descripción y el botón de alta ("Nueva mesa" vs. nada — Eventos ya trae
+  el suyo) cambian según la pestaña activa.
+- `Eventos.jsx` dejó de traer su propio `EncabezadoPagina`/`Pagina` (ahora
+  los pone `Mesas.jsx`, que está montada en la misma ruta) y su botón
+  «Cargar evento» pasó a vivir junto a sus propias sub-pestañas
+  (calendario/lista/checklist).
+- La clave de filtro de tipo de evento se renombró de `tipo` a `tipoevento`
+  dentro de Eventos: las dos pantallas comparten ahora la misma URL
+  (`/mesas`) y `useFiltrosUrl` lee los `searchParams` de la página completa,
+  así que el `tipo` que usa Mesas para elegir pestaña (temática / barrial /
+  otros proyectos / eventos) hubiera pisado al `tipo` de evento (tipos del
+  catálogo `tipos_evento`) si se dejaban con el mismo nombre.
+- `/eventos` sigue existiendo como redirección a `/mesas?tipo=eventos`,
+  preservando los parámetros (`tab`, `evento`) para no romper alertas
+  guardadas, la fila de "Fecha del evento" en el tablero de Monitoreo por
+  secretaría y los enlaces que arma `itemsCalendario` para el calendario
+  agregado del dashboard.
+
+**Por qué no se fusionó con la tabla de `mesas`:** se evaluó explícitamente
+(sección 4 del documento de decisión) y se descartó — en el vocabulario
+institucional «mesa» son las mesas de barrio popular (Esperanza, EDLA,
+Favelita), y la reunión de eventos es un circuito distinto aunque ahora
+comparta la misma pestaña de navegación. El acercamiento es solo de interfaz;
+el modelo de datos de Eventos (`eventos` + `requerimientos_evento`) sigue
+separado del de Mesas.
+
+**Archivos:** `src/App.jsx`, `src/componentes/Layout.jsx`,
+`src/modulos/mesas/Mesas.jsx`, `src/modulos/eventos/Eventos.jsx`,
+`src/datos/alertas.js`, `src/datos/selectores.js`,
+`src/modulos/monitoreo/TableroSecretarias.jsx`, `scripts/humo.mjs`,
+`pruebas/selectores.test.mjs`.
+
+### Verificación
+
+```
+npm run verificar
+```
+
+369/369 tests · build OK · 123 comprobaciones de render · 29 rutas de
+accesibilidad auditadas. Sin fallas.
+
+### Pendiente para más adelante, no resuelto hoy
+
+- El DER en sí (`docs/der-esquema-datos.md`) todavía no incorpora el cuarto
+  origen de compromisos (`evento`) ni las tablas `reuniones_evento` /
+  `reuniones_evento_eventos` — eso queda en estado de propuesta hasta que JP
+  confirme el documento de decisión.
+- El prototipo (`src/datos/`) no tiene todavía la colección
+  `reuniones_evento` ni un selector de compromisos por evento: por ahora el
+  movimiento fue solo de navegación/interfaz, sin backend de compromisos de
+  evento detrás.
+
+---
+
 ## 07/09/2026 (tarde) — Los cortes se cargan eligiendo calles en el mapa
 
 **Pedido de JP**, sobre el módulo que se había armado esa misma mañana: en vez

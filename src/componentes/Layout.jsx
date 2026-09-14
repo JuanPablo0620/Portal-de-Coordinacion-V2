@@ -5,7 +5,6 @@ import { usePerfil, useSesion } from '../estado/sesion.js';
 import { acciones } from '../estado/tienda.js';
 import {
   CalendarCheck,
-  CalendarDays,
   CloudCog,
   FileBarChart,
   FolderKanban,
@@ -34,8 +33,10 @@ const MODULOS = [
   { ruta: '/estrategicos', titulo: 'Proyectos estratégicos', icono: Gem },
   { ruta: '/posicionamiento', titulo: 'Posicionamiento', icono: Globe2 },
   { ruta: '/planificacion', titulo: 'Planificación', icono: Target },
+  // Eventos ya no es un ítem propio: es una pestaña más de Mesas de trabajo
+  // (ver `src/modulos/mesas/Mesas.jsx`), junto a Temáticas/Barriales/Otros
+  // proyectos — decisión del 14/09/2026.
   { ruta: '/mesas', titulo: 'Mesas de trabajo', icono: Users },
-  { ruta: '/eventos', titulo: 'Eventos', icono: CalendarDays },
   { ruta: '/mapa', titulo: 'Mapa de cortes', icono: MapPinned },
   { ruta: '/reportes', titulo: 'Reportes', icono: FileBarChart },
   { ruta: '/vigentes-supabase', titulo: 'Vigentes (Supabase)', icono: CloudCog },

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, CalendarDays, ClipboardCheck, List, Pencil, Plus, Trash2 } from 'lucide-react';
-import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Aviso, Boton, Chip, Metrica, Pestanias, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
@@ -18,11 +17,20 @@ import { acciones, useBD } from '../../estado/tienda.js';
 import { conSecretariaGeneral, useOpciones } from '../../utilidades/catalogos.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
-const DEFAULTS = { tab: 'calendario', area: '', tipo: '', estado: '', evento: '' };
+const DEFAULTS = { tab: 'calendario', area: '', tipoevento: '', estado: '', evento: '' };
 
 /** Lo que limpia el botón: filtros, nunca la pestaña ni el evento abierto. */
-const CLAVES_FILTRO = ['area', 'tipo', 'estado'];
+const CLAVES_FILTRO = ['area', 'tipoevento', 'estado'];
 
+/**
+ * Eventos vive como pestaña de Mesas de trabajo (`Mesas.jsx`), no como página
+ * propia — decisión del 14/09/2026. Por eso no trae su propio
+ * `EncabezadoPagina`: ese lo pone Mesas, que ya está montada en la misma
+ * ruta `/mesas`. La clave de filtro de tipo de evento se llama `tipoevento`
+ * y no `tipo` para no pisar el `tipo` que usa Mesas para elegir la pestaña
+ * (Temáticas/Barriales/Otros proyectos/Eventos) — las dos viven en la misma
+ * URL y `useFiltrosUrl` lee `searchParams` compartidos de la página.
+ */
 export default function Eventos() {
   const bd = useBD();
   const hoy = hoyISO();
@@ -72,62 +80,55 @@ export default function Eventos() {
 
   return (
     <>
-      <EncabezadoPagina
-        titulo="Eventos"
-        descripcion="Agenda y preparación operativa de actividades municipales."
-        acciones={
-          <Boton variante="primario" icono={Plus} onClick={() => setFormulario({})}>
-            Cargar evento
-          </Boton>
-        }
-      />
+      {/* Los eventos ya no viven en esta computadora. Si no se pudieron
+          traer, lo que se ve puede estar desactualizado o incompleto — y eso
+          hay que decirlo, no dejar que parezca la lista real. */}
+      {errorRemoto && (
+        <Aviso tono="error" titulo="No se pudo traer todo desde la base">
+          Puede que estés viendo información desactualizada, y lo que cargues ahora quizás no se
+          guarde. Probá recargar la página. Si sigue, avisale a Control de Gestión. ({errorRemoto})
+        </Aviso>
+      )}
+      {errorAccion && <Aviso tono="error">{errorAccion}</Aviso>}
 
-      <Pagina className="flex flex-col gap-4">
-        {/* Los eventos ya no viven en esta computadora. Si no se pudieron
-            traer, lo que se ve puede estar desactualizado o incompleto — y eso
-            hay que decirlo, no dejar que parezca la lista real. */}
-        {errorRemoto && (
-          <Aviso tono="error" titulo="No se pudo traer todo desde la base">
-            Puede que estés viendo información desactualizada, y lo que cargues ahora quizás no se
-            guarde. Probá recargar la página. Si sigue, avisale a Control de Gestión. ({errorRemoto})
-          </Aviso>
-        )}
-        {errorAccion && <Aviso tono="error">{errorAccion}</Aviso>}
-
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Pestanias opciones={pestanias} valor={filtros.tab} alCambiar={(v) => setFiltros({ tab: v })} />
+        <Boton variante="primario" icono={Plus} onClick={() => setFormulario({})}>
+          Cargar evento
+        </Boton>
+      </div>
 
-        {alertasEvento.length > 0 && filtros.tab === 'lista' && (
-          <Aviso tono="alerta" titulo={`${alertasEvento.length} evento(s) con requerimientos sin confirmar`}>
-            {alertasEvento.map((a) => a.titulo).join(' · ')} — a menos de {UMBRALES.DIAS_EVENTO} días.{' '}
-            <button type="button" className="underline" onClick={() => setFiltros({ tab: 'checklist' })}>
-              Ver checklist
-            </button>
-          </Aviso>
-        )}
+      {alertasEvento.length > 0 && filtros.tab === 'lista' && (
+        <Aviso tono="alerta" titulo={`${alertasEvento.length} evento(s) con requerimientos sin confirmar`}>
+          {alertasEvento.map((a) => a.titulo).join(' · ')} — a menos de {UMBRALES.DIAS_EVENTO} días.{' '}
+          <button type="button" className="underline" onClick={() => setFiltros({ tab: 'checklist' })}>
+            Ver checklist
+          </button>
+        </Aviso>
+      )}
 
-        {filtros.tab === 'calendario' && (
-          <PanelCalendario
-            bd={bd}
-            hoy={hoy}
-            filtros={filtros}
-            setFiltros={setFiltros}
-            alCargar={() => setFormulario({})}
-          />
-        )}
-        {filtros.tab === 'lista' && (
-          <PanelLista bd={bd} hoy={hoy} filtros={filtros} setFiltros={setFiltros} alEditar={setFormulario} />
-        )}
-        {filtros.tab === 'checklist' && (
-          <PanelChecklist
-            bd={bd}
-            hoy={hoy}
-            filtros={filtros}
-            setFiltros={setFiltros}
-            alEditar={setFormulario}
-            alBorrar={setABorrar}
-          />
-        )}
-      </Pagina>
+      {filtros.tab === 'calendario' && (
+        <PanelCalendario
+          bd={bd}
+          hoy={hoy}
+          filtros={filtros}
+          setFiltros={setFiltros}
+          alCargar={() => setFormulario({})}
+        />
+      )}
+      {filtros.tab === 'lista' && (
+        <PanelLista bd={bd} hoy={hoy} filtros={filtros} setFiltros={setFiltros} alEditar={setFormulario} />
+      )}
+      {filtros.tab === 'checklist' && (
+        <PanelChecklist
+          bd={bd}
+          hoy={hoy}
+          filtros={filtros}
+          setFiltros={setFiltros}
+          alEditar={setFormulario}
+          alBorrar={setABorrar}
+        />
+      )}
 
       {formulario && <FormularioEvento abierto alCerrar={() => setFormulario(null)} evento={formulario.id ? formulario : null} />}
       <ModalConfirmacion
@@ -309,8 +310,8 @@ function PanelLista({ bd, hoy, filtros, setFiltros, alEditar }) {
   const opcionesTipo = useOpciones('tipos_evento');
 
   const filas = useMemo(
-    () => (bd ? selEventos(bd, { area: filtros.area, tipo: filtros.tipo, estado: filtros.estado }) : []),
-    [bd, filtros.area, filtros.tipo, filtros.estado],
+    () => (bd ? selEventos(bd, { area: filtros.area, tipo: filtros.tipoevento, estado: filtros.estado }) : []),
+    [bd, filtros.area, filtros.tipoevento, filtros.estado],
   );
 
   return (
@@ -323,7 +324,7 @@ function PanelLista({ bd, hoy, filtros, setFiltros, alEditar }) {
       >
         <GrillaFiltros columnas={3}>
           <CampoSelect etiqueta="Área organizadora" opciones={opcionesArea} value={filtros.area} onChange={(e) => setFiltros({ area: e.target.value })} placeholder="Todas" />
-          <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={filtros.tipo} onChange={(e) => setFiltros({ tipo: e.target.value })} placeholder="Todos" />
+          <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={filtros.tipoevento} onChange={(e) => setFiltros({ tipoevento: e.target.value })} placeholder="Todos" />
           <CampoSelect etiqueta="Estado" opciones={ESTADOS_EVENTO} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
         </GrillaFiltros>
       </TarjetaFiltros>

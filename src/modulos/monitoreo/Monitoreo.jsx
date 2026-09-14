@@ -7,12 +7,13 @@ import { Alternadores, GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../.
 import { GraficoBarras } from '../../componentes/Graficos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { CampoSelect } from '../../componentes/Campo.jsx';
+import { identidadArea } from '../../componentes/identidadArea.jsx';
 import { CargarMonitoreo } from './CargarMonitoreo.jsx';
 import { PanelAlertas } from './PanelAlertas.jsx';
 import { TableroSecretarias } from './TableroSecretarias.jsx';
 import { calcularAlertas } from '../../datos/alertas.js';
-import { hoyISO, monitoreos as selMonitoreos, monitoreosPorArea } from '../../datos/selectores.js';
-import { fecha as fFecha } from '../../utilidades/formato.js';
+import { hoyISO, monitoreos as selMonitoreos, monitoreosPorArea, monitoreosPorSemana } from '../../datos/selectores.js';
+import { fecha as fFecha, nombreMes } from '../../utilidades/formato.js';
 import { useBD } from '../../estado/tienda.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
@@ -131,6 +132,7 @@ function PanelUltimos({ bd, filtros, setFiltros, rango, hoy }) {
         defaults={DEFAULTS}
         claves={CLAVES_FILTRO}
         alLimpiar={() => limpiarClaves(setFiltros, DEFAULTS, CLAVES_FILTRO)}
+        desplegable
       >
         <GrillaFiltros columnas={4}>
           <CampoSelect
@@ -452,6 +454,24 @@ function PanelCobertura({ bd, filtros, setFiltros, rango, hoy }) {
   /** Ir a la hoja de esa secretaría: la comparación sólo sirve si se puede entrar. */
   const abrirHoja = (area) => setFiltros({ tab: 'secretarias', secretaria: area });
 
+  // Siempre el mes EN CURSO, no el `rango` del filtro de arriba: la pregunta
+  // que responde este gráfico ("¿a quién le falta el Monitoreo esta semana?")
+  // es de esta semana puntual, no del período que esté mirando el usuario.
+  const anioActual = Number(hoy.slice(0, 4));
+  const mesActual = Number(hoy.slice(5, 7)) - 1;
+  const opcionesArea = useOpciones('areas');
+  const semanal = useMemo(
+    () => (bd ? monitoreosPorSemana(bd, { anio: anioActual, mes: mesActual }) : { semanas: [], areas: [] }),
+    [bd, anioActual, mesActual],
+  );
+  const seriesSemanal = useMemo(() => {
+    const porArea = semanal.areas.map((area) => {
+      const identidad = identidadArea(area.nombre, opcionesArea);
+      return { clave: area.prefijo, titulo: identidad.sigla, color: identidad.borde };
+    });
+    return [...porArea, { clave: 'sin_cobertura', titulo: 'Sin monitorear', color: 'var(--color-vencido)' }];
+  }, [semanal.areas, opcionesArea]);
+
   return (
     <div className="flex flex-col gap-4">
       <TarjetaFiltros
@@ -459,6 +479,7 @@ function PanelCobertura({ bd, filtros, setFiltros, rango, hoy }) {
         defaults={DEFAULTS}
         claves={CLAVES_FILTRO}
         alLimpiar={() => limpiarClaves(setFiltros, DEFAULTS, CLAVES_FILTRO)}
+        desplegable
       >
         <SelectorPeriodo filtros={filtros} setFiltros={setFiltros} rango={rango} hoy={hoy} />
         <Alternadores
@@ -478,6 +499,13 @@ function PanelCobertura({ bd, filtros, setFiltros, rango, hoy }) {
           detalle={sinCobertura.length ? 'sin ningún monitoreo registrado' : 'todas cubiertas'}
         />
       </div>
+
+      <Tarjeta
+        titulo="Cobertura semanal de Monitoreo"
+        descripcion={`Semana a semana de ${nombreMes(anioActual, mesActual)}: cada franja de color es una secretaría que ya tuvo su Monitoreo; la franja gris son las que todavía no. No se filtra por el período de arriba — siempre es el mes en curso.`}
+      >
+        <GraficoBarras datos={semanal.semanas} clave="semana" apilado alto={260} series={seriesSemanal} />
+      </Tarjeta>
 
       <Tarjeta
         titulo="Monitoreos por secretaría"

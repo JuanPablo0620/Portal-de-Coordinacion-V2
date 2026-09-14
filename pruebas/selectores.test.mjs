@@ -144,7 +144,7 @@ test('un evento de varios días aparece en cada fecha del calendario y abre su d
     '2026-09-30',
   );
   assert.deepEqual(items.map((item) => item.fecha), ['2026-09-12', '2026-09-13']);
-  assert.ok(items.every((item) => item.ruta === '/eventos?tab=checklist&evento=e1'));
+  assert.ok(items.every((item) => item.ruta === '/mesas?tipo=eventos&tab=checklist&evento=e1'));
   assert.ok(items.every((item) => item.area === 'Secretaría de Cultura'));
 });
 

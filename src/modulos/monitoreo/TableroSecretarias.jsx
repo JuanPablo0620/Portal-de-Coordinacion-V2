@@ -148,6 +148,7 @@ function Grilla({ bd, periodo, filtros, setFiltros, alertas, areas, hoy }) {
         defaults={DEFAULTS}
         claves={CLAVES_FILTRO}
         alLimpiar={() => limpiarClaves(setFiltros, DEFAULTS, CLAVES_FILTRO)}
+        desplegable
         descripcion="El período acota lo que se contabiliza. Los compromisos y proyectos se muestran siempre vigentes: recortarlos por fecha escondería lo que hay que ver."
       >
         <div className="sm:max-w-xs">
@@ -693,7 +694,7 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
                 formatoCSV: fFecha,
               },
             ]}
-            alHacerClicFila={(f) => navegar(`/eventos?tab=checklist&evento=${f.id_evento}`)}
+            alHacerClicFila={(f) => navegar(`/mesas?tipo=eventos&tab=checklist&evento=${f.id_evento}`)}
           />
         </Tarjeta>
       )}
@@ -724,7 +725,7 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
                 formatoCSV: (v) => `${v.confirmados}/${v.total}`,
               },
             ]}
-            alHacerClicFila={(f) => navegar(`/eventos?tab=lista&evento=${f.id}`)}
+            alHacerClicFila={(f) => navegar(`/mesas?tipo=eventos&tab=lista&evento=${f.id}`)}
           />
         </Tarjeta>
       )}

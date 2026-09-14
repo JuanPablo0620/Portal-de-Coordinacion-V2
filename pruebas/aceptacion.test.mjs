@@ -189,8 +189,11 @@ test('vaciar el sistema deja las colecciones limpias pero los catálogos utiliza
   assert.deepEqual(calcularAlertas(vacia, HOY), []);
   assert.deepEqual(vencimientosProximos(vacia, HOY, 15), []);
   assert.equal(armarReporte(vacia, {}, HOY).resumen.proyectos, 0);
-  // El panel de cobertura muestra las áreas del catálogo en cero
-  assert.equal(monitoreosPorArea(vacia, {}).length, vacia.catalogos.areas.length);
+  // El panel de cobertura muestra las áreas del catálogo en cero, salvo
+  // Coordinación (que monitorea, no se monitorea a sí misma — ver
+  // AREAS_SIN_MONITOREO_PROPIO en selectores.js).
+  const areasConMonitoreoPropio = vacia.catalogos.areas.filter((a) => a.nombre !== 'Coordinación');
+  assert.equal(monitoreosPorArea(vacia, {}).length, areasConMonitoreoPropio.length);
 });
 
 /* ── 10 · Trazabilidad y borrado lógico ── */

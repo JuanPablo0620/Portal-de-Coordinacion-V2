@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './componentes/Layout.jsx';
 import { sincronizarUsuario, useCargando, useTienda } from './estado/tienda.js';
 import { useHaySesion, useSesion } from './estado/sesion.js';
@@ -18,11 +18,23 @@ import Posicionamiento from './modulos/posicionamiento/Posicionamiento.jsx';
 import FichaPrograma from './modulos/posicionamiento/FichaPrograma.jsx';
 import Planificacion from './modulos/planificacion/Planificacion.jsx';
 import Mesas from './modulos/mesas/Mesas.jsx';
-import Eventos from './modulos/eventos/Eventos.jsx';
 import Mapa from './modulos/mapa/Mapa.jsx';
 import Reportes from './modulos/reportes/Reportes.jsx';
 import Configuracion from './modulos/configuracion/Configuracion.jsx';
 import VigentesSupabase from './modulos/vigentes-supabase/VigentesSupabase.jsx';
+
+/**
+ * `/eventos` pasó a ser la pestaña «eventos» de Mesas de trabajo (14/09/2026).
+ * Esto redirige los enlaces viejos (alertas guardadas, `ruta_origen` de la
+ * base, marcadores) sin perder sus parámetros: `?tab=checklist&evento=X` se
+ * preserva, sumándole `tipo=eventos` para que Mesas abra esa pestaña.
+ */
+function RedireccionEventos() {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  params.set('tipo', 'eventos');
+  return <Navigate to={`/mesas?${params.toString()}`} replace />;
+}
 
 function Cargando() {
   return (
@@ -101,7 +113,7 @@ function Portal() {
         <Route path="posicionamiento/:id" element={<FichaPrograma />} />
         <Route path="planificacion" element={<Planificacion />} />
         <Route path="mesas" element={<Mesas />} />
-        <Route path="eventos" element={<Eventos />} />
+        <Route path="eventos" element={<RedireccionEventos />} />
         <Route path="mapa" element={<Mapa />} />
         <Route path="reportes" element={<Reportes />} />
         <Route path="vigentes-supabase" element={<VigentesSupabase />} />

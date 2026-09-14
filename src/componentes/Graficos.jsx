@@ -65,6 +65,11 @@ export function GraficoBarras({
   // Los conteos no tienen medios temas: sin esto, seis categorías de un tema
   // cada una dibujan un eje 0 · 0,25 · 0,5 · 0,75 · 1.
   decimales = false,
+  // Varias series UNA ARRIBA DE LA OTRA en la misma barra (la cobertura
+  // semanal de Monitoreo, con una franja por secretaría) en vez de una al
+  // lado de la otra. Recharts apila con un mismo `stackId` en cada `Bar`;
+  // sin esto, "varias series" siempre significó agrupadas, nunca apiladas.
+  apilado = false,
 }) {
   return (
     <Marco alto={alto} datos={datos}>
@@ -93,7 +98,11 @@ export function GraficoBarras({
             dataKey={s.clave}
             name={s.titulo}
             fill={s.color ?? colorSerie(i)}
-            radius={horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
+            // Apilado: sin esquinas redondeadas — con `stackId` cada franja
+            // queda en medio de la torre de otras, y redondear las cuatro
+            // puntas de todas dibuja un escalón en cada límite entre franjas.
+            radius={apilado ? 0 : horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
+            stackId={apilado ? 'pila' : undefined}
             maxBarSize={38}
           >
             {s.colorPorItem &&

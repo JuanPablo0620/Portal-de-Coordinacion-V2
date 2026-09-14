@@ -454,19 +454,100 @@ function criticidadMaxima(temas) {
 }
 
 /**
+ * Áreas que quedan afuera de los paneles de cobertura de Monitoreo
+ * (`monitoreosPorArea`, `monitoreosPorSemana`): no son una secretaría a la
+ * que se le pueda pedir su Monitoreo semanal.
+ *
+ * - **Coordinación** es quien monitorea a las demás áreas, no un área que se
+ *   monitorea a sí misma — aparecer en cero en su propio panel de "quién no
+ *   monitoreó" no tiene sentido.
+ * - **Secretaría General** es una etiqueta que sólo se usa como organizadora
+ *   de eventos (`conSecretariaGeneral()` en `utilidades/catalogos.js`), no
+ *   una secretaría real con Monitoreo a cargo.
+ */
+const AREAS_SIN_MONITOREO_PROPIO = new Set(['Coordinación', 'Secretaría General']);
+
+/**
  * Cobertura de monitoreo por área. Las áreas SIN monitoreos aparecen en cero:
  * el propósito declarado del panel es detectar áreas sin cobertura, y omitirlas
- * las escondería justo cuando importan.
+ * las escondería justo cuando importan. Coordinación y Secretaría General son
+ * la excepción: no se las mide porque no les corresponde tener Monitoreo
+ * propio (ver `AREAS_SIN_MONITOREO_PROPIO`).
  */
 export function monitoreosPorArea(bd, filtros = {}) {
   const cuenta = new Map();
-  for (const area of activos(bd.catalogos?.areas ?? [])) cuenta.set(area.nombre, 0);
+  for (const area of activos(bd.catalogos?.areas ?? [])) {
+    if (AREAS_SIN_MONITOREO_PROPIO.has(area.nombre)) continue;
+    cuenta.set(area.nombre, 0);
+  }
   for (const m of monitoreos(bd, filtros)) {
+    if (!cuenta.has(m.area)) continue;
     cuenta.set(m.area, (cuenta.get(m.area) ?? 0) + 1);
   }
   return [...cuenta.entries()]
     .map(([area, cantidad]) => ({ area, cantidad }))
     .sort((a, b) => b.cantidad - a.cantidad || a.area.localeCompare(b.area));
+}
+
+/**
+ * Cobertura de Monitoreo semana a semana, dentro de UN mes — por defecto el
+ * actual, sin importar qué período tenga elegido el filtro de la pantalla:
+ * el propósito es "esta semana, ¿quién no monitoreó todavía?", una pregunta
+ * de esta semana puntual, no del rango que esté mirando el usuario.
+ *
+ * La semana arranca el lunes y se recorta a los días del mes (mismo criterio
+ * que usa el calendario de `Calendario.jsx`), así que la primera y la última
+ * fila pueden tener menos de 7 días. Cada secretaría aporta 0 o 1 por semana
+ * — el Monitoreo es semanal (ver glosario) — y `sin_cobertura` es la cuenta
+ * de las que no llegaron a tener el suyo esa semana, para que el gráfico
+ * apilado muestre lo que se hizo Y lo que falta, no sólo lo que se hizo.
+ */
+export function monitoreosPorSemana(bd, { anio, mes } = {}) {
+  // Misma exclusión que monitoreosPorArea: Coordinación y Secretaría General
+  // no tienen Monitoreo propio (ver AREAS_SIN_MONITOREO_PROPIO).
+  const areas = activos(bd.catalogos?.areas ?? []).filter((a) => !AREAS_SIN_MONITOREO_PROPIO.has(a.nombre));
+  const hoy = new Date(`${hoyISO()}T00:00:00Z`);
+  const anioRef = anio ?? hoy.getUTCFullYear();
+  const mesRef = mes ?? hoy.getUTCMonth();
+
+  const diasEnMes = new Date(Date.UTC(anioRef, mesRef + 1, 0)).getUTCDate();
+  const offset = (new Date(Date.UTC(anioRef, mesRef, 1)).getUTCDay() + 6) % 7; // lunes = 0
+  const dosDigitos = (n) => String(n).padStart(2, '0');
+  const prefijoMes = `${anioRef}-${dosDigitos(mesRef + 1)}`;
+
+  const semanas = [];
+  for (let dia = 1; dia <= diasEnMes; dia += 1) {
+    const indice = Math.floor((offset + dia - 1) / 7);
+    if (!semanas[indice]) semanas[indice] = { desde: dia, hasta: dia, cubiertas: new Set() };
+    semanas[indice].hasta = dia;
+  }
+
+  for (const m of activos(bd.monitoreos)) {
+    const fecha = String(m.fecha ?? '');
+    if (!fecha.startsWith(prefijoMes)) continue;
+    const dia = Number(fecha.slice(8, 10));
+    const indice = Math.floor((offset + dia - 1) / 7);
+    semanas[indice]?.cubiertas.add(m.area);
+  }
+
+  const MES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const filas = semanas.map((s, i) => {
+    const rango = s.desde === s.hasta ? `${s.desde}` : `${s.desde}–${s.hasta}`;
+    const fila = {
+      semana: `Sem ${i + 1} (${rango} ${MES_CORTO[mesRef]})`,
+      rango,
+    };
+    let cubiertas = 0;
+    for (const area of areas) {
+      const tuvo = s.cubiertas.has(area.nombre) ? 1 : 0;
+      fila[area.prefijo] = tuvo;
+      cubiertas += tuvo;
+    }
+    fila.sin_cobertura = areas.length - cubiertas;
+    return fila;
+  });
+
+  return { semanas: filas, areas };
 }
 
 /* ── Tablero por secretaría ─────────────────────────────────────────── */
@@ -1098,7 +1179,7 @@ export function historialUnificado(bd, idProyecto, capas = {}, hoy = hoyISO()) {
         extra: e.area_organizadora ?? '',
         estado: e.estado,
         nivel: e.estado === 'realizado' ? 'enregla' : e.estado === 'suspendido' ? 'vencido' : 'sindato',
-        ruta: `/eventos?evento=${e.id}`,
+        ruta: `/mesas?tipo=eventos&evento=${e.id}`,
       });
     }
   }
@@ -1611,7 +1692,7 @@ export function itemsCalendario(bd, capas, desde, hasta) {
           detalle: [e.hora, e.lugar].filter(Boolean).join(' · '),
           area: e.area_organizadora ?? '',
           estado: e.estado,
-          ruta: `/eventos?tab=checklist&evento=${e.id}`,
+          ruta: `/mesas?tipo=eventos&tab=checklist&evento=${e.id}`,
         });
       }
     }

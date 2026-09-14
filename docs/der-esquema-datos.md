@@ -30,7 +30,7 @@ que hoy no tiene ningún repo activo usándolo) y le suma los módulos de v2,
 para que cuando el portal deje de vivir en `localStorage` tenga un esquema
 real de Postgres detrás, sin perder ninguna de las dos partes.
 
-Vive en `supabase/migrations/0001_esquema.sql` (**41 tablas, 14 tipos
+Vive en `supabase/migrations/0001_esquema.sql` (**43 tablas, 14 tipos
 enum**), escrito el 19/08/2026. Posicionamiento internacional se rediseñó
 el 21/08/2026 y `temas_monitoreo` sumó `compromiso_id` el 25/08/2026 (ver
 sección 2, puntos 9 y 10).
@@ -38,6 +38,11 @@ sección 2, puntos 9 y 10).
 El 25/08/2026 se había agregado `puntuales` como tabla propia (PR #1); se
 revirtió el 01/09/2026 al confirmarse que el prototipo nunca la adoptó —
 ver punto 11.
+
+El 14/09/2026, `compromisos` sumó un cuarto origen posible (`evento`) y dos
+tablas nuevas (`reuniones_evento`, `reuniones_evento_eventos`), para que la
+reunión de agenda de eventos pueda generar compromisos entre áreas — ver
+punto 12.
 
 ---
 
@@ -76,13 +81,14 @@ pierda si no se las explican:
    segundo.
 
 5. **`compromisos` tiene origen polimórfico con FK dura, no un
-   `tipo + id` genérico.** Tres columnas nullable
-   (`id_seguimiento_origen`, `id_tema_origen`, `id_reunion_origen`), con un
-   `CHECK (num_nonnulls(...) <= 1)` que garantiza que como máximo una esté
-   cargada (o ninguna, si el compromiso se creó a mano sin origen). La
-   alternativa típica —una columna `origen_tipo` de texto libre más un
-   `origen_id` sin FK— no la elimina el motor de base de datos si un
-   registro de origen se borra; esta sí.
+   `tipo + id` genérico.** Cuatro columnas nullable
+   (`id_seguimiento_origen`, `id_tema_origen`, `id_reunion_origen`,
+   `id_reunion_evento_origen` — esta última sumada el 14/09/2026, ver
+   punto 12), con un `CHECK (num_nonnulls(...) <= 1)` que garantiza que
+   como máximo una esté cargada (o ninguna, si el compromiso se creó a mano
+   sin origen). La alternativa típica —una columna `origen_tipo` de texto
+   libre más un `origen_id` sin FK— no la elimina el motor de base de datos
+   si un registro de origen se borra; esta sí.
 
 6. **La auditoría es por trigger genérico sobre la tabla, no por bitácora
    de aplicación.** Reemplaza el `historial` de v2 (que era app-level: solo
@@ -156,6 +162,62 @@ pierda si no se las explican:
     `compromisos_vinculo_unico` completo, y `puntual_id` salió del
     `num_nonnulls(...)` de `temas_monitoreo_vinculo_unico` (punto 10).
 
+12. **Compromisos de evento, agregado el 14/09/2026 — cuarto origen
+    polimórfico + tabla de reunión propia.** Hasta acá `eventos` y
+    `requerimientos_evento` no tenían forma de generar un `compromiso`: el
+    enum `origen_compromiso` solo admitía `seguimiento | monitoreo | mesa`.
+    El caso real que lo motivó: en la reunión de agenda de eventos, Zoonosis
+    (Salud) organiza una jornada con mascotas en una plaza y le pide a
+    Ambiente que limpie el lugar los días previos, y a Seguridad que calcule
+    la dotación de efectivos — dos compromisos entre áreas que nacen del
+    mismo evento, y no todo evento genera alguno.
+
+    Se sumó `reuniones_evento` (+ la puente `reuniones_evento_eventos`, M:N
+    porque una reunión repasa varios eventos y un evento se trata en varias
+    reuniones sucesivas) como cuarto origen posible de `compromisos`, mismo
+    patrón que `seguimientos`/`temas_monitoreo`/`reuniones_mesa`: entra al
+    CHECK `compromisos_origen_unico`, que pasa de tres a cuatro columnas.
+
+    **Requerimiento vs. compromiso, la distinción que ordena el diseño:**
+    un `requerimiento_evento` es un ítem catalogado con cantidad
+    (`solicitado → confirmado → entregado`); un `compromiso` es una acción
+    con responsable y fecha límite (`pendiente → en_curso → cumplido`, más
+    `Alerta` deducida al vencer — ver el glosario). No se fusionan: se
+    conectan con `compromisos.requerimiento_id`, para cuando un
+    requerimiento necesita escalar a algo con fecha propia.
+
+    Dos columnas nuevas en `compromisos`, no una — y con roles distintos:
+    - `id_reunion_evento_origen` es el **origen** (dónde nació el
+      compromiso) y entra al CHECK de origen único.
+    - `evento_id` es el **objeto** (sobre qué evento es), igual que
+      `proyecto_id` — queda fuera del CHECK a propósito. Cubre los tres
+      casos reales: compromiso de evento acordado en reunión (los dos
+      campos cargados), compromiso de evento cargado a mano sin reunión
+      (solo `evento_id`), y acuerdo general de la reunión que no es de
+      ningún evento puntual (solo `id_reunion_evento_origen`).
+
+    `requerimiento_id` no tiene FK simple: si un compromiso apunta a un
+    requerimiento, ese requerimiento tiene que ser del mismo `evento_id` — lo
+    garantiza una FK compuesta contra `requerimientos_evento(id, evento_id)`
+    (que por eso suma un `unique (id, evento_id)`), mismo criterio de FK
+    dura del punto 5 en vez de un `tipo + id` de texto libre que el motor no
+    puede validar.
+
+    **Se descartó reusar `mesas`/`reuniones_mesa`** para modelar esta
+    reunión (el delta hubiera sido una sola columna). En el vocabulario
+    institucional "mesa" son las mesas de barrio popular (Esperanza, EDLA,
+    Favelita); mezclar los dos circuitos en la misma tabla hubiera obligado
+    a excluir la reunión de eventos de cada filtro por mesa, para siempre.
+
+    De paso, higiene menor sobre las dos tablas de eventos: `eventos` suma
+    `id_legible` (coherencia con `proyectos.id_legible`) y
+    `requerimientos_evento` — la única tabla del esquema sin columnas de
+    auditoría — suma `area_solicitante_id`, `observaciones`, `activo`,
+    `creado_por`, `created_at`, `updated_at`.
+
+    Detalle completo, alternativas evaluadas y pendientes de definición en
+    [`docs/decisiones/2026-09-14-compromisos-de-eventos.md`](decisiones/2026-09-14-compromisos-de-eventos.md).
+
 ---
 
 ## 3. Catálogo de entidades, agrupado por dominio
@@ -187,7 +249,9 @@ puntuales: no hay tabla separada (punto 11).
 
 ### Resto del circuito heredado de v1
 `actividades` (con lat/lng, para el mapa de obras) · `pedidos_roco` ·
-`eventos` · `requerimientos_evento` · `adjuntos`
+`eventos` · `requerimientos_evento` · `reuniones_evento` ·
+`reuniones_evento_eventos` (tabla puente, sumadas el 14/09/2026 —
+punto 12) · `adjuntos`
 
 ### Seguimiento (nuevo de v2)
 `seguimientos` · `seguimientos_proyectos` (tabla puente: un seguimiento
@@ -195,9 +259,13 @@ puede tocar varios proyectos)
 
 ### Monitoreo operativo y compromisos (nuevo de v2)
 `monitoreos` · `temas_monitoreo` · `mesas` · `reuniones_mesa` ·
-`mesas_proyectos` · `compromisos` (origen polimórfico, punto 5). Un tema de
-monitoreo puede además enlazar a un compromiso ya existente vía
-`compromiso_id`, sin crear una fila nueva (punto 10).
+`mesas_proyectos` · `compromisos` (origen polimórfico, ahora con cuatro
+orígenes posibles — punto 5). Un tema de monitoreo puede además enlazar a
+un compromiso ya existente vía `compromiso_id`, sin crear una fila nueva
+(punto 10). Un compromiso puede además apuntar a un evento
+(`compromisos.evento_id`) y, dentro de ese evento, a un requerimiento
+puntual que escala a compromiso (`compromisos.requerimiento_id`, con FK
+compuesta contra `requerimientos_evento` — punto 12).
 
 ### Planificación anual (nuevo de v2)
 `planificacion_anual` · `planificacion_trimestres` · `hitos_planificacion`
@@ -350,6 +418,7 @@ erDiagram
     }
     eventos {
         uuid id PK
+        text id_legible UK
         text nombre
         date fecha
         uuid area_organizadora_id FK
@@ -360,7 +429,17 @@ erDiagram
         uuid evento_id FK
         uuid item_id FK
         uuid area_responsable_id FK
+        uuid area_solicitante_id FK
         text estado
+    }
+    reuniones_evento {
+        uuid id PK
+        date fecha
+        text asistentes
+    }
+    reuniones_evento_eventos {
+        uuid reunion_evento_id PK
+        uuid evento_id PK
     }
     adjuntos {
         uuid id PK
@@ -416,7 +495,10 @@ erDiagram
         uuid id_seguimiento_origen FK
         uuid id_tema_origen FK
         uuid id_reunion_origen FK
+        uuid id_reunion_evento_origen FK
         uuid proyecto_id FK
+        uuid evento_id FK
+        uuid requerimiento_id FK
         uuid area_id FK
         text estado
         date fecha_limite
@@ -520,6 +602,10 @@ erDiagram
     eventos ||--o{ requerimientos_evento : requiere
     items_requerimiento ||--o{ requerimientos_evento : cataloga
     areas |o--o{ requerimientos_evento : responsable
+    areas |o--o{ requerimientos_evento : solicitante
+
+    reuniones_evento ||--o{ reuniones_evento_eventos : agenda
+    eventos ||--o{ reuniones_evento_eventos : ""
 
     programas |o--o{ adjuntos : ""
     proyectos |o--o{ adjuntos : ""
@@ -541,7 +627,10 @@ erDiagram
     seguimientos |o--o{ compromisos : "origen posible"
     temas_monitoreo |o--o{ compromisos : "origen posible"
     reuniones_mesa |o--o{ compromisos : "origen posible"
+    reuniones_evento |o--o{ compromisos : "origen posible"
     proyectos |o--o{ compromisos : ""
+    eventos |o--o{ compromisos : ""
+    requerimientos_evento |o--o{ compromisos : "escala a"
     areas ||--o{ compromisos : ""
 
     proyectos ||--o{ planificacion_anual : planifica
@@ -581,6 +670,15 @@ que se pueda leer. Están en el SQL completo.
   como tabla propia el 25/08/2026 (PR #1) pero el prototipo nunca la
   adoptó, así que se sacó del SQL antes de que hubiera datos reales
   cargados que migrar.
+- **Compromisos de evento, sumados el 14/09/2026** (punto 12) — el esquema
+  ya tiene el cuarto origen y las dos tablas de `reuniones_evento`. El
+  prototipo (`src/`) todavía no: por ahora el módulo Eventos se movió de
+  navegación (pasó a ser una pestaña de Mesas de trabajo, ver
+  `docs/registro-de-cambios.md` del 14/09/2026) pero sin `reuniones_evento`
+  ni un selector de compromisos por evento detrás. Falta además confirmar
+  la periodicidad exacta de esa reunión para completar `reuniones_evento`
+  con el mismo criterio que las demás — JP confirmó que la coordina
+  Coordinación y que no tiene cadencia fija.
 - **Solo existe `0001_esquema.sql`.** El propio archivo referencia (en
   comentarios) dos migraciones que todavía no están escritas:
   - `0002_logica.sql` — lógica de validación adicional (ej. el CHECK de
