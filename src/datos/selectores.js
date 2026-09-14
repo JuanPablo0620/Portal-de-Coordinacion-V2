@@ -140,14 +140,13 @@ export function proyectos(bd, filtros = {}) {
       coincide(resto.tipo, p.tipo) &&
       coincide(resto.estado, p.estado) &&
       coincide(resto.prioridad, p.prioridad) &&
-      coincide(resto.responsable, p.responsable) &&
       coincide(resto.id_proyecto, p.id_proyecto) &&
       (resto.es_obra ? p.es_obra === true : true) &&
       (resto.solo_activos ? esProyectoActivo(p) : true) &&
       (resto.solo_prioritarios ? p.prioridad === 'alta' : true) &&
       (resto.solo_estrategicos ? p.estrategico === true : true) &&
       dentroDelRango(p.fecha_carga, resto.desde, resto.hasta) &&
-      (!texto || `${p.proyecto} ${p.id_proyecto} ${p.responsable ?? ''}`.toLowerCase().includes(texto.toLowerCase())),
+      (!texto || `${p.proyecto} ${p.id_proyecto}`.toLowerCase().includes(texto.toLowerCase())),
     )
     .map((p) => ({
       ...p,
@@ -1084,7 +1083,7 @@ export function historialUnificado(bd, idProyecto, capas = {}, hoy = hoyISO()) {
         detalle: [t.categoria, t.criticidad ? `criticidad ${t.criticidad}` : null]
           .filter(Boolean)
           .join(' · '),
-        extra: [m?.area, t.responsable].filter(Boolean).join(' · '),
+        extra: m?.area ?? '',
         estado: t.resuelto ? 'resuelto' : 'sin resolver',
         nivel: t.resuelto ? 'enregla' : t.criticidad === 'alta' ? 'vencido' : 'atencion',
         ruta: m ? `/monitoreo?tab=ultimos&monitoreo=${m.id}` : '/monitoreo',
@@ -1351,6 +1350,61 @@ export function nivelEstrategico(r) {
   return 'enregla';
 }
 
+/* ── Notas y recordatorios de proyecto ──────────────────────────────── */
+
+/**
+ * Las notas vigentes de un proyecto, los recordatorios primero.
+ *
+ * Dentro de cada grupo: los recordatorios por fecha, del más urgente al más
+ * lejano; las notas sueltas por antigüedad, la más nueva arriba. Es el orden
+ * en que se miran — lo que tiene fecha reclama atención, lo demás es consulta.
+ */
+export function notasDeProyecto(bd, idProyecto) {
+  return activos(bd.notas_proyecto)
+    .filter((n) => n.id_proyecto === idProyecto)
+    .sort((a, b) => {
+      const fa = a.fecha_recordatorio || '';
+      const fb = b.fecha_recordatorio || '';
+      if (fa && fb) return fa.localeCompare(fb);
+      if (fa) return -1;
+      if (fb) return 1;
+      return String(b.creado_en ?? '').localeCompare(String(a.creado_en ?? ''));
+    });
+}
+
+/**
+ * Los recordatorios de la cartera estratégica, para el panel del tablero.
+ *
+ * Sólo las notas CON fecha y sólo las de proyectos estratégicos: una nota
+ * suelta no reclama nada, y un recordatorio de un proyecto que salió de la
+ * cartera no tiene por qué seguir apareciendo en su tablero.
+ *
+ * Cada uno viene con los días que faltan y su nivel, sacado de la misma escala
+ * que usan los compromisos y las alertas. Si tuviera una propia, un compromiso
+ * y un recordatorio que vencen el mismo día se pintarían distinto en la misma
+ * pantalla.
+ */
+export function recordatoriosEstrategicos(bd, filtros = {}, hoy = hoyISO()) {
+  const estrategicos = new Map(
+    proyectos(bd, { ...filtros, solo_estrategicos: true }).map((p) => [p.id_proyecto, p]),
+  );
+
+  return activos(bd.notas_proyecto)
+    .filter((n) => n.fecha_recordatorio && estrategicos.has(n.id_proyecto))
+    .map((n) => {
+      const dias = diasHasta(n.fecha_recordatorio, hoy);
+      const proyecto = estrategicos.get(n.id_proyecto);
+      return {
+        ...n,
+        proyecto: proyecto.proyecto,
+        area: proyecto.area ?? '',
+        dias_restantes: dias,
+        nivel: nivelPorDias(dias),
+      };
+    })
+    .sort((a, b) => String(a.fecha_recordatorio).localeCompare(String(b.fecha_recordatorio)));
+}
+
 /**
  * La cartera estratégica con todo lo que hace falta para decidir sobre ella:
  * compromisos abiertos y vencidos, temas críticos y días sin novedad.
@@ -1590,6 +1644,70 @@ export function proyectosPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
     );
 }
 
+/**
+ * TODOS los proyectos de posicionamiento, vengan de donde vengan.
+ *
+ * El módulo arrastra dos orígenes y esto los junta en uno:
+ *
+ *  - `proyectos_posicionamiento`: hermanamientos, postulaciones a fondos,
+ *    premios. Se cargan desde este módulo.
+ *  - `proyectos` con programa «Posicionamiento»: los relevados de
+ *    Coordinacion_db, que entraron por la base maestra.
+ *
+ * Para el área son lo mismo —proyectos de posicionamiento— y por eso el tablero
+ * los cuenta juntos. Contarlos por separado hacía que la misma pantalla
+ * mostrara «1 proyecto registrado» arriba y ocho tarjetas abajo.
+ *
+ * Se deduplica por el vínculo declarado (`ids_proyecto`) y, si no lo hay, por
+ * nombre: una acción que YA está cargada como proyecto de la base maestra es
+ * una sola cosa, no dos.
+ */
+export function carteraPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
+  const deLaBase = (bd?.proyectos ?? [])
+    .filter((p) => p.activo !== false && p.programa === 'Posicionamiento')
+    .filter((p) => coincide(filtros.area, p.area))
+    .map((p) => ({
+      id: p.id_proyecto,
+      nombre: p.proyecto,
+      estado: p.estado,
+      area: p.area ?? '',
+      fuente: 'base maestra',
+      // «En curso» es no haber terminado ni haberse suspendido. Un proyecto
+      // demorado sigue en curso: por eso no alcanza con mirar «en ejecución».
+      en_curso: p.estado !== 'finalizado' && p.estado !== 'suspendido',
+      // Lo que la tabla del módulo espera y un proyecto de la base maestra no
+      // tiene. Van explícitos y vacíos para que las pantallas no tengan que
+      // preguntar de qué origen es cada fila antes de leer un campo.
+      organismo: '',
+      tipo: '',
+      fecha_limite: null,
+      financiamiento_usd: 0,
+      ods: [],
+      nivel: 'sindato',
+      ultima_actualizacion: p.ultima_actualizacion ?? null,
+    }));
+
+  const yaEstan = new Set(deLaBase.map((p) => p.id));
+  const porNombre = new Set(deLaBase.map((p) => aClave(p.nombre)));
+
+  const acciones = proyectosPosicionamiento(bd, filtros, hoy)
+    .filter((a) => !(a.ids_proyecto ?? []).some((id) => yaEstan.has(id)))
+    .filter((a) => !porNombre.has(aClave(a.nombre)))
+    .map((a) => ({ ...a, fuente: 'posicionamiento', en_curso: a.abierta }));
+
+  return [...deLaBase, ...acciones];
+}
+
+/** Nombre normalizado, para reconocer el mismo proyecto cargado dos veces. */
+function aClave(nombre) {
+  return String(nombre ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/s+/g, ' ')
+    .trim();
+}
+
 /** Cantidad de acciones por dimensión. `ods` es multivaluado y se cuenta una vez por objetivo. */
 export function accionesPorDimension(bd, campo, filtros = {}, hoy = hoyISO()) {
   const cuenta = new Map();
@@ -1628,8 +1746,15 @@ export function resumenPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
   const prosperaron = (porEstado.vigente ?? 0) + (porEstado.cerrada ?? 0);
   const resueltas = prosperaron + (porEstado['no prosperó'] ?? 0);
 
+  // La cartera completa: las acciones de este módulo MÁS los proyectos de
+  // posicionamiento de la base maestra. Es lo que el área entiende por
+  // «proyectos de posicionamiento», sin distinguir por dónde entraron.
+  const cartera = carteraPosicionamiento(bd, filtros, hoy);
+
   return {
     total: lista.length,
+    registrados: cartera.length,
+    en_curso: cartera.filter((p) => p.en_curso).length,
     abiertas: lista.filter((a) => a.abierta).length,
     vigentes: porEstado.vigente ?? 0,
     presentadas: porEstado.presentada ?? 0,

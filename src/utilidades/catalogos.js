@@ -37,11 +37,27 @@ export function useOpciones(nombreCatalogo) {
  * ofrecer sesenta opciones que van a dar vacío o, peor, colgar el proyecto de
  * la secretaría equivocada.
  *
- * Sin área elegida se devuelven todos: es el estado «Todas» del filtro.
+ * Sin área elegida se devuelven todos, deduplicados POR NOMBRE: es el estado
+ * «Todas» del filtro. La deduplicación importa desde que «Proyectos
+ * estratégicos» existe en cada secretaría (ver 0035) — son programas distintos
+ * en la base, con su area_id propia, pero en una lista sin área elegida se
+ * verían como ocho opciones idénticas. El filtro compara por nombre, así que
+ * una sola entrada alcanza y trae los de todas las áreas, que es lo que
+ * alguien espera al filtrar sin elegir secretaría.
  */
+export function programasDeArea(todos, area) {
+  if (area) return todos.filter((o) => o.area === area);
+  const vistos = new Set();
+  return todos.filter((o) => {
+    if (vistos.has(o.nombre)) return false;
+    vistos.add(o.nombre);
+    return true;
+  });
+}
+
 export function useOpcionesPrograma(area) {
   const todos = useOpciones('programas');
-  return useMemo(() => (area ? todos.filter((o) => o.area === area) : todos), [todos, area]);
+  return useMemo(() => programasDeArea(todos, area), [todos, area]);
 }
 
 /** Área que sólo corresponde al rol organizador de un evento. Mientras el

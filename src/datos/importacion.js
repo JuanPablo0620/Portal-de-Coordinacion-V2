@@ -30,14 +30,15 @@ export const CAMPOS_PROYECTO = Object.freeze([
   { clave: 'area', titulo: 'Área', requerido: true, catalogo: 'areas', alias: ['secretaria', 'dependencia'] },
   { clave: 'programa', titulo: 'Programa', catalogo: 'programas' },
   { clave: 'eje', titulo: 'Eje', catalogo: 'ejes' },
-  { clave: 'tipo', titulo: 'Tipo', requerido: true, catalogo: 'tipos' },
+  // Opcional: no todo proyecto entra en una de las cinco categorías, y
+  // obligar a elegir una llenaba la base de tipos puestos al azar.
+  { clave: 'tipo', titulo: 'Tipo', catalogo: 'tipos' },
   { clave: 'unidad', titulo: 'Unidad', catalogo: 'unidades' },
   { clave: 'objetivo', titulo: 'Objetivo', numerico: true, alias: ['meta'] },
   { clave: 'avance', titulo: 'Avance', numerico: true },
   { clave: 'cantidad', titulo: 'Cantidad', numerico: true },
   { clave: 'estado', titulo: 'Estado', lista: ESTADOS_PROYECTO },
   { clave: 'prioridad', titulo: 'Prioridad', lista: PRIORIDADES },
-  { clave: 'responsable', titulo: 'Responsable' },
   { clave: 'fecha_inicio', titulo: 'Fecha de inicio', fecha: true, alias: ['inicio'] },
   { clave: 'fecha_fin_prevista', titulo: 'Fin previsto', fecha: true, alias: ['fin', 'fecha de fin'] },
   { clave: 'monto_planificado', titulo: 'Monto planificado', numerico: true, alias: ['presupuesto'] },

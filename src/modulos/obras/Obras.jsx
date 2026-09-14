@@ -112,7 +112,7 @@ export default function Obras() {
       .filter(
         (o) =>
           !texto ||
-          `${o.proyecto} ${o.id_proyecto} ${o.zona} ${o.responsable ?? ''}`.toLowerCase().includes(texto),
+          `${o.proyecto} ${o.id_proyecto} ${o.zona}`.toLowerCase().includes(texto),
       );
   }, [bd, filtros, hoy]);
 
@@ -237,7 +237,7 @@ export default function Obras() {
                   etiqueta="Buscar obra"
                   valor={filtros.buscar}
                   alCambiar={(v) => setFiltros({ buscar: v })}
-                  placeholder="Nombre, id, zona o responsable"
+                  placeholder="Nombre, id o zona"
                 />
               </GrillaFiltros>
               <Alternadores
@@ -417,7 +417,6 @@ function PanelListado({ lista, navegar }) {
             render: (f) => <Semaforo nivel={f.nivel} texto={fFecha(f.fecha_fin_prevista)} />,
             formatoCSV: fFecha,
           },
-          { clave: 'responsable', titulo: 'Responsable', ancho: 130 },
           {
             clave: 'monto_planificado',
             titulo: 'Planificado',

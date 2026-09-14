@@ -213,7 +213,6 @@ function PanelDatos({ proyecto, serie, temas }) {
     ['Programa', proyecto.programa],
     ['Eje estratégico', proyecto.eje],
     ['Tipo', proyecto.tipo],
-    ['Responsable', proyecto.responsable],
     ['Unidad de medida', proyecto.unidad],
     ['Cantidad del período', numero(proyecto.cantidad)],
     ['Objetivo', `${numero(proyecto.objetivo)} ${proyecto.unidad ?? ''}`],

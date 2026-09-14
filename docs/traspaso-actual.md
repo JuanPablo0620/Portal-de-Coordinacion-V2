@@ -19,7 +19,7 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 14/09/2026 · Claude, por pedido de JP
+**Última actualización:** 14/09/2026 · Claude, por pedido de Tomás
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
@@ -27,68 +27,65 @@ que el otro no puede deducir leyendo el repo.
 
 ## 1. Dónde está parado el portal
 
+**La persistencia está cerrada.** No queda nada de gestión viviendo en el
+navegador. Verificado el 14/09 recorriendo el repo y consultando la base, no de
+memoria.
+
 | Qué | Estado |
 |---|---|
-| Implementación Eventos/Mapa | `9cd03a9`, publicada en `fork/main` |
+| Migraciones `0001` a `0031` | **Aplicadas en la base real.** `0027` a `0030` verificadas por REST el 14/09; `0031` verificada llamando a su RPC, que responde |
+| Migración `0032` | **Escrita, sin aplicar.** Le saca a las novedades que rescató `0031` los saltos de línea que quedaron pegados |
+| Colecciones | Las 18 del esquema leen de Supabase. `actualizaciones_compromisos` es la excepción deliberada: se pide por compromiso, no se hidrata entera |
+| Catálogos | Los 12 administrables se guardan en la base. Lo que agrega una persona lo ven todas |
+| Escrituras | Ninguna operación del repositorio se saltea Supabase |
+| RLS | Las 47 tablas con política. Las 9 que todavía no usa nadie niegan todo hasta que alguien defina su acceso (`0026`) |
+| Concurrencia | El Layout refresca al cambiar de ruta, con piso de 30 s. Antes sólo Proyectos y Eventos lo hacían, así que lo que cargaba un compañero no aparecía hasta recargar la página |
+| Errores de guardado | Barrido completo: queda un solo `try` sin `catch` en el repo, en `enLote`, y ahí es correcto |
+| Organigrama | Subsecretaría y dirección en cada compromiso, en cascada (`0027`) |
+| Mesas | Agendar y editar reuniones, carpeta de Drive por mesa y por reunión, color por mesa |
 | Base cartográfica del Mapa | OpenFreeMap con estilo Liberty queda como base predeterminada; el Geoportal conserva el callejero municipal alternativo y sigue aportando límites y cuadras oficiales |
-| Rediseño de Eventos | `9b344bf`, Agenda ejecutiva publicada en `fork/main`, con identidad por área y preparación visible |
-| Producción | Bundles `index-DANmeyC1.js` y `index-D03l_d4H.css` verificados en el dominio público |
-| Migraciones `0001` a `0010` | El front vigente depende de ellas; su historial remoto no se re-auditó en esta sesión |
-| Migración `0011` | **Escrita, todavía no aplicada**: agrega `eventos.fecha_hasta` y normaliza los rangos temporales |
-| Migración `0031` | **Escrita, todavía no aplicada** (mismo motivo que `0011`: necesita el SQL Editor). Ver el punto 1 de "Lo próximo" |
-| Cierre de Monitoreo | El botón "Finalizar monitoreo" ya cuenta las actualizaciones de compromiso, no solo las de proyecto — antes un área sin proyectos cargados (Trabajo y Producción) no podía cerrar nunca su monitoreo |
-| Novedad de un compromiso | Deja de concatenarse a `descripcion`. Va a `actualizaciones_compromisos`, que ya existía (0014) pero solo la llenaba el trigger con etiquetas fijas — ver el punto 1 de "Lo próximo" |
-| Secretaría General | Agregada y verificada en el catálogo real de Supabase por API REST |
-| Datos remotos del portal | Proyectos, seguimientos, compromisos, eventos y requerimientos de evento leen y escriben en Supabase |
-| `npm run verificar` | Pasa con 369 tests, build, humo y accesibilidad |
-| Cartera estratégica | El formulario usa la prioridad general del proyecto y una descripción libre obligatoria; ya no muestra prioridad estratégica propia, motivo, responsable político, fecha comprometida ni compromiso público |
-| Agenda de seguimiento | Al agendar sólo pide área, fecha y hora; no asocia proyectos ni adelanta participantes o temas |
-| Magnitudes de proyecto | Cantidad, objetivo, avance y unidad son opcionales en el formulario y la importación; una magnitud ausente no se guarda como cero |
-| Alta de proyectos | Localidad se selecciona del listado de Tres de Febrero; al elegir un área, Programa muestra sólo los que ya tienen proyectos activos en esa área |
-
-Eventos y Mapa ya implementan los pedidos de JP del 08/09. Como la red municipal
-bloquea 5432 y 6543 y no había sesión de navegador disponible para el SQL Editor,
-`0011` no pudo ejecutarse. El front tiene compatibilidad temporal: hasta aplicar
-la migración, guarda `fecha_hasta` como una marca interna de `descripcion`, la
-oculta al mostrar el detalle y la propia `0010` migra esas marcas a la columna.
+| Posicionamiento | Ficha propia por programa, con su carpeta de Drive |
+| Compromisos | La novedad va a `actualizaciones_compromisos`, ya no se concatena a `descripcion` |
+| Eventos | Rediseñado como agenda ejecutiva y, desde el 14/09, ya no es un módulo propio: es una pestaña de Mesas de trabajo. `/eventos` redirige conservando sus parámetros |
+| Cobertura de Monitoreo | Gráfico apilado semana a semana del mes en curso, por secretaría. Coordinación y Secretaría General quedan afuera: no tienen Monitoreo propio |
+| Cierre de Monitoreo | «Finalizar monitoreo» cuenta también las actualizaciones de compromiso, no sólo las de proyecto — un área sin proyectos cargados no podía cerrar nunca su monitoreo |
+| Mis áreas | «Compromisos pendientes» dejó de ser tabla: agrupado por vencimiento, con los días que faltan. El CSV sigue siendo el mismo |
+| Filtros de Monitoreo | Arrancan plegados (`desplegable` en `TarjetaFiltros`, opt-in). Plegados siguen diciendo cuántos hay aplicados |
+| `npm run verificar` | Pasa: 369 tests, build, humo y accesibilidad |
 
 ## 2. Lo próximo, en orden de lo que más desbloquea
 
-1. **Aplicar las dos migraciones pendientes desde el SQL Editor de Supabase**
-   (la red del municipio bloquea 5432/6543, así que esto necesita una sesión
-   de navegador contra `supabase.com`, no se puede por API REST):
-   - `0011_eventos_rango_y_secretaria_general.sql` — agrega `eventos.fecha_hasta`.
-   - `0031_novedad_compromiso_al_historial.sql` — hace que la novedad de un
-     compromiso vaya a `actualizaciones_compromisos` en vez de pegarse al
-     final de `descripcion`. Trae función RPC nueva
-     (`actualizar_compromiso_con_novedad`) y reescribe el trigger de 0014;
-     también migra en el mismo script las 3 novedades que ya habían quedado
-     pegadas (2 compromisos). El front YA está escrito para esto —
-     `supabaseCompromisos.js` llama a la RPC cuando hay novedad—, así que
-     hasta que se aplique, **guardar una novedad contra Supabase va a fallar**
-     (la función no existe todavía en la base real). Verificar después con
-     `select * from actualizaciones_compromisos order by created_at desc limit 5;`
-     que las filas nuevas traen el comentario, no `null`.
-2. **Completar una prueba funcional con una sesión real:** crear un evento de sábado a
-   domingo, abrir ambos días desde el calendario, editarlo y comprobar la
-   confirmación de eliminación; en Mapa, probar rueda, límite y encuadre.
-3. **Actualizar `README.md` y la sección de persistencia de `CLAUDE.md`.** Ambos
-   todavía describen el estado previo a las migraciones de Proyectos,
-   Seguimientos, Compromisos y Eventos.
+1. **Aplicar `0032_limpiar_novedades_rescatadas.sql`.** Es cosmética y no
+   bloquea nada: una de las tres novedades rescatadas quedó con dos saltos de
+   línea al final, porque el `trim()` de Postgres saca espacios pero no
+   saltos. En pantalla son dos renglones vacíos colgando del comentario.
+
+2. **Probar contra datos reales lo que entró entre el 11 y el 14/09.** Es
+   bastante y casi nada se usó todavía: el alta de un compromiso con
+   subsecretaría y dirección, agendar y editar una reunión de mesa, la ficha de
+   un programa de posicionamiento, la agenda de Eventos, y guardar una novedad
+   ahora que la RPC existe.
+
+3. **Actualizar `README.md` y la sección de persistencia de `CLAUDE.md`.**
+   Los dos describen un portal que todavía guardaba en el navegador.
 
 ## 3. Decisiones pendientes (necesitan que alguien defina, no que alguien programe)
 
-1. **El `tipo_id` de 8 proyectos de Obras** que quedaron con `tipo_id = 'Obra'` y
-   `es_obra = false`: Cartelería, Cuadrilla Municipal, Intervenciones Contratadas,
-   Obras Particulares, Restauración casona Bosch, OC, Licencias de conducir, Obras
-   de mantenimiento. ¿Servicio? ¿Gestión interna? Es una decisión por proyecto.
-2. **De qué programa cuelgan los 15 proyectos sin cargar** (`02b` y `02c` en
+1. **Si el repositorio debería seguir siendo público.** Es un sistema de gestión
+   municipal: no hay nada que ganar con que sea abierto, y sí bastante que
+   perder. Hoy los mails del equipo se mantienen fuera del repo a mano
+   (`supabase/datos/usuarios-autorizados.local.sql`, excluido por `.gitignore`),
+   que es una defensa que depende de que nadie se olvide.
+2. **El `tipo_id` de 8 proyectos de Obras** que quedaron con `tipo_id = 'Obra'` y
+   `es_obra = false`: Cartelería, Cuadrilla Municipal, Intervenciones
+   Contratadas, Obras Particulares, Restauración casona Bosch, OC, Licencias de
+   conducir, Obras de mantenimiento. ¿Servicio? ¿Gestión interna? Es una
+   decisión por proyecto.
+3. **De qué programa cuelgan los 15 proyectos sin cargar** (`02b` y `02c` en
    `supabase/datos/carga-inicial/`). Los tres de Salud —Presentismo, Turnos
    efectivos, Uso de Agenda— parecen colgar de un programa real, no de "Agenda".
-3. **Dónde entran los contenedores sin lugar en el modelo**: `Reportes MI3F`,
+4. **Dónde entran los contenedores sin lugar en el modelo**: `Reportes MI3F`,
    `Agenda Roco`, `Informe de Estadísticas Generales`.
-4. **Si el repositorio debería seguir siendo público.** Es un sistema de gestión
-   municipal: no hay nada que ganar con que sea abierto, y sí bastante que perder.
 
 ## 4. Deudas anotadas, ninguna urgente
 
@@ -108,21 +105,27 @@ oculta al mostrar el detalle y la propia `0010` migra esas marcas a la columna.
    (y el `.json` con las actualizaciones). Trabajo y Producción quedó sin ningún
    compromiso cargado.
 2. **Los 130 compromisos están sin responsable.** El `_db` de origen no lo registra.
-3. **`marcarEstrategico()` escribe dos campos que no existen** en el esquema:
-   `id_origen_estrategico` y `fecha_marcado_estrategico` (en la base se llama
-   `estrategico_marcado_en`). Va a fallar cuando ese módulo se migre.
-4. **El front manda `origen_estrategico: 'base'`** y el enum `origen_carga` solo
-   acepta `monitoreo` o `seguimiento`. Mismo caso que el anterior.
-5. **Un proyecto tiene comillas dobles espurias en el nombre**, arrastradas del CSV:
-   `"Plan Estratégico de los Espacios de Primera Infancia (EPIs)"`.
-6. **La rama `feat/autenticacion` en GitHub** ya está fusionada en `main`. Se puede
-   borrar.
-7. **El remoto `origin` (`Sr4312/Coordinacion3F2.0`) quedó abandonado** en el commit
-   del 19/08. O se lo actualiza, o se lo saca de la copia local para que nadie
-   pushee ahí por reflejo. Ver `CLAUDE.md`.
-8. **Compatibilidad temporal de rangos de evento:** se puede retirar la marca
-   `[[portal_fecha_hasta:...]]` de `supabaseEventos.js` una vez aplicada `0011`
-   y confirmado que no quedan clientes con el build anterior.
+3. **Un proyecto tiene comillas dobles espurias en el nombre**, arrastradas del
+   CSV: `"Plan Estratégico de los Espacios de Primera Infancia (EPIs)"`.
+4. **La rama `feat/autenticacion` en GitHub** ya está fusionada en `main`. Se
+   puede borrar.
+5. **El remoto `origin` (`Sr4312/Coordinacion3F2.0`) quedó abandonado** en el
+   commit del 19/08. O se lo actualiza, o se lo saca de la copia local para que
+   nadie pushee ahí por reflejo. Ver `CLAUDE.md`.
+6. **Compatibilidad temporal de rangos de evento:** se puede retirar la marca
+   `[[portal_fecha_hasta:...]]` de `supabaseEventos.js`, ahora que `0011` está
+   aplicada, cuando se confirme que no quedan clientes con el build anterior.
+7. **Los catálogos los edita sólo `admin`** (`0025`). Es lo correcto —renombrar
+   una secretaría se propaga a todos los informes— pero significa que jefatura
+   de gabinete e intendencia no pueden corregir un nombre sin pedirlo.
+
+### Deudas que se saldaron y por qué se sacan de la lista
+
+- *"`marcarEstrategico()` escribe dos campos que no existen"* — `0024` agregó
+  `id_origen_estrategico` y extendió la RPC. El front los manda y los lee.
+- *"El front manda `origen_estrategico: 'base'` y el enum no lo acepta"* — el
+  traductor ahora manda `null`, que es lo que significa "base maestra". El enum
+  no necesita un tercer miembro para decir "ninguno de los dos".
 
 ---
 

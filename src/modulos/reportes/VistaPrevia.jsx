@@ -189,7 +189,6 @@ function BloqueProyectos({ filas }) {
           { clave: 'eje', titulo: 'Eje', ancho: 145 },
           { clave: 'estado', titulo: 'Estado', ancho: 115, render: (f) => <EstadoProyecto estado={f.estado} /> },
           { clave: 'porcentaje_avance', titulo: 'Avance', ancho: 130, render: (f) => <BarraAvance valor={f.porcentaje_avance} /> },
-          { clave: 'responsable', titulo: 'Responsable', ancho: 125 },
           { clave: 'monto_planificado', titulo: 'Planificado', ancho: 125, alinear: 'derecha', render: (f) => moneda(f.monto_planificado) },
         ]}
         vacio={<Vacio compacto titulo="Ningún proyecto cumple los filtros aplicados" />}
@@ -241,7 +240,6 @@ function BloqueAlertas({ alertas }) {
           { clave: 'tipo', titulo: 'Tipo', ancho: 230, render: (f) => ETIQUETAS_ALERTA[f.tipo] ?? f.tipo, formatoCSV: (v) => ETIQUETAS_ALERTA[v] ?? v },
           { clave: 'titulo', titulo: 'Detalle' },
           { clave: 'area', titulo: 'Área', ancho: 170 },
-          { clave: 'responsable', titulo: 'Responsable', ancho: 125 },
           {
             clave: 'dias_atraso',
             titulo: 'Atraso',

@@ -35,6 +35,7 @@ import { FormularioAccion } from './FormularioAccion.jsx';
 import { nombreODS } from './SelectorODS.jsx';
 import { ESTADOS_POSICIONAMIENTO, ODS } from '../../datos/catalogos.js';
 import {
+  carteraPosicionamiento,
   proyectosPosicionamiento,
   accionesPorDimension,
   hoyISO,
@@ -89,11 +90,15 @@ export default function Posicionamiento() {
   );
 
   const lista = useMemo(() => (bd ? proyectosPosicionamiento(bd, criterios, hoy) : []), [bd, criterios, hoy]);
+  // La subpestaña lista TODO: las acciones cargadas acá y los proyectos de
+  // posicionamiento de la base maestra. `lista` queda para el gráfico por tipo
+  // del tablero, donde una fila sin tipo sólo agregaría una barra «sin definir».
+  const cartera = useMemo(() => (bd ? carteraPosicionamiento(bd, criterios, hoy) : []), [bd, criterios, hoy]);
   const resumen = useMemo(() => (bd ? resumenPosicionamiento(bd, criterios, hoy) : null), [bd, criterios, hoy]);
 
   const pestanias = [
     { valor: 'tablero', titulo: 'Tablero', icono: BarChart3 },
-    { valor: 'acciones', titulo: 'Proyectos', icono: ListChecks, cantidad: lista.length },
+    { valor: 'acciones', titulo: 'Proyectos', icono: ListChecks, cantidad: cartera.length },
     { valor: 'alianzas', titulo: 'Alianzas y ODS', icono: Handshake },
   ];
 
@@ -118,7 +123,7 @@ export default function Posicionamiento() {
         {filtros.tab === 'acciones' && (
           <PanelAcciones
             bd={bd}
-            lista={lista}
+            lista={cartera}
             filtros={filtros}
             setFiltros={setFiltros}
             alEditar={(a) => setFormulario(a)}
@@ -159,18 +164,27 @@ function Tablero({ resumen, lista, setFiltros, bd, hoy }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metrica valor={resumen.total} etiqueta="Proyectos registrados" icono={Globe2} />
+        {/* Las dos primeras cuentan la cartera COMPLETA: las acciones cargadas
+            acá más los proyectos de posicionamiento de la base maestra. Para el
+            área son lo mismo, y contarlas por separado hacía que la pantalla
+            dijera «1 proyecto registrado» arriba y mostrara ocho abajo. */}
+        <Metrica
+          valor={resumen.registrados}
+          etiqueta="Proyectos registrados"
+          detalle="cargados en la base, de cualquier origen"
+          icono={Globe2}
+        />
+        <Metrica
+          valor={resumen.en_curso}
+          etiqueta="Proyectos en curso"
+          detalle="sin finalizar ni suspender"
+        />
         <Metrica valor={resumen.abiertas} etiqueta="En juego" detalle="identificadas, en preparación, presentadas o vigentes" />
         <Metrica
           valor={resumen.tasa_exito === null ? '—' : `${resumen.tasa_exito}%`}
           etiqueta="Tasa de éxito"
           detalle="sobre lo ya resuelto"
           icono={Award}
-        />
-        <Metrica
-          valor={resumen.vigentes}
-          etiqueta="Vínculos vigentes"
-          detalle={`${resumen.organismos} organismo(s)`}
         />
       </div>
 
@@ -332,13 +346,17 @@ function agrupar(lista, campo) {
 /* ── Acciones ───────────────────────────────────────────────────────── */
 
 function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
+  // Las filas de la base maestra abren su ficha propia, no el detalle de acá.
+  const navegar = useNavigate();
   const opcionesTipo = useOpciones('tipos_proyecto_posicionamiento');
   const opcionesOrganismo = useOpciones('organismos');
   // Coordinación no impulsa proyectos de posicionamiento como filtro de área
   // — mismo criterio que en el formulario de alta.
   const opcionesArea = useOpciones('areas').filter((o) => !esItem(o, 'coordinacion', 'ar_coord'));
 
-  const elegida = filtros.accion ? lista.find((a) => a.id === filtros.accion) : null;
+  const elegida = filtros.accion
+    ? lista.find((a) => a.id === filtros.accion && a.fuente !== 'base maestra')
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -367,7 +385,7 @@ function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
           opciones={[['solo_abiertas', 'Sólo las que están en juego', 'Identificadas, en preparación, presentadas o vigentes']]}
         >
           <span className="tabular ml-1 text-xs text-tenue">
-            {lista.length} acci{lista.length === 1 ? 'ón' : 'ones'} en la vista
+            {lista.length} proyecto{lista.length === 1 ? '' : 's'} en la vista
           </span>
         </Alternadores>
       </TarjetaFiltros>
@@ -379,17 +397,28 @@ function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
           columnas={[
             {
               clave: 'nombre',
-              titulo: 'Acción',
+              titulo: 'Proyecto',
               render: (a) => (
                 <div className="min-w-0">
                   <p className="truncate text-sm text-tinta">{a.nombre}</p>
+                  {/* De dónde salió. Un proyecto de la base maestra no tiene
+                      organismo, cierre de convocatoria ni ODS, así que sin esto
+                      sus celdas vacías se leen como datos que faltan y no como
+                      campos que no le corresponden. */}
                   <p className="truncate text-[11px] text-tenue">
-                    {a.organismo || 'sin organismo'}
+                    {a.fuente === 'base maestra'
+                      ? `Base maestra${a.area ? ` · ${a.area}` : ''}`
+                      : a.organismo || 'sin organismo'}
                   </p>
                 </div>
               ),
             },
-            { clave: 'tipo', titulo: 'Tipo', ancho: 170 },
+            {
+              clave: 'tipo',
+              titulo: 'Tipo',
+              ancho: 170,
+              render: (a) => a.tipo || <span className="text-tenue">—</span>,
+            },
             {
               clave: 'estado',
               titulo: 'Estado',
@@ -438,7 +467,11 @@ function PanelAcciones({ bd, lista, filtros, setFiltros, alEditar, alBorrar }) {
                 ),
             },
           ]}
-          alHacerClicFila={(a) => setFiltros({ accion: a.id })}
+          alHacerClicFila={(a) =>
+            a.fuente === 'base maestra'
+              ? navegar(`/posicionamiento/${encodeURIComponent(a.id)}`)
+              : setFiltros({ accion: a.id })
+          }
           vacio={
             <Vacio
               icono={Globe2}

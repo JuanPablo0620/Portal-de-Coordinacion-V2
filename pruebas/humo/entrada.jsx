@@ -13,6 +13,7 @@ import { renderToString } from 'react-dom/server';
 import App from '../../src/App.jsx';
 import { HistorialProyecto } from '../../src/modulos/proyectos/HistorialProyecto.jsx';
 import { FormularioTema, PanelVentana } from '../../src/modulos/monitoreo/CargarMonitoreo.jsx';
+import { SelectorProyecto } from '../../src/componentes/SelectorProyecto.jsx';
 import { separarTemas } from '../../src/datos/minutas/separarTemas.js';
 import { CATALOGOS_SEMILLA } from '../../src/datos/catalogos.js';
 import { establecerBD } from '../../src/estado/tienda.js';
@@ -30,6 +31,14 @@ const CATEGORIAS = CATALOGOS_SEMILLA.categorias_tema.map((c) => ({ valor: c.nomb
 
 const COMPONENTES = {
   HistorialProyecto: (bd, proyecto) => <HistorialProyecto bd={bd} proyecto={proyecto} />,
+
+  /**
+   * El selector con un proyecto YA elegido. Lo que tiene que verse es el
+   * nombre del proyecto, no lo que se tipeó para encontrarlo.
+   */
+  SelectorProyectoElegido: (bd, proyecto) => (
+    <SelectorProyecto valor={proyecto.id_proyecto} alCambiar={() => {}} />
+  ),
 
   /**
    * El formulario de tema, cargado con un borrador REAL de la transferencia y
@@ -149,8 +158,11 @@ export function correr(rutasDemo, rutasVacio, rutasProfundas = [], componentes =
         const html = renderToString(
           <StaticRouter location="/">{fabricar(demo, derivado)}</StaticRouter>,
         );
-        if (!html.includes(marcador)) {
-          fallos.push(`[componente] ${nombre}: no aparece «${marcador}» (${html.length} caracteres)`);
+        // Mismo reemplazo que en las rutas profundas: un componente puede
+        // tener que mostrar el nombre del proyecto con el que se lo monta.
+        const esperado = marcador === '{proyecto}' ? derivado.proyecto : marcador;
+        if (!html.includes(esperado)) {
+          fallos.push(`[componente] ${nombre}: no aparece «${esperado}» (${html.length} caracteres)`);
         }
       } catch (e) {
         fallos.push(`[componente] ${nombre}: ${e.message}`);

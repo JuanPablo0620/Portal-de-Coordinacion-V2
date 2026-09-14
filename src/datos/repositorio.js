@@ -24,6 +24,7 @@ import * as cortesRemotos from './supabaseCortes.js';
 import * as planificacionRemota from './supabasePlanificacion.js';
 import * as auditoriaRemota from './supabaseAuditoria.js';
 import * as catalogosRemotos from './supabaseCatalogos.js';
+import * as notasRemotas from './supabaseNotas.js';
 import * as organigramaRemoto from './supabaseOrganigrama.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
@@ -169,6 +170,9 @@ const CARGAS_REMOTAS = [
   ['«Mis áreas»', planificacionRemota, async () => {
     bdActual.asignaciones_monitoreo = await planificacionRemota.cargarAsignaciones();
   }],
+  ['las notas de proyecto', notasRemotas, async () => {
+    bdActual.notas_proyecto = await notasRemotas.cargar();
+  }],
   ['la bitácora', auditoriaRemota, async () => {
     // Va última: necesita los proyectos ya cargados para traducir el uuid de
     // cada fila auditada al código visible con el que filtran las pantallas.
@@ -259,6 +263,7 @@ export async function refrescar() {
   cortesRemotos.olvidarCatalogos();
   planificacionRemota.olvidarCatalogos();
   catalogosRemotos.olvidarCatalogos();
+  notasRemotas.olvidarCatalogos();
   auditoriaRemota.olvidarCatalogos();
   await traerRemotos();
   notificar();
@@ -1445,6 +1450,42 @@ export async function actualizarPlanificacion(id, cambios) {
 }
 
 /* ── Reportes guardados ─────────────────────────────────────────────── */
+
+/* ── Notas de proyecto ──────────────────────────────────────────────── */
+
+/**
+ * Una nota de un proyecto. Con `fecha_recordatorio` es un recordatorio y sube
+ * al panel del tablero estratégico; sin fecha, queda en la ficha.
+ *
+ * El asiento se ancla al proyecto para que el historial del proyecto la
+ * capture, igual que sus compromisos y sus avances.
+ */
+export async function crearNota(datos) {
+  if (!notasRemotas.activo()) {
+    return crear('notas_proyecto', datos, { id_proyecto: datos.id_proyecto ?? null });
+  }
+  return escribirRemoto('notas_proyecto', () => notasRemotas.crear(datos), {
+    accion: 'alta',
+    id_proyecto: datos.id_proyecto ?? null,
+  });
+}
+
+export async function actualizarNota(id, cambios) {
+  if (!notasRemotas.activo()) return actualizar('notas_proyecto', id, cambios);
+  const bd = await obtenerBD();
+  const previa = bd.notas_proyecto.find((n) => n.id === id);
+  return escribirRemoto('notas_proyecto', () => notasRemotas.actualizar(id, cambios), {
+    accion: 'edicion',
+    id,
+    previo: previa,
+    id_proyecto: previa?.id_proyecto ?? null,
+  });
+}
+
+/** Baja lógica, como el resto del sistema: la nota deja de listarse y queda. */
+export async function bajaNota(id) {
+  return actualizarNota(id, { activo: false });
+}
 
 export async function guardarReporte(nombre, filtros, bloques) {
   if (!planificacionRemota.activo()) {
