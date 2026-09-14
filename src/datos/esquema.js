@@ -43,6 +43,10 @@ export const COLECCIONES = Object.freeze([
   // es el nombre de `config.usuario` (ver `guardarAsignacionesMonitoreo` en
   // repositorio.js).
   'asignaciones_monitoreo',
+  // Notas de un proyecto, sin relación con sus compromisos. Con
+  // `fecha_recordatorio` son recordatorios y suben al tablero estratégico.
+  // Ver 0033_notas_proyecto.sql.
+  'notas_proyecto',
 ]);
 
 /** Clave primaria de cada colección. `proyectos` es la excepción: usa el id canónico. */

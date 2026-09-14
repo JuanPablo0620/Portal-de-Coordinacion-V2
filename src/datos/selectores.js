@@ -1270,6 +1270,61 @@ export function nivelEstrategico(r) {
   return 'enregla';
 }
 
+/* ── Notas y recordatorios de proyecto ──────────────────────────────── */
+
+/**
+ * Las notas vigentes de un proyecto, los recordatorios primero.
+ *
+ * Dentro de cada grupo: los recordatorios por fecha, del más urgente al más
+ * lejano; las notas sueltas por antigüedad, la más nueva arriba. Es el orden
+ * en que se miran — lo que tiene fecha reclama atención, lo demás es consulta.
+ */
+export function notasDeProyecto(bd, idProyecto) {
+  return activos(bd.notas_proyecto)
+    .filter((n) => n.id_proyecto === idProyecto)
+    .sort((a, b) => {
+      const fa = a.fecha_recordatorio || '';
+      const fb = b.fecha_recordatorio || '';
+      if (fa && fb) return fa.localeCompare(fb);
+      if (fa) return -1;
+      if (fb) return 1;
+      return String(b.creado_en ?? '').localeCompare(String(a.creado_en ?? ''));
+    });
+}
+
+/**
+ * Los recordatorios de la cartera estratégica, para el panel del tablero.
+ *
+ * Sólo las notas CON fecha y sólo las de proyectos estratégicos: una nota
+ * suelta no reclama nada, y un recordatorio de un proyecto que salió de la
+ * cartera no tiene por qué seguir apareciendo en su tablero.
+ *
+ * Cada uno viene con los días que faltan y su nivel, sacado de la misma escala
+ * que usan los compromisos y las alertas. Si tuviera una propia, un compromiso
+ * y un recordatorio que vencen el mismo día se pintarían distinto en la misma
+ * pantalla.
+ */
+export function recordatoriosEstrategicos(bd, filtros = {}, hoy = hoyISO()) {
+  const estrategicos = new Map(
+    proyectos(bd, { ...filtros, solo_estrategicos: true }).map((p) => [p.id_proyecto, p]),
+  );
+
+  return activos(bd.notas_proyecto)
+    .filter((n) => n.fecha_recordatorio && estrategicos.has(n.id_proyecto))
+    .map((n) => {
+      const dias = diasHasta(n.fecha_recordatorio, hoy);
+      const proyecto = estrategicos.get(n.id_proyecto);
+      return {
+        ...n,
+        proyecto: proyecto.proyecto,
+        area: proyecto.area ?? '',
+        dias_restantes: dias,
+        nivel: nivelPorDias(dias),
+      };
+    })
+    .sort((a, b) => String(a.fecha_recordatorio).localeCompare(String(b.fecha_recordatorio)));
+}
+
 /**
  * La cartera estratégica con todo lo que hace falta para decidir sobre ella:
  * compromisos abiertos y vencidos, temas críticos y días sin novedad.

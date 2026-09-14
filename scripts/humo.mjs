@@ -55,8 +55,8 @@ const CON_DEMO = [
   ['/monitoreo?tab=cobertura', 'Secretarías sin cobertura'],
   ['/monitoreo?tab=cargar', 'Iniciar monitoreo'],
   ['/monitoreo?tab=alertas', 'Compromisos vencidos'],
-  ['/estrategicos', 'Lo que hay que mirar esta semana'],
-  ['/estrategicos', 'Estado de la cartera'],
+  ['/estrategicos', 'Compromisos pendientes de la cartera estratégica'],
+  ['/estrategicos', 'Recordatorios'],
   ['/estrategicos?tab=cartera', 'Sin novedades'],
   ['/estrategicos?tab=promover', 'De dónde sale esta lista'],
   ['/posicionamiento', 'Qué cierra primero'],
@@ -107,8 +107,8 @@ const CON_BASE_COMPLETA = [
   ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras', 'Proyectos de la secretaría'],
   ['/monitoreo?tab=cobertura', 'Secretarías sin cobertura'],
   ['/monitoreo?tab=alertas', 'Compromisos vencidos'],
-  ['/estrategicos', 'Lo que hay que mirar esta semana'],
-  ['/estrategicos', 'Estado de la cartera'],
+  ['/estrategicos', 'Compromisos pendientes de la cartera estratégica'],
+  ['/estrategicos', 'Recordatorios'],
   ['/estrategicos?tab=cartera', 'Sin novedades'],
   ['/estrategicos?tab=promover', 'De dónde sale esta lista'],
   ['/posicionamiento', 'Qué cierra primero'],
@@ -164,6 +164,10 @@ const RUTAS_PROFUNDAS = [
   ['/proyectos/{id}', '{proyecto}'],
   ['/proyectos/{id}', 'Historial'],
   ['/proyectos/INEXISTENTE-0000-000', 'Proyecto no encontrado'],
+  // La ficha estrategica: las dos columnas y el aviso de que el id no existe.
+  ['/estrategicos/{id}', 'Compromisos del proyecto'],
+  ['/estrategicos/{id}', 'Notas y recordatorios'],
+  ['/estrategicos/INEXISTENTE-0000-000', 'Proyecto no encontrado'],
 ];
 
 /**

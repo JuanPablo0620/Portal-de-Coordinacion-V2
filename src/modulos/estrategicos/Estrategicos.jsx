@@ -32,13 +32,12 @@ import {
   Boton,
   Chip,
   EstadoProyecto,
-  Metrica,
   Pestanias,
   Semaforo,
   Tarjeta,
   Vacio,
+  nivelPorDias,
 } from '../../componentes/Basicos.jsx';
-import { GraficoBarras } from '../../componentes/Graficos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { CampoSelect } from '../../componentes/Campo.jsx';
 import { GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../../componentes/Filtros.jsx';
@@ -48,9 +47,10 @@ import { FormularioNovedad } from './FormularioNovedad.jsx';
 import { UMBRALES } from '../../datos/catalogos.js';
 import {
   candidatosEstrategicos,
+  compromisos as selCompromisos,
   hoyISO,
   proyectosEstrategicos,
-  resumenEstrategico,
+  recordatoriosEstrategicos,
 } from '../../datos/selectores.js';
 import { fecha as fFecha, moneda, numero } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
@@ -73,6 +73,7 @@ const ETIQUETA_ORIGEN = { base: 'Base maestra', monitoreo: 'Monitoreo', seguimie
 export default function Estrategicos() {
   const bd = useBD();
   const hoy = hoyISO();
+  const navegar = useNavigate();
   const [filtros, setFiltros] = useFiltrosUrl(DEFAULTS);
   const [formulario, setFormulario] = useState(null);
   const [novedad, setNovedad] = useState(null);
@@ -87,7 +88,34 @@ export default function Estrategicos() {
   );
 
   const cartera = useMemo(() => (bd ? proyectosEstrategicos(bd, criterios, hoy) : []), [bd, criterios, hoy]);
-  const resumen = useMemo(() => (bd ? resumenEstrategico(bd, criterios, hoy) : null), [bd, criterios, hoy]);
+  /*
+   * Los compromisos vigentes de la cartera y los recordatorios con fecha. Van
+   * acá y no adentro del Tablero para que la cuenta de cada tarjeta —cuántos
+   * recordatorios tiene el proyecto— salga de la misma lista que el panel, y
+   * no de dos recorridos que se pueden desincronizar.
+   */
+  const recordatorios = useMemo(
+    () => (bd ? recordatoriosEstrategicos(bd, criterios, hoy) : []),
+    [bd, criterios, hoy],
+  );
+
+  const compromisosCartera = useMemo(() => {
+    if (!bd) return [];
+    const porId = new Map(cartera.map((p) => [p.id_proyecto, p]));
+    return selCompromisos(bd, { solo_vigentes: true }, hoy)
+      .filter((c) => c.id_proyecto && porId.has(c.id_proyecto))
+      .map((c) => {
+        const p = porId.get(c.id_proyecto);
+        return { ...c, proyecto: p.proyecto, prioridad: p.prioridad ?? '', area: c.area || p.area || '' };
+      });
+  }, [bd, cartera, hoy]);
+
+  const carteraConNotas = useMemo(() => {
+    const cuenta = new Map();
+    for (const r of recordatorios) cuenta.set(r.id_proyecto, (cuenta.get(r.id_proyecto) ?? 0) + 1);
+    return cartera.map((p) => ({ ...p, recordatorios: cuenta.get(p.id_proyecto) ?? 0 }));
+  }, [cartera, recordatorios]);
+
   const candidatos = useMemo(
     () => (bd ? candidatosEstrategicos(bd, { area: filtros.area, origen_tipo: filtros.origen_tipo }, hoy) : []),
     [bd, filtros.area, filtros.origen_tipo, hoy],
@@ -114,7 +142,15 @@ export default function Estrategicos() {
       <Pagina className="flex flex-col gap-4">
         <Pestanias opciones={pestanias} valor={filtros.tab} alCambiar={(v) => setFiltros({ tab: v, proyecto: '' })} />
 
-        {filtros.tab === 'tablero' && <Tablero resumen={resumen} cartera={cartera} setFiltros={setFiltros} />}
+        {filtros.tab === 'tablero' && (
+          <Tablero
+            cartera={carteraConNotas}
+            compromisos={compromisosCartera}
+            recordatorios={recordatorios}
+            hoy={hoy}
+            navegar={navegar}
+          />
+        )}
         {filtros.tab === 'cartera' && (
           <PanelCartera
             cartera={cartera}
@@ -166,104 +202,241 @@ export default function Estrategicos() {
 
 /* ── Tablero ────────────────────────────────────────────────────────── */
 
-function Tablero({ resumen, cartera, setFiltros }) {
-  if (!resumen) return null;
-
-  const porNivel = [
-    { clave: 'vencido', titulo: 'Con compromisos vencidos o plazo superado' },
-    { clave: 'proximo', titulo: 'Con temas críticos o sin novedades' },
-    { clave: 'atencion', titulo: 'Con el fin previsto a menos de 30 días' },
-    { clave: 'enregla', titulo: 'En regla' },
-  ].map((n) => ({ ...n, cantidad: resumen.por_nivel[n.clave] ?? 0 }));
-
-  const enRiesgo = cartera.filter((p) => ['vencido', 'proximo'].includes(p.nivel_estrategico)).slice(0, 8);
-
+/**
+ * Lo que la cartera necesita ver al entrar: qué se comprometió y todavía no se
+ * cumplió, qué hay anotado para no olvidarse, y cómo viene cada proyecto.
+ *
+ * Antes esto eran seis métricas, una lista de «lo que hay que mirar» y un
+ * gráfico de barras. Se reemplazaron porque respondían «cuántos hay» cuando la
+ * pregunta de esta pantalla es «cuál toco ahora»: un clic en cualquier fila
+ * abre la ficha del proyecto con ese ítem marcado.
+ */
+function Tablero({ cartera, compromisos, recordatorios, hoy, navegar }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <Metrica valor={resumen.total} etiqueta="Proyectos estratégicos" icono={Gem} detalle={`${resumen.activos} activos · ${resumen.finalizados} finalizados`} />
-        <Metrica
-          valor={resumen.en_riesgo}
-          etiqueta="En riesgo"
-          tono={resumen.en_riesgo ? 'vencido' : 'neutro'}
-          detalle="con vencidos, temas críticos o sin novedades"
-          alHacerClic={() => setFiltros({ tab: 'cartera' })}
-        />
-        <Metrica
-          valor={resumen.sin_novedad}
-          etiqueta={`Sin novedades hace más de ${UMBRALES.DIAS_ESTRATEGICO_SIN_NOVEDAD} días`}
-          detalle="la mitad del umbral del resto de la cartera"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Metrica valor={resumen.compromisos_vencidos} etiqueta="Compromisos vencidos" tono={resumen.compromisos_vencidos ? 'vencido' : 'neutro'} />
-        <Metrica valor={resumen.compromisos_abiertos} etiqueta="Compromisos abiertos" />
-        <Metrica valor={resumen.temas_criticos} etiqueta="Temas críticos sin resolver" />
+      {/* Tres cuartos para los compromisos, un cuarto para los recordatorios. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[3fr_1fr] xl:items-start">
+        <TablaCompromisos compromisos={compromisos} navegar={navegar} />
+        <PanelRecordatorios recordatorios={recordatorios} hoy={hoy} navegar={navegar} />
       </div>
 
       <Tarjeta
-        titulo="Lo que hay que mirar esta semana"
-        descripcion="Ordenado por gravedad. Si esta lista está vacía, la cartera está al día."
+        titulo="Proyectos estratégicos en curso"
+        descripcion="Se lee de la base maestra de proyectos, filtrado por los declarados estratégicos — no es una lista fija. Hacé clic en una tarjeta para abrir su ficha."
         sinPadding
       >
-        {enRiesgo.length === 0 ? (
+        {cartera.length === 0 ? (
           <div className="p-4">
-            <Vacio compacto icono={Star} titulo="Nada en riesgo" descripcion="Ningún proyecto estratégico tiene compromisos vencidos, temas críticos ni silencio prolongado." />
+            <Vacio
+              compacto
+              icono={Gem}
+              titulo="Sin proyectos estratégicos"
+              descripcion="Declará uno desde el botón de arriba, o promové un candidato desde la pestaña «Promover»."
+            />
           </div>
         ) : (
-          <ul className="divide-y divide-borde/60">
-            {enRiesgo.map((p) => (
-              <li key={p.id_proyecto} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
-                <Semaforo nivel={p.nivel_estrategico} soloPunto />
-                <button
-                  type="button"
-                  onClick={() => setFiltros({ tab: 'cartera', proyecto: p.id_proyecto })}
-                  className="min-w-40 flex-1 text-left"
-                >
-                  <p className="text-sm font-medium leading-tight text-tinta">{p.proyecto}</p>
-                  <p className="text-[11px] text-tenue">
-                    {p.id_proyecto} · {p.area}
-                  </p>
-                </button>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {p.compromisos_vencidos > 0 && <Chip tono="vencido">{p.compromisos_vencidos} vencido(s)</Chip>}
-                  {p.temas_criticos > 0 && <Chip tono="proximo">{p.temas_criticos} tema(s) crítico(s)</Chip>}
-                  {p.dias_sin_novedad !== null && p.dias_sin_novedad > UMBRALES.DIAS_ESTRATEGICO_SIN_NOVEDAD && (
-                    <Chip tono="atencion">{p.dias_sin_novedad} días sin novedades</Chip>
+          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
+            {cartera.map((p) => (
+              <button
+                key={p.id_proyecto}
+                type="button"
+                onClick={() => navegar(`/estrategicos/${encodeURIComponent(p.id_proyecto)}`)}
+                className="flex flex-col gap-2 rounded-chip border border-borde p-3 text-left transition-colors hover:border-acento/50 hover:bg-acento/5"
+              >
+                <h3 className="flex items-start gap-2 text-sm font-semibold leading-tight text-tinta">
+                  <span className="mt-1">
+                    <Semaforo nivel={p.nivel_estrategico} soloPunto />
+                  </span>
+                  {p.proyecto}
+                </h3>
+                <EstadoProyecto estado={p.estado} />
+                {p.observaciones && (
+                  <p className="line-clamp-3 text-xs leading-relaxed text-gris">{p.observaciones}</p>
+                )}
+                <div className="flex flex-wrap gap-1">
+                  {p.compromisos_vencidos > 0 && (
+                    <Chip tono="vencido">{p.compromisos_vencidos} vencido(s)</Chip>
+                  )}
+                  {p.recordatorios > 0 && (
+                    <Chip tono="atencion">
+                      {p.recordatorios} recordatorio{p.recordatorios === 1 ? '' : 's'}
+                    </Chip>
                   )}
                 </div>
-              </li>
+                {p.ultima_actualizacion && (
+                  <p className="mt-auto text-[11px] text-tenue">
+                    Actualizado {fFecha(p.ultima_actualizacion)}
+                  </p>
+                )}
+              </button>
             ))}
-          </ul>
+          </div>
         )}
-      </Tarjeta>
-
-      <Tarjeta titulo="Estado de la cartera" descripcion="Con el semáforo propio de lo estratégico.">
-        <GraficoBarras
-          datos={porNivel}
-          clave="clave"
-          horizontal
-          anchoEtiqueta={90}
-          alto={220}
-          series={[
-            {
-              clave: 'cantidad',
-              titulo: 'Proyectos',
-              colorPorItem: (d) => `var(--color-${d.clave})`,
-            },
-          ]}
-        />
-        <ul className="mt-2 flex flex-col gap-0.5">
-          {porNivel.map((n) => (
-            <li key={n.clave} className="text-[11px] text-tenue">
-              <span className="font-medium text-gris">{n.clave}</span> · {n.titulo}
-            </li>
-          ))}
-        </ul>
       </Tarjeta>
     </div>
   );
+}
+
+/** Prioridad del proyecto, con el color de la escala del portal. */
+const NIVEL_PRIORIDAD = { alta: 'vencido', media: 'proximo', baja: 'enregla' };
+
+function TablaCompromisos({ compromisos, navegar }) {
+  const columnas = [
+    {
+      clave: 'descripcion',
+      titulo: 'Compromiso',
+      render: (f) => (
+        <div className="flex min-w-40 items-start gap-2">
+          <span className="mt-1.5">
+            <Semaforo
+              nivel={f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes)}
+              soloPunto
+              texto={f.estado_efectivo}
+            />
+          </span>
+          <div>
+            <p className="leading-tight text-tinta">{f.descripcion}</p>
+            <p className="text-[11px] text-tenue">Origen: {f.origen_tipo}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      clave: 'proyecto',
+      titulo: 'Proyecto',
+      ancho: 170,
+      render: (f) => (
+        <div>
+          <p className="leading-tight">{f.proyecto}</p>
+          <p className="tabular text-[11px] text-tenue">{f.id_proyecto}</p>
+        </div>
+      ),
+    },
+    // Un compromiso sin secretaría muestra un guion, no un hueco: el espacio
+    // en blanco se lee como un error de carga.
+    {
+      clave: 'area',
+      titulo: 'Área',
+      ancho: 160,
+      render: (f) => f.area || <span className="text-tenue">—</span>,
+    },
+    {
+      clave: 'prioridad',
+      titulo: 'Prioridad',
+      ancho: 110,
+      render: (f) =>
+        f.prioridad ? (
+          <Semaforo nivel={NIVEL_PRIORIDAD[f.prioridad] ?? 'sindato'} texto={f.prioridad} />
+        ) : (
+          <span className="text-tenue">—</span>
+        ),
+    },
+    {
+      clave: 'fecha_limite',
+      titulo: 'Vence',
+      ancho: 100,
+      render: (f) =>
+        f.fecha_limite ? (
+          <span className="tabular text-xs">{fFecha(f.fecha_limite)}</span>
+        ) : (
+          <span className="text-tenue">—</span>
+        ),
+      formatoCSV: fFecha,
+    },
+    {
+      clave: 'estado_efectivo',
+      titulo: 'Estado',
+      ancho: 120,
+      render: (f) => <Semaforo nivel={nivelPorDias(f.dias_restantes)} texto={leyendaPlazo(f)} />,
+    },
+  ];
+
+  return (
+    <Tarjeta
+      titulo="Compromisos pendientes de la cartera estratégica"
+      descripcion="Vigentes, no recortados por período: son estado, no historia. Lo vencido se reconoce por la columna Estado. Un clic en la fila abre la ficha del proyecto."
+      sinPadding
+    >
+      <Tabla
+        nombreExport="compromisos-estrategicos"
+        filas={compromisos}
+        conBusqueda={false}
+        columnas={columnas}
+        alHacerClicFila={(f) =>
+          navegar(
+            `/estrategicos/${encodeURIComponent(f.id_proyecto)}?compromiso=${encodeURIComponent(f.id)}`,
+          )
+        }
+        vacio={
+          <Vacio
+            compacto
+            icono={Star}
+            titulo="Sin compromisos pendientes"
+            descripcion="La cartera estratégica no tiene compromisos vigentes sin cumplir."
+          />
+        }
+      />
+    </Tarjeta>
+  );
+}
+
+function leyendaPlazo(c) {
+  if (c.dias_restantes === null || c.dias_restantes === undefined) return 'sin fecha';
+  if (c.dias_restantes < 0) return `${Math.abs(c.dias_restantes)} días`;
+  if (c.dias_restantes === 0) return 'vence hoy';
+  return `en ${c.dias_restantes} días`;
+}
+
+/**
+ * El cuarto restante: las notas que llevan fecha, de todos los proyectos de la
+ * cartera. Lo más urgente arriba.
+ */
+function PanelRecordatorios({ recordatorios, hoy, navegar }) {
+  return (
+    <Tarjeta titulo="Recordatorios" descripcion="Notas con fecha. Lo más urgente arriba." sinPadding>
+      {recordatorios.length === 0 ? (
+        <div className="p-4">
+          <Vacio
+            compacto
+            icono={BookOpen}
+            titulo="Sin recordatorios"
+            descripcion="Una nota con fecha, cargada en la ficha de un proyecto, aparece acá."
+          />
+        </div>
+      ) : (
+        <ul className="divide-y divide-borde/70">
+          {recordatorios.map((r) => (
+            <li key={r.id}>
+              <button
+                type="button"
+                onClick={() =>
+                  navegar(
+                    `/estrategicos/${encodeURIComponent(r.id_proyecto)}?nota=${encodeURIComponent(r.id)}`,
+                  )
+                }
+                style={{ borderLeftColor: `var(--color-${r.nivel})` }}
+                className="w-full border-l-[3px] px-3.5 py-2.5 text-left transition-colors hover:bg-acento/5"
+              >
+                <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                  <Semaforo nivel={r.nivel} texto={leyendaRecordatorio(r)} />
+                  <span className="tabular text-[10px] text-tenue">{fFecha(r.fecha_recordatorio)}</span>
+                </div>
+                <p className="text-[11.5px] font-semibold leading-tight text-tinta">{r.proyecto}</p>
+                <p className="mt-0.5 line-clamp-3 text-[11.5px] leading-snug text-gris">{r.texto}</p>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Tarjeta>
+  );
+}
+
+function leyendaRecordatorio(r) {
+  if (r.dias_restantes === null) return 'sin fecha';
+  if (r.dias_restantes < 0) return `venció hace ${Math.abs(r.dias_restantes)} días`;
+  if (r.dias_restantes === 0) return 'vence hoy';
+  return `vence en ${r.dias_restantes} días`;
 }
 
 /* ── Cartera ────────────────────────────────────────────────────────── */
