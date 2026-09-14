@@ -45,7 +45,7 @@ const oNulo = (v) => (v === '' || v === undefined ? null : v);
 /* ── Traducción ─────────────────────────────────────────────────────── */
 
 const CAMPOS_MESA = [
-  'id, nombre, tipo, descripcion, referente, periodicidad, estado, activo, created_at',
+  'id, nombre, tipo, descripcion, referente, periodicidad, estado, url_drive, activo, created_at',
   'vinculos:mesas_proyectos(proyecto:proyectos(id_legible))',
 ].join(', ');
 
@@ -60,6 +60,7 @@ function mesaLocal(fila) {
     referente: fila.referente ?? '',
     periodicidad: fila.periodicidad ?? '',
     estado: fila.estado ?? 'activa',
+    url_drive: fila.url_drive ?? '',
     proyectos_vinculados: (fila.vinculos ?? [])
       .map((v) => v.proyecto?.id_legible)
       .filter(Boolean),
@@ -89,6 +90,7 @@ function aFilaMesa(datos) {
   if ('referente' in datos) fila.referente = oNulo(datos.referente);
   if ('periodicidad' in datos) fila.periodicidad = oNulo(datos.periodicidad);
   if ('estado' in datos) fila.estado = datos.estado;
+  if ('url_drive' in datos) fila.url_drive = oNulo(datos.url_drive);
   if ('activo' in datos) fila.activo = datos.activo;
   return fila;
 }

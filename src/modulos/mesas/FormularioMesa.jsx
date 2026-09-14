@@ -14,6 +14,7 @@ const VACIO = {
   referente: '',
   periodicidad: 'mensual',
   estado: 'activa',
+  url_drive: '',
   proyectos_vinculados: [],
 };
 
@@ -37,6 +38,7 @@ export function FormularioMesa({ abierto, alCerrar, mesa, tipoInicial }) {
       referente: datos.referente,
       periodicidad: datos.periodicidad,
       estado: datos.estado,
+      url_drive: datos.url_drive?.trim() ?? '',
       proyectos_vinculados: datos.proyectos_vinculados,
     };
     if (esEdicion) await acciones.actualizarMesa(mesa.id, payload);
@@ -98,6 +100,14 @@ export function FormularioMesa({ abierto, alCerrar, mesa, tipoInicial }) {
           />
           <CampoSelect etiqueta="Estado" opciones={ESTADOS_MESA} value={datos.estado} onChange={cambiar('estado')} placeholder="" />
         </GrillaCampos>
+
+        <CampoTexto
+          etiqueta="Carpeta de Drive"
+          ayuda="opcional — la de la mesa, no la de cada reunión"
+          placeholder="https://drive.google.com/drive/folders/…"
+          value={datos.url_drive}
+          onChange={cambiar('url_drive')}
+        />
 
         {/* Solo tiene sentido al editar: al crear la mesa todavía no existe
             en la base, y vincular proyectos ahí complicaba el alta sin

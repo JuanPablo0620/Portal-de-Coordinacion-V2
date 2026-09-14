@@ -26,7 +26,7 @@ import { acciones, useBD } from '../../estado/tienda.js';
 import { EditarReunion } from './EditarReunion.jsx';
 import { configDe } from './tipos.js';
 
-export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar, alAgendar }) {
+export function FichaMesa({ mesa, color, atrasada, alVolver, alEditar, alRegistrar, alAgendar }) {
   const bd = useBD();
   const navegar = useNavigate();
   const hoy = hoyISO();
@@ -47,7 +47,7 @@ export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar, alA
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="tarjeta border-l-4 p-4" style={{ borderLeftColor: cfg.color }}>
+      <div className="tarjeta border-l-4 p-4" style={{ borderLeftColor: color ?? cfg.color }}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -76,6 +76,21 @@ export function FichaMesa({ mesa, atrasada, alVolver, alEditar, alRegistrar, alA
             <Boton icono={Trash2} onClick={() => setBorrando(true)}>
               Eliminar
             </Boton>
+            {/* La carpeta de la mesa: lo que no es de una reunión puntual
+                —el convenio que la crea, el padrón de referentes—. Cuando no
+                está cargada, el botón lleva a cargarla en vez de esconderse. */}
+            {mesa.url_drive ? (
+              <Boton
+                icono={FolderOpen}
+                onClick={() => window.open(mesa.url_drive, '_blank', 'noopener,noreferrer')}
+              >
+                Carpeta de Drive
+              </Boton>
+            ) : (
+              <Boton icono={FolderOpen} onClick={alEditar}>
+                Agregar carpeta
+              </Boton>
+            )}
             <Boton icono={CalendarClock} onClick={alAgendar}>
               Agendar reunión
             </Boton>
