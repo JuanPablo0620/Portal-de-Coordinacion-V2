@@ -189,3 +189,64 @@ test('la base a escala real trae todos los catálogos nuevos', () => {
     assert.ok(catalogos[clave]?.length, `falta el catálogo ${clave} en la base completa`);
   }
 });
+
+/* ── La cartera completa ────────────────────────────────────────────── */
+
+test('la cartera cuenta las acciones y los proyectos de la base maestra juntos', async () => {
+  await repo.vaciarSistema();
+  await repo.crearProyecto({
+    proyecto: 'Bloomberg WWC',
+    area: 'Coordinación',
+    programa: 'Posicionamiento',
+    estado: 'en ejecución',
+    fecha_carga: HOY,
+  });
+  await repo.crearProyectoPosicionamiento({
+    nombre: 'Red de ciudades educadoras',
+    tipo: 'Red de ciudades',
+    estado: 'presentada',
+    fecha_inicio: HOY,
+  });
+
+  const bd = await repo.obtenerBD();
+  const resumen = resumenPosicionamiento(bd, {}, HOY);
+  assert.equal(resumen.registrados, 2);
+  assert.equal(resumen.en_curso, 2);
+});
+
+test('un proyecto cargado en los dos lados se cuenta una sola vez', async () => {
+  await repo.vaciarSistema();
+  await repo.crearProyecto({
+    proyecto: 'Bloomberg WWC',
+    area: 'Coordinación',
+    programa: 'Posicionamiento',
+    estado: 'en ejecución',
+    fecha_carga: HOY,
+  });
+  // Mismo nombre, cargado además como acción de posicionamiento.
+  await repo.crearProyectoPosicionamiento({
+    nombre: 'Bloomberg WWC',
+    tipo: 'Premio o distinción',
+    estado: 'presentada',
+    fecha_inicio: HOY,
+  });
+
+  const bd = await repo.obtenerBD();
+  assert.equal(resumenPosicionamiento(bd, {}, HOY).registrados, 1);
+});
+
+test('un proyecto finalizado está registrado pero no en curso', async () => {
+  await repo.vaciarSistema();
+  await repo.crearProyecto({
+    proyecto: 'Misión cerrada',
+    area: 'Coordinación',
+    programa: 'Posicionamiento',
+    estado: 'finalizado',
+    fecha_carga: HOY,
+  });
+
+  const bd = await repo.obtenerBD();
+  const resumen = resumenPosicionamiento(bd, {}, HOY);
+  assert.equal(resumen.registrados, 1);
+  assert.equal(resumen.en_curso, 0);
+});

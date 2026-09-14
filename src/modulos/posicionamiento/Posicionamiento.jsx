@@ -159,18 +159,27 @@ function Tablero({ resumen, lista, setFiltros, bd, hoy }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metrica valor={resumen.total} etiqueta="Proyectos registrados" icono={Globe2} />
+        {/* Las dos primeras cuentan la cartera COMPLETA: las acciones cargadas
+            acá más los proyectos de posicionamiento de la base maestra. Para el
+            área son lo mismo, y contarlas por separado hacía que la pantalla
+            dijera «1 proyecto registrado» arriba y mostrara ocho abajo. */}
+        <Metrica
+          valor={resumen.registrados}
+          etiqueta="Proyectos registrados"
+          detalle="cargados en la base, de cualquier origen"
+          icono={Globe2}
+        />
+        <Metrica
+          valor={resumen.en_curso}
+          etiqueta="Proyectos en curso"
+          detalle="sin finalizar ni suspender"
+        />
         <Metrica valor={resumen.abiertas} etiqueta="En juego" detalle="identificadas, en preparación, presentadas o vigentes" />
         <Metrica
           valor={resumen.tasa_exito === null ? '—' : `${resumen.tasa_exito}%`}
           etiqueta="Tasa de éxito"
           detalle="sobre lo ya resuelto"
           icono={Award}
-        />
-        <Metrica
-          valor={resumen.vigentes}
-          etiqueta="Vínculos vigentes"
-          detalle={`${resumen.organismos} organismo(s)`}
         />
       </div>
 

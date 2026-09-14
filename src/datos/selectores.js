@@ -1564,6 +1564,67 @@ export function proyectosPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
     );
 }
 
+/**
+ * TODOS los proyectos de posicionamiento, vengan de donde vengan.
+ *
+ * El módulo arrastra dos orígenes y esto los junta en uno:
+ *
+ *  - `proyectos_posicionamiento`: hermanamientos, postulaciones a fondos,
+ *    premios. Se cargan desde este módulo.
+ *  - `proyectos` con programa «Posicionamiento»: los relevados de
+ *    Coordinacion_db, que entraron por la base maestra.
+ *
+ * Para el área son lo mismo —proyectos de posicionamiento— y por eso el tablero
+ * los cuenta juntos. Contarlos por separado hacía que la misma pantalla
+ * mostrara «1 proyecto registrado» arriba y ocho tarjetas abajo.
+ *
+ * Se deduplica por el vínculo declarado (`ids_proyecto`) y, si no lo hay, por
+ * nombre: una acción que YA está cargada como proyecto de la base maestra es
+ * una sola cosa, no dos.
+ */
+export function carteraPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
+  const deLaBase = (bd?.proyectos ?? [])
+    .filter((p) => p.activo !== false && p.programa === 'Posicionamiento')
+    .filter((p) => coincide(filtros.area, p.area))
+    .map((p) => ({
+      id: p.id_proyecto,
+      nombre: p.proyecto,
+      estado: p.estado,
+      area: p.area ?? '',
+      fuente: 'base maestra',
+      // «En curso» es no haber terminado ni haberse suspendido. Un proyecto
+      // demorado sigue en curso: por eso no alcanza con mirar «en ejecución».
+      en_curso: p.estado !== 'finalizado' && p.estado !== 'suspendido',
+    }));
+
+  const yaEstan = new Set(deLaBase.map((p) => p.id));
+  const porNombre = new Set(deLaBase.map((p) => aClave(p.nombre)));
+
+  const acciones = proyectosPosicionamiento(bd, filtros, hoy)
+    .filter((a) => !(a.ids_proyecto ?? []).some((id) => yaEstan.has(id)))
+    .filter((a) => !porNombre.has(aClave(a.nombre)))
+    .map((a) => ({
+      id: a.id,
+      nombre: a.nombre,
+      estado: a.estado,
+      area: a.area ?? '',
+      fuente: 'posicionamiento',
+      en_curso: a.abierta,
+    }));
+
+  return [...deLaBase, ...acciones];
+}
+
+/** Nombre normalizado, para reconocer el mismo proyecto cargado dos veces. */
+function aClave(nombre) {
+  return String(nombre ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/s+/g, ' ')
+    .trim();
+}
+
 /** Cantidad de acciones por dimensión. `ods` es multivaluado y se cuenta una vez por objetivo. */
 export function accionesPorDimension(bd, campo, filtros = {}, hoy = hoyISO()) {
   const cuenta = new Map();
@@ -1602,8 +1663,15 @@ export function resumenPosicionamiento(bd, filtros = {}, hoy = hoyISO()) {
   const prosperaron = (porEstado.vigente ?? 0) + (porEstado.cerrada ?? 0);
   const resueltas = prosperaron + (porEstado['no prosperó'] ?? 0);
 
+  // La cartera completa: las acciones de este módulo MÁS los proyectos de
+  // posicionamiento de la base maestra. Es lo que el área entiende por
+  // «proyectos de posicionamiento», sin distinguir por dónde entraron.
+  const cartera = carteraPosicionamiento(bd, filtros, hoy);
+
   return {
     total: lista.length,
+    registrados: cartera.length,
+    en_curso: cartera.filter((p) => p.en_curso).length,
     abiertas: lista.filter((a) => a.abierta).length,
     vigentes: porEstado.vigente ?? 0,
     presentadas: porEstado.presentada ?? 0,
