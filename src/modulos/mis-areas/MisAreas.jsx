@@ -16,13 +16,15 @@
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Save, UserCheck } from 'lucide-react';
+import { ClipboardList, Download, Save, UserCheck } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Aviso, Boton, Chip, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { CampoCheck } from '../../componentes/Campo.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { ListaAlertas } from '../../componentes/ListaAlertas.jsx';
+import { identidadArea } from '../../componentes/identidadArea.jsx';
 import { TarjetaSecretaria } from '../monitoreo/TableroSecretarias.jsx';
+import { descargarCSV } from '../../datos/csv.js';
 import { calcularAlertas, TIPOS_ALERTA } from '../../datos/alertas.js';
 import {
   areasAsignadas,
@@ -70,47 +72,24 @@ const COLUMNAS_VENCIDOS = [
 ];
 
 /**
- * Columnas de "Compromisos pendientes". Mismo criterio de recorte: sin
- * Responsable, y el punto de color se muda al lado del nombre del
- * compromiso en vez de ir adentro del pill de Estado — que queda solo con
- * el fondo tintado y el texto (`Semaforo sinPunto`).
+ * Columnas de "Compromisos pendientes" — hoy SÓLO para el CSV.
+ *
+ * La pantalla dejó de ser una tabla el 14/09/2026 (ver
+ * `PendientesPorVencimiento` más abajo), pero la exportación sigue siendo
+ * tabular: un CSV agrupado no se puede abrir en una planilla. Estas columnas
+ * son las que tenía la tabla, así que el archivo que baja hoy es idéntico al
+ * que bajaba antes — cambió cómo se lee en pantalla, no lo que se exporta.
+ *
+ * `aCSV` sólo mira `clave`, `titulo` y `formatoCSV`; los `render` quedaron
+ * porque describen el valor de la columna y sirven si algún día vuelve a
+ * usarse en una tabla.
  */
 const COLUMNAS_PENDIENTES = [
-  {
-    clave: 'descripcion',
-    titulo: 'Compromiso',
-    render: (f) => {
-      const nivel = f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes);
-      return (
-        <div className="flex min-w-40 items-start gap-2">
-          <span className="mt-1.5">
-            <Semaforo nivel={nivel} soloPunto texto={f.estado_efectivo} />
-          </span>
-          <div>
-            <p className="leading-tight text-tinta">{f.descripcion}</p>
-            <p className="text-[11px] text-tenue">Origen: {f.origen_tipo}</p>
-          </div>
-        </div>
-      );
-    },
-  },
-  { clave: 'area', titulo: 'Área', ancho: 190 },
-  {
-    clave: 'fecha_limite',
-    titulo: 'Vence',
-    ancho: 100,
-    render: (f) => <span className="tabular text-xs">{fFecha(f.fecha_limite)}</span>,
-    formatoCSV: fFecha,
-  },
-  {
-    clave: 'estado_efectivo',
-    titulo: 'Estado',
-    ancho: 130,
-    render: (f) => {
-      const nivel = f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes);
-      return <Semaforo nivel={nivel} sinPunto texto={f.estado_efectivo} />;
-    },
-  },
+  { clave: 'descripcion', titulo: 'Compromiso' },
+  { clave: 'area', titulo: 'Área' },
+  { clave: 'fecha_limite', titulo: 'Vence', formatoCSV: fFecha },
+  { clave: 'estado_efectivo', titulo: 'Estado' },
+  { clave: 'origen_tipo', titulo: 'Origen' },
 ];
 
 export default function MisAreas() {
@@ -216,26 +195,11 @@ export default function MisAreas() {
               </Tarjeta>
             )}
 
-            <Tarjeta
-              titulo="Compromisos pendientes de tus áreas"
-              descripcion="Vigentes, no recortados por período: son estado, no historia. Los vencidos no se repiten acá — están arriba, en su propia tabla. Un clic en la fila abre el compromiso en Seguimiento."
-              sinPadding
-            >
-              <Tabla
-                nombreExport="mis-areas-compromisos"
-                filas={compromisosPropios}
-                conBusqueda={false}
-                columnas={COLUMNAS_PENDIENTES}
-                alHacerClicFila={(c) => navegar(`/seguimiento?tab=compromisos&compromiso=${c.id}`)}
-                vacio={
-                  <Vacio
-                    compacto
-                    icono={ClipboardList}
-                    titulo="Sin compromisos pendientes en tus áreas"
-                  />
-                }
-              />
-            </Tarjeta>
+            <PendientesPorVencimiento
+              compromisos={compromisosPropios}
+              areasCatalogo={areasCatalogo}
+              alAbrir={(c) => navegar(`/seguimiento?tab=compromisos&compromiso=${c.id}`)}
+            />
 
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-tenue">
@@ -260,6 +224,114 @@ export default function MisAreas() {
       </Pagina>
     </>
   );
+}
+
+/* ── Compromisos pendientes, agrupados por vencimiento ───────────────── */
+
+/**
+ * La fecha de vencimiento es un ENCABEZADO, no una celda repetida.
+ *
+ * La tabla anterior tenía cuatro columnas y tres de ellas escribían el mismo
+ * valor en todas las filas: el área (cuando se sigue una sola secretaría, que
+ * es el caso habitual de esta pantalla), la fecha y el estado. Con los seis
+ * compromisos de Ambiente del 14/09/2026 eso era «Secretaría de Ambiente y
+ * Servicios Públicos · 21/10/2026 · pendiente» seis veces — cerca del 45% del
+ * ancho ocupado por texto que no distingue una fila de otra.
+ *
+ * Acá cada vencimiento se enuncia una sola vez, con los días que faltan
+ * —que es el dato que decide si algo se trata hoy o la semana que viene, y que
+ * la tabla no mostraba— y cuántos compromisos caen ahí. La fila queda en una
+ * línea: sigla del área, texto, origen.
+ *
+ * El estado no se escribe: los cumplidos y los vencidos no llegan hasta acá
+ * (los primeros los saca `solo_vigentes`, los segundos tienen su propia tabla
+ * arriba), así que el chip «pendiente» repetido no informaba nada. Lo que sí
+ * varía —cuán cerca está el vencimiento— lo dice el punto del semáforo, con
+ * la misma escala de `nivelPorDias` que usa el resto del portal.
+ */
+function PendientesPorVencimiento({ compromisos, areasCatalogo, alAbrir }) {
+  // `selCompromisos` ya devuelve ordenado por `fecha_limite` ascendente y con
+  // los sin fecha al final; agrupar con un Map conserva ese orden, así que no
+  // hay que volver a ordenar ni replicar el criterio.
+  const grupos = useMemo(() => {
+    const porFecha = new Map();
+    for (const c of compromisos) {
+      const clave = c.fecha_limite ?? 'sin-fecha';
+      if (!porFecha.has(clave)) {
+        porFecha.set(clave, { fecha: c.fecha_limite ?? null, dias: c.dias_restantes ?? null, filas: [] });
+      }
+      porFecha.get(clave).filas.push(c);
+    }
+    return [...porFecha.values()];
+  }, [compromisos]);
+
+  return (
+    <Tarjeta
+      titulo="Compromisos pendientes de tus áreas"
+      descripcion="Vigentes, no recortados por período: son estado, no historia. Los vencidos no se repiten acá — están arriba, en su propia tabla. Un clic en la fila abre el compromiso en Seguimiento."
+      sinPadding
+      acciones={
+        compromisos.length > 0 && (
+          <Boton
+            tamanio="sm"
+            icono={Download}
+            onClick={() => descargarCSV('mis-areas-compromisos', compromisos, COLUMNAS_PENDIENTES)}
+            title="Exportar a CSV los compromisos de la lista"
+          >
+            CSV
+          </Boton>
+        )
+      }
+    >
+      {grupos.length === 0 ? (
+        <Vacio compacto icono={ClipboardList} titulo="Sin compromisos pendientes en tus áreas" />
+      ) : (
+        grupos.map((grupo) => (
+          <section key={grupo.fecha ?? 'sin-fecha'}>
+            <header className="flex items-center gap-2 border-b border-t border-borde bg-paper px-4 py-2 first:border-t-0">
+              <Semaforo nivel={nivelPorDias(grupo.dias)} soloPunto texto={tituloVencimiento(grupo)} />
+              <h3 className="text-xs font-semibold text-tinta">{tituloVencimiento(grupo)}</h3>
+              {grupo.fecha && <span className="tabular text-[11px] text-tenue">{fFecha(grupo.fecha)}</span>}
+              <span className="tabular ml-auto text-[11px] text-tenue">
+                {grupo.filas.length} compromiso{grupo.filas.length === 1 ? '' : 's'}
+              </span>
+            </header>
+            {grupo.filas.map((c) => {
+              const identidad = identidadArea(c.area, areasCatalogo);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => alAbrir(c)}
+                  className="flex w-full items-center gap-2.5 border-b border-borde px-4 py-2 text-left last:border-b-0 hover:bg-paper"
+                >
+                  <Chip tono={identidad.tono} title={identidad.nombreArea}>
+                    {identidad.sigla}
+                  </Chip>
+                  <span className="min-w-0 flex-1 text-[13px] leading-snug text-tinta">{c.descripcion}</span>
+                  <span className="shrink-0 text-[11px] text-tenue">{c.origen_tipo}</span>
+                </button>
+              );
+            })}
+          </section>
+        ))
+      )}
+    </Tarjeta>
+  );
+}
+
+/**
+ * Cuánto falta, en palabras. Los días importan más que la fecha —«en 37 días»
+ * se entiende sin hacer la cuenta— así que van adelante y la fecha queda al
+ * lado, en gris, para quien la necesite exacta.
+ */
+function tituloVencimiento({ fecha, dias }) {
+  if (!fecha) return 'Sin fecha límite';
+  if (dias === null || dias === undefined) return 'Vence';
+  if (dias < 0) return `Vencido hace ${Math.abs(dias)} día${Math.abs(dias) === 1 ? '' : 's'}`;
+  if (dias === 0) return 'Vence hoy';
+  if (dias === 1) return 'Vence mañana';
+  return `Vence en ${dias} días`;
 }
 
 /* ── Selector de áreas asignadas ─────────────────────────────────────── */

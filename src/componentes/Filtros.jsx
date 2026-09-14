@@ -15,8 +15,9 @@
  * no pueden separarse.
  * ─────────────────────────────────────────────────────────────────────
  */
-import { X } from 'lucide-react';
-import { Boton, BotonAlternable, Tarjeta } from './Basicos.jsx';
+import { useId, useState } from 'react';
+import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
+import { Boton, BotonAlternable, Chip, Tarjeta } from './Basicos.jsx';
 import { contarFiltros } from '../utilidades/filtrosUrl.js';
 
 const DESCRIPCION_POR_DEFECTO =
@@ -31,6 +32,7 @@ const DESCRIPCION_POR_DEFECTO =
  *   sobre una pantalla sin ningún filtro puesto.
  * @param {Function} alLimpiar  vuelve a los valores por defecto; sin esto no se
  *   dibuja el botón, que es lo correcto donde limpiar no tiene sentido
+ * @param {boolean} desplegable  arranca plegada, en una sola línea. Ver abajo.
  */
 export function TarjetaFiltros({
   filtros,
@@ -40,29 +42,126 @@ export function TarjetaFiltros({
   titulo = 'Filtros',
   descripcion = DESCRIPCION_POR_DEFECTO,
   acciones,
+  desplegable = false,
   children,
 }) {
   const aplicables = claves ? Object.fromEntries(claves.map((c) => [c, filtros[c]])) : filtros;
   const cantidad = contarFiltros(aplicables, defaults);
+
+  const botonLimpiar = cantidad > 0 && alLimpiar && (
+    <Boton tamanio="sm" variante="fantasma" icono={X} onClick={alLimpiar}>
+      Limpiar ({cantidad})
+    </Boton>
+  );
+
+  if (desplegable) {
+    return (
+      <FiltrosPlegables
+        titulo={titulo}
+        descripcion={descripcion}
+        cantidad={cantidad}
+        acciones={acciones}
+        botonLimpiar={botonLimpiar}
+      >
+        {children}
+      </FiltrosPlegables>
+    );
+  }
+
   return (
     <Tarjeta
       titulo={titulo}
       descripcion={descripcion}
       acciones={
-        (acciones || (cantidad > 0 && alLimpiar)) && (
+        (acciones || botonLimpiar) && (
           <>
             {acciones}
-            {cantidad > 0 && alLimpiar && (
-              <Boton tamanio="sm" variante="fantasma" icono={X} onClick={alLimpiar}>
-                Limpiar ({cantidad})
-              </Boton>
-            )}
+            {botonLimpiar}
           </>
         )
       }
     >
       <div className="flex flex-col gap-3">{children}</div>
     </Tarjeta>
+  );
+}
+
+/**
+ * La misma tarjeta, plegada hasta que alguien la abre.
+ *
+ * Por qué existe: en Monitoreo los filtros ocupan tres bloques —área, período
+ * y alternadores— y quedan arriba de todo, así que al entrar lo primero que se
+ * ve es el panel de filtros y hay que bajar para llegar a los datos. La mayor
+ * parte de las visitas no toca ningún filtro.
+ *
+ * Plegada NO esconde estado. Si hay filtros puestos, el encabezado dice cuántos
+ * y deja el botón de limpiar a mano: una lista filtrada que parece completa es
+ * peor que una tarjeta grande. Por eso el contador va en la línea plegada y no
+ * adentro.
+ *
+ * El estado abierto/cerrado es local y no se recuerda entre visitas:
+ * persistirlo obligaría a pasar por la capa de datos —el único lugar del repo
+ * autorizado a guardar en el navegador, ver `npm run verificar`— y no vale
+ * abrir ese camino para una preferencia de una pantalla. Los filtros en sí sí
+ * se conservan: viven en la URL (`useFiltrosUrl`), que es lo que importa para
+ * compartir la vista.
+ */
+function FiltrosPlegables({ titulo, descripcion, cantidad, acciones, botonLimpiar, children }) {
+  const [abierta, setAbierta] = useState(false);
+  const idPanel = useId();
+
+  return (
+    <section className="tarjeta bloque-reporte flex flex-col">
+      <div className="flex items-center gap-2 px-4 py-2.5">
+        {/* El título sigue siendo un `h2` como en `Tarjeta`, con el botón
+            adentro: es el patrón de «disclosure» accesible y, además, sacarlo
+            de la cadena de encabezados dejaba a /monitoreo saltando de h1 a h3
+            (lo levanta la auditoría de `npm run verificar`). */}
+        <h2 className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => setAbierta((v) => !v)}
+            aria-expanded={abierta}
+            aria-controls={idPanel}
+            className="flex w-full items-center gap-2 text-left"
+          >
+            <SlidersHorizontal className="h-4 w-4 shrink-0 text-gris" aria-hidden="true" />
+            <span className="text-sm font-semibold text-tinta">{titulo}</span>
+            {cantidad > 0 && (
+              <Chip tono="acento">
+                {cantidad} aplicado{cantidad === 1 ? '' : 's'}
+              </Chip>
+            )}
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-gris transition-transform ${abierta ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
+          </button>
+        </h2>
+        <div className="flex shrink-0 items-center gap-2">
+          {acciones}
+          {botonLimpiar}
+        </div>
+      </div>
+
+      {/* `hidden` en vez de desmontar: los campos de adentro conservan su
+          estado al plegar y desplegar, y el contenido queda en el DOM para
+          buscarlo con Ctrl+F.
+
+          Las clases de layout van SÓLO cuando está abierta, y no es un
+          detalle de estilo: Tailwind declara `[hidden]` con `:where()`, que no
+          suma especificidad, así que `.flex` —que vale lo mismo y se declara
+          después— le gana y el panel se queda visible aunque `hidden` esté
+          puesto. Con la clase condicionada no hay pelea posible. */}
+      <div
+        id={idPanel}
+        hidden={!abierta}
+        className={abierta ? 'flex flex-col gap-3 border-t border-borde px-4 py-3' : undefined}
+      >
+        {descripcion && <p className="text-xs text-gris">{descripcion}</p>}
+        {children}
+      </div>
+    </section>
   );
 }
 
