@@ -7,12 +7,10 @@ import { CampoCheck, CampoFecha, CampoSelect, CampoTexto } from '../../component
 import { Modal } from '../../componentes/Modal.jsx';
 import { VistaPrevia } from './VistaPrevia.jsx';
 import { BLOQUES, MODULOS_ORIGEN, RANGOS, armarReporte } from '../../datos/reportes.js';
-import { ESTADOS_PROYECTO, PRIORIDADES } from '../../datos/catalogos.js';
 import { activos, hoyISO } from '../../datos/selectores.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { contarFiltros, useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
-import { esItem } from '../../utilidades/catalogos.js';
 
 const DEFAULTS = {
   area: '', programa: '', eje: '', tipo: '', estado: '', prioridad: '',
@@ -92,30 +90,38 @@ export default function Reportes() {
 
 function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
   const opcionesArea = useOpciones('areas');
-  /*
-   * «Compromisos» es un valor de `ejes` que ningún proyecto real usa —los
-   * compromisos cuelgan de seguimiento, monitoreo o mesa, nunca de un eje de
-   * proyecto—. Y acá hacía más daño que en Proyectos: el Eje recorta los
-   * PROYECTOS, y ese recorte se propaga a los compromisos, las alertas y las
-   * minutas del mismo documento. Elegirlo devolvía un reporte entero en cero,
-   * que es justo lo que parece un sistema roto.
-   */
-  const opcionesEje = useOpciones('ejes').filter((o) => !esItem(o, 'compromisos', 'ej_compromisos'));
-  const opcionesTipo = useOpciones('tipos');
-
   /**
-   * Programas EN CASCADA: solo los del área elegida, derivados de los
-   * proyectos reales (no del catálogo plano) — así funciona sin importar si
-   * un programa pertenece a una sola área o a varias en los datos cargados.
-   * Sin área seleccionada, muestra los programas de todos los proyectos.
+   * Los cinco filtros que recortan proyectos se arman con lo que los proyectos
+   * REALMENTE tienen, en cascada por área — no con el catálogo plano.
+   *
+   * No es una preferencia de estilo: el Eje, el Estado, el Tipo y la Prioridad
+   * recortan los PROYECTOS, y ese recorte se propaga a los compromisos, las
+   * alertas y las minutas del mismo documento. Una opción sin proyectos detrás
+   * no devuelve «una tabla vacía»: devuelve el reporte entero en cero, que es
+   * exactamente lo que parece un sistema roto.
+   *
+   * Y el catálogo tiene, con razón, más valores que los que se usan: los
+   * estados del glosario de la Dirección conviven con los cinco del formulario,
+   * y «Compromisos» es un eje que ningún proyecto usa porque los compromisos
+   * cuelgan de un seguimiento, un monitoreo o una mesa. Derivar de los datos
+   * hace que el filtro sólo ofrezca lo que puede dar resultado, y se corrige
+   * solo cuando cambian los datos.
    */
-  const opcionesPrograma = useMemo(() => {
+  const deLosProyectos = useMemo(() => {
     const fuente = filtros.area
       ? activos(bd?.proyectos ?? []).filter((p) => p.area === filtros.area)
       : activos(bd?.proyectos ?? []);
-    const set = new Set(fuente.map((p) => p.programa).filter(Boolean));
-    return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+    return (campo) =>
+      [...new Set(fuente.map((p) => p[campo]).filter(Boolean))].sort((a, b) =>
+        String(a).localeCompare(String(b), 'es'),
+      );
   }, [bd, filtros.area]);
+
+  const opcionesPrograma = useMemo(() => deLosProyectos('programa'), [deLosProyectos]);
+  const opcionesEje = useMemo(() => deLosProyectos('eje'), [deLosProyectos]);
+  const opcionesTipo = useMemo(() => deLosProyectos('tipo'), [deLosProyectos]);
+  const opcionesEstado = useMemo(() => deLosProyectos('estado'), [deLosProyectos]);
+  const opcionesPrioridad = useMemo(() => deLosProyectos('prioridad'), [deLosProyectos]);
 
   /**
    * Proyecto EN CASCADA, mismo criterio que Programa: solo los del área
@@ -141,7 +147,9 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
           etiqueta="Área"
           opciones={opcionesArea}
           value={filtros.area}
-          onChange={(e) => setFiltros({ area: e.target.value, programa: '', id_proyecto: '' })}
+          onChange={(e) =>
+            setFiltros({ area: e.target.value, programa: '', id_proyecto: '', eje: '', tipo: '', estado: '', prioridad: '' })
+          }
           placeholder="Todas"
         />
         <CampoSelect
@@ -153,8 +161,8 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
         />
         <CampoSelect etiqueta="Eje" opciones={opcionesEje} value={filtros.eje} onChange={(e) => setFiltros({ eje: e.target.value })} placeholder="Todos" />
         <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={filtros.tipo} onChange={(e) => setFiltros({ tipo: e.target.value })} placeholder="Todos" />
-        <CampoSelect etiqueta="Estado" opciones={ESTADOS_PROYECTO} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
-        <CampoSelect etiqueta="Prioridad" opciones={PRIORIDADES} value={filtros.prioridad} onChange={(e) => setFiltros({ prioridad: e.target.value })} placeholder="Todas" />
+        <CampoSelect etiqueta="Estado" opciones={opcionesEstado} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
+        <CampoSelect etiqueta="Prioridad" opciones={opcionesPrioridad} value={filtros.prioridad} onChange={(e) => setFiltros({ prioridad: e.target.value })} placeholder="Todas" />
         <CampoSelect
           etiqueta="Proyecto"
           opciones={proyectos}

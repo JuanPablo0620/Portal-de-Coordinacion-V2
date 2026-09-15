@@ -172,10 +172,11 @@ test('las mesas del reporte respetan el período por sus reuniones', () => {
  * limitan a los proyectos del recorte.
  *
  * Es el comportamiento correcto —el recorte es lo que ata las entidades al
- * mismo universo— pero convierte a un eje sin proyectos en una trampa. Por eso
- * «Compromisos», que ningún proyecto usa, ya no se ofrece en el filtro; esta
- * prueba fija la razón, para que a nadie le parezca que puede volver a
- * ofrecerse sin consecuencias.
+ * mismo universo— pero convierte a cualquier opción sin proyectos detrás en una
+ * trampa: no vacía una tabla, vacía el documento. Por eso los filtros de
+ * proyecto se derivan de los datos y no del catálogo. Esta prueba fija la
+ * razón, para que a nadie le parezca que puede volver a ofrecerse el catálogo
+ * plano sin consecuencias.
  */
 test('un eje que ningún proyecto usa vacía también los compromisos', () => {
   const ejeInexistente = 'Eje que nadie usa';
