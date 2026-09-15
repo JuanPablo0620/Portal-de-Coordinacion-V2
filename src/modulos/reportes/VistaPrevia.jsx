@@ -12,8 +12,8 @@
 import { Building2, FileBarChart } from 'lucide-react';
 import { BarraAvance, Chip, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
-import { ETIQUETAS_ALERTA } from '../../datos/alertas.js';
-import { fecha as fFecha, fechaLarga, moneda, numero } from '../../utilidades/formato.js';
+import { fecha as fFecha, fechaLarga, numero } from '../../utilidades/formato.js';
+import { agruparParaInforme } from '../../datos/reportes.js';
 
 /**
  * Un avance/problema de seguimiento es hoy `{ descripcion, id_proyecto }`
@@ -50,10 +50,11 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
           {bloques.resumen && (bloques.compromisos || bloques.proyectos) && (
             <BloqueLeyenda conCompromisos={bloques.compromisos} conProyectos={bloques.proyectos} />
           )}
-          {bloques.alertas && <BloqueAlertas alertas={reporte.alertas} />}
           {bloques.compromisos && <BloqueCompromisos filas={reporte.compromisos} />}
           {bloques.mesas && <BloqueMesas filas={reporte.mesas} />}
-          {bloques.minutas && <BloqueMinutas seguimientos={reporte.seguimientos} />}
+          {bloques.minutas && (
+            <BloqueObservaciones seguimientos={reporte.seguimientos} compromisos={reporte.compromisos} />
+          )}
           {bloques.proyectos && <BloqueProyectos filas={reporte.proyectos} />}
           {bloques.eventos && <BloqueEventos filas={reporte.eventos} />}
         </>
@@ -190,6 +191,21 @@ function BloqueLeyenda({ conCompromisos, conProyectos }) {
   );
 }
 
+/**
+ * Columna vacía para escribir a mano sobre el informe impreso.
+ *
+ * Va última en cada tabla y no lleva nada: el punto es el espacio. Se queda
+ * fuera del CSV —no hay nada que exportar— y no se puede ordenar por ella.
+ */
+const COLUMNA_ANOTACIONES = {
+  clave: 'anotaciones',
+  titulo: 'Anotaciones',
+  ancho: 190,
+  sinOrdenar: true,
+  sinExportar: true,
+  render: () => '',
+};
+
 function BloqueResumen({ resumen }) {
   const items = [
     ['Proyectos', numero(resumen.proyectos)],
@@ -201,8 +217,6 @@ function BloqueResumen({ resumen }) {
     ['Monitoreos', numero(resumen.monitoreos)],
     ['Eventos', numero(resumen.eventos)],
     ['Alertas activas', numero(resumen.alertas)],
-    ['Monto planificado', moneda(resumen.montoPlanificado)],
-    ['Monto ejecutado', moneda(resumen.montoEjecutado)],
   ];
   return (
     <Tarjeta titulo="Resumen del recorte">
@@ -234,8 +248,7 @@ function BloqueProyectos({ filas }) {
           { clave: 'area', titulo: 'Área', ancho: 175 },
           { clave: 'eje', titulo: 'Eje', ancho: 145 },
           { clave: 'estado', titulo: 'Estado', ancho: 115, render: (f) => <EstadoProyecto estado={f.estado} /> },
-          { clave: 'porcentaje_avance', titulo: 'Avance', ancho: 130, render: (f) => <BarraAvance valor={f.porcentaje_avance} /> },
-          { clave: 'monto_planificado', titulo: 'Planificado', ancho: 125, alinear: 'derecha', render: (f) => moneda(f.monto_planificado) },
+          COLUMNA_ANOTACIONES,
         ]}
         vacio={<Vacio compacto titulo="Ningún proyecto cumple los filtros aplicados" />}
       />
@@ -243,109 +256,224 @@ function BloqueProyectos({ filas }) {
   );
 }
 
+/**
+ * Los compromisos, en lista y agrupados por secretaría.
+ *
+ * No es una tabla a propósito. Lo que hay que leer de un compromiso es su
+ * texto —una oración entera, a veces dos renglones— y eso en una celda de
+ * tabla se aprieta contra las columnas de al lado o se corta. En lista, el
+ * compromiso ocupa el ancho de la hoja y los datos que lo acompañan —origen,
+ * vencimiento, estado— van abajo, en una línea que se lee de corrido.
+ *
+ * Debajo va la última novedad cargada. Es la diferencia entre «esto vence el
+ * 30» y «esto vence el 30, y hace tres días el área avisó que está trabado en
+ * Legales»: lo primero es una fecha, lo segundo es de lo que hay que hablar en
+ * la reunión.
+ */
 function BloqueCompromisos({ filas }) {
+  if (filas.length === 0) {
+    return (
+      <Tarjeta titulo="Compromisos (0)">
+        <Vacio compacto titulo="Ningún compromiso cumple los filtros aplicados" />
+      </Tarjeta>
+    );
+  }
+
   return (
-    <Tarjeta titulo={`Compromisos (${filas.length})`} sinPadding>
-      <Tabla
-        sinTope
-        nombreExport="reporte-compromisos"
-        filas={filas}
-        conBusqueda={false}
-        columnas={[
-          { clave: 'descripcion', titulo: 'Compromiso' },
-          { clave: 'area', titulo: 'Área', ancho: 175 },
-          { clave: 'origen_tipo', titulo: 'Origen', ancho: 105 },
-          { clave: 'fecha_limite', titulo: 'Vence', ancho: 100, render: (f) => fFecha(f.fecha_limite), formatoCSV: fFecha },
-          {
-            clave: 'estado_efectivo',
-            titulo: 'Estado',
-            ancho: 140,
-            render: (f) => (
-              <Semaforo
-                nivel={f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes)}
-                texto={f.estado_efectivo === 'alerta' ? `alerta · ${f.dias_atraso} d` : f.estado_efectivo}
-              />
-            ),
-          },
-        ]}
-        vacio={<Vacio compacto titulo="Ningún compromiso cumple los filtros aplicados" />}
-      />
-    </Tarjeta>
+    <>
+      {agruparParaInforme(filas).map(([area, deLArea]) => (
+        <Tarjeta key={area} titulo={`Compromisos · ${area} (${deLArea.length})`}>
+          <ol className="flex flex-col">
+            {deLArea.map((c) => (
+              <FichaCompromiso key={c.id} compromiso={c} />
+            ))}
+          </ol>
+        </Tarjeta>
+      ))}
+    </>
   );
 }
 
-function BloqueAlertas({ alertas }) {
+function FichaCompromiso({ compromiso: c }) {
+  const nivel = c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes);
+  const plazo =
+    c.estado_efectivo === 'alerta'
+      ? `venció el ${fFecha(c.fecha_limite)} · ${c.dias_atraso} días de atraso`
+      : c.fecha_limite
+        ? `vence el ${fFecha(c.fecha_limite)}`
+        : 'sin fecha límite';
+
   return (
-    <Tarjeta titulo={`Alertas activas (${alertas.length})`} sinPadding>
-      <Tabla
-        sinTope
-        nombreExport="reporte-alertas"
-        filas={alertas}
-        conBusqueda={false}
-        columnas={[
-          { clave: 'tipo', titulo: 'Tipo', ancho: 230, render: (f) => ETIQUETAS_ALERTA[f.tipo] ?? f.tipo, formatoCSV: (v) => ETIQUETAS_ALERTA[v] ?? v },
-          { clave: 'titulo', titulo: 'Detalle' },
-          { clave: 'area', titulo: 'Área', ancho: 170 },
-          {
-            clave: 'dias_atraso',
-            titulo: 'Atraso',
-            ancho: 90,
-            alinear: 'derecha',
-            render: (f) => (f.dias_atraso > 0 ? <Chip tono="vencido">{f.dias_atraso} d</Chip> : <span className="text-tenue">—</span>),
-          },
-        ]}
-        vacio={<Vacio compacto titulo="Sin alertas activas en este recorte" />}
-      />
-    </Tarjeta>
+    // `evitar-corte` mantiene junto al compromiso con sus renglones: partirlo
+    // deja media ficha en una hoja y el espacio para anotar en la siguiente,
+    // que es peor que dejar el hueco al pie.
+    <li className="evitar-corte border-b border-borde/70 py-4 last:border-0">
+      <div className="flex items-start gap-2.5">
+        <span className="mt-1.5 shrink-0">
+          <Semaforo nivel={nivel} soloPunto texto={c.estado_efectivo} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm leading-relaxed text-tinta">{c.descripcion}</p>
+
+          {/* Los datos que en la tabla eran columnas, acá en una sola línea. */}
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-tenue">
+            <Semaforo
+              nivel={nivel}
+              texto={c.estado_efectivo === 'alerta' ? 'vencido' : c.estado_efectivo}
+            />
+            <span>{plazo}</span>
+            {c.origen_tipo && <span>· origen: {c.origen_tipo}</span>}
+            {c.id_proyecto && <span>· {c.id_proyecto}</span>}
+          </p>
+
+          <UltimaNovedad novedad={c.ultima_actualizacion} />
+          <Anotaciones />
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/**
+ * Tres renglones en blanco para escribir sobre el informe impreso.
+ *
+ * Van debajo de cada compromiso y no en una columna al costado: lo que se
+ * anota en una reunión es una frase, no una palabra, y al costado no entra.
+ */
+function Anotaciones() {
+  return (
+    <div className="mt-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-tenue">Anotaciones</p>
+      <div className="mt-1 flex flex-col">
+        {[0, 1, 2].map((i) => (
+          <span key={i} aria-hidden="true" className="h-[18px] border-b border-dotted border-borde-fuerte/40" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * La última novedad, o el silencio.
+ *
+ * Que un compromiso no tenga ninguna es información: significa que desde que
+ * se cargó nadie informó nada. Decirlo es más útil que dejar el hueco, porque
+ * en la reunión eso es una pregunta.
+ */
+function UltimaNovedad({ novedad }) {
+  if (!novedad) {
+    return <p className="mt-2 text-[11px] italic text-tenue">Sin novedades cargadas.</p>;
+  }
+
+  const cambioDeEstado =
+    novedad.estado_anterior && novedad.estado_anterior !== novedad.estado
+      ? `${novedad.estado_anterior} → ${novedad.estado}`
+      : '';
+
+  return (
+    <div className="mt-2 border-l-2 border-borde py-0.5 pl-2.5">
+      <p className="text-[11px] text-tenue">
+        Última novedad
+        {novedad.fecha && <span className="tabular"> · {fFecha(novedad.fecha)}</span>}
+        {cambioDeEstado && <span> · {cambioDeEstado}</span>}
+      </p>
+      {novedad.texto && (
+        <p className="mt-0.5 whitespace-pre-line text-xs leading-relaxed text-gris">{novedad.texto}</p>
+      )}
+    </div>
   );
 }
 
 
-function BloqueMinutas({ seguimientos }) {
-  const conTexto = seguimientos.filter((s) => s.texto_crudo?.trim());
+
+
+/**
+ * Lo que dejó cada seguimiento: avances, problemas y compromisos asumidos.
+ *
+ * NO se incluye el texto de «Lo conversado». Es la transcripción cruda de la
+ * reunión —media carilla por seguimiento, escrita al correr— y lo que importa
+ * en un informe es lo que se decidió, no cómo se llegó. El texto sigue estando
+ * en el seguimiento, para quien necesite volver a él.
+ *
+ * Por eso también un seguimiento sin ninguna de las tres cosas no aparece: si
+ * no dejó avance, ni problema, ni compromiso, no hay nada que informar.
+ */
+function BloqueObservaciones({ seguimientos, compromisos }) {
+  const porSeguimiento = new Map();
+  for (const c of compromisos) {
+    if (c.origen_tipo !== 'seguimiento' || !c.id_origen) continue;
+    if (!porSeguimiento.has(c.id_origen)) porSeguimiento.set(c.id_origen, []);
+    porSeguimiento.get(c.id_origen).push(c);
+  }
+
+  const conContenido = seguimientos
+    .map((s) => ({ ...s, compromisos: porSeguimiento.get(s.id) ?? [] }))
+    .filter((s) => s.avances?.length || s.problemas?.length || s.compromisos.length);
+
   return (
-    <Tarjeta titulo={`Minutas de seguimiento (${conTexto.length})`}>
-      {conTexto.length === 0 ? (
-        <Vacio compacto titulo="Sin minutas en este recorte" descripcion="Sólo se incluyen los seguimientos realizados con texto cargado." />
+    <Tarjeta titulo={`Observaciones de Seguimiento (${conContenido.length})`}>
+      {conContenido.length === 0 ? (
+        <Vacio
+          compacto
+          titulo="Sin observaciones en este recorte"
+          descripcion="Sólo se incluyen los seguimientos que dejaron un avance, un problema o un compromiso."
+        />
       ) : (
         <div className="flex flex-col gap-3">
-          {conTexto.map((s) => (
-            <article key={s.id} className="bloque-reporte rounded-chip border border-borde p-3">
-              <header className="mb-1.5 flex flex-wrap items-center gap-2">
+          {conContenido.map((s) => (
+            <article key={s.id} className="evitar-corte rounded-chip border border-borde p-3">
+              <header className="mb-2 flex flex-wrap items-center gap-2">
                 <Chip tono="acento">{fFecha(s.fecha)}</Chip>
                 <span className="text-sm font-medium text-tinta">{s.area}</span>
                 {s.participantes && <span className="text-[11px] text-tenue">{s.participantes}</span>}
               </header>
-              <p className="whitespace-pre-wrap text-xs leading-relaxed text-gris">{s.texto_crudo}</p>
-              {(s.avances?.length > 0 || s.problemas?.length > 0) && (
-                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {s.avances?.length > 0 && (
-                    <div>
-                      <p className="mb-1 text-[11px] font-semibold text-enregla-texto">Avances informados</p>
-                      <ul className="list-inside list-disc text-[11px] text-gris">
-                        {s.avances.map((a, i) => (
-                          <li key={i}>{textoDe(a)}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {s.problemas?.length > 0 && (
-                    <div>
-                      <p className="mb-1 text-[11px] font-semibold text-vencido-texto">Problemas / trabas</p>
-                      <ul className="list-inside list-disc text-[11px] text-gris">
-                        {s.problemas.map((p, i) => (
-                          <li key={i}>{textoDe(p)}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
+
+              <div className="flex flex-col gap-2">
+                <ListaObservacion
+                  titulo="Avances informados"
+                  clase="text-enregla-texto"
+                  items={s.avances}
+                />
+                <ListaObservacion
+                  titulo="Problemas / trabas"
+                  clase="text-vencido-texto"
+                  items={s.problemas}
+                />
+                {s.compromisos.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold text-acento">Compromisos asumidos</p>
+                    <ul className="flex flex-col gap-0.5">
+                      {s.compromisos.map((c) => (
+                        <li key={c.id} className="text-[11px] leading-snug text-gris">
+                          {c.descripcion}
+                          {c.fecha_limite && (
+                            <span className="tabular text-tenue"> · vence el {fFecha(c.fecha_limite)}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </article>
           ))}
         </div>
       )}
     </Tarjeta>
+  );
+}
+
+function ListaObservacion({ titulo, clase, items }) {
+  if (!items?.length) return null;
+  return (
+    <div>
+      <p className={`mb-1 text-[11px] font-semibold ${clase}`}>{titulo}</p>
+      <ul className="list-inside list-disc text-[11px] leading-snug text-gris">
+        {items.map((x, i) => (
+          <li key={i}>{textoDe(x)}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -376,6 +504,7 @@ function BloqueMesas({ filas }) {
           { clave: 'estado', titulo: 'Estado', ancho: 100 },
           { clave: 'cantidad_reuniones', titulo: 'Reuniones', ancho: 95, alinear: 'derecha' },
           { clave: 'ultima_reunion', titulo: 'Última', ancho: 105, render: (f) => (f.ultima_reunion ? fFecha(f.ultima_reunion) : '—'), formatoCSV: (v) => (v ? fFecha(v) : '') },
+          COLUMNA_ANOTACIONES,
         ]}
         vacio={<Vacio compacto titulo="Sin mesas en este recorte" />}
       />
@@ -405,6 +534,7 @@ function BloqueEventos({ filas }) {
             render: (f) => (f.requerimientos.total ? <BarraAvance valor={f.requerimientos.porcentaje} /> : <span className="text-tenue">—</span>),
             formatoCSV: (v) => `${v.confirmados}/${v.total}`,
           },
+          COLUMNA_ANOTACIONES,
         ]}
         vacio={<Vacio compacto titulo="Sin eventos en este recorte" />}
       />

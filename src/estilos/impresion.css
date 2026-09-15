@@ -116,6 +116,17 @@
     display: none !important;
   }
 
+  /*
+   * Unidades cortas que no se parten: un compromiso con su novedad y sus
+   * renglones para anotar, una minuta. Son chicas —entran sobradas en una
+   * hoja— asi que evitar el corte nunca las deja sin donde caer, a diferencia
+   * de un bloque entero con noventa filas.
+   */
+  .evitar-corte {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .salto-pagina {
     break-before: page;
     page-break-before: always;
@@ -128,6 +139,11 @@
     font-size: 9.5pt;
   }
 
+  /*
+   * El encabezado se repite arriba de cada página en la que la tabla continúa.
+   * Es lo que hace legible una tabla larga en papel: sin esto, a partir de la
+   * segunda hoja hay columnas de datos sin saber de qué son.
+   */
   thead {
     display: table-header-group;
   }
@@ -135,6 +151,28 @@
   tr {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /*
+   * Una tabla no empieza al pie de una página para cortarse enseguida.
+   *
+   * CSS no sabe medir, así que se aproxima con dos reglas: el encabezado no
+   * puede ser lo último de una hoja, y las primeras filas no pueden separarse
+   * de él. Si el encabezado y esas filas no entran en lo que queda, el bloque
+   * entero se va a la hoja siguiente y abajo queda espacio en blanco — que es
+   * exactamente lo pedido: mejor el hueco que una tabla partida al nacer.
+   *
+   * Las tablas que igual no entran en una hoja se siguen partiendo: ahí
+   * partirlas es la única opción, y para eso el encabezado se repite.
+   */
+  thead {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  tbody tr:nth-child(-n + 4) {
+    break-before: avoid;
+    page-break-before: avoid;
   }
 
   th,

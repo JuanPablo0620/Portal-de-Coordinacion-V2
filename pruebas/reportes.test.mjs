@@ -261,3 +261,37 @@ test('cada mesa del reporte dice qué secretarías asumieron algo en ella', () =
     assert.deepEqual(new Set(m.areas), esperadas, `secretarías mal atribuidas en ${m.nombre}`);
   }
 });
+
+/* ── El orden de los compromisos en el informe ──────────────────────── */
+
+test('dentro de una secretaría, lo vencido va primero y lo sin fecha último', async () => {
+  const { agruparParaInforme } = await import('../src/datos/reportes.js');
+  const filas = [
+    { descripcion: 'sin fecha', area: 'Obras', estado_efectivo: 'pendiente', fecha_limite: null, dias_atraso: 0 },
+    { descripcion: 'vence lejos', area: 'Obras', estado_efectivo: 'pendiente', fecha_limite: '2026-12-01', dias_atraso: 0 },
+    { descripcion: 'vencido hace poco', area: 'Obras', estado_efectivo: 'alerta', fecha_limite: '2026-08-01', dias_atraso: 7 },
+    { descripcion: 'vencido hace mucho', area: 'Obras', estado_efectivo: 'alerta', fecha_limite: '2026-01-01', dias_atraso: 220 },
+    { descripcion: 'vence pronto', area: 'Obras', estado_efectivo: 'pendiente', fecha_limite: '2026-09-01', dias_atraso: 0 },
+  ];
+
+  const [[area, ordenados]] = agruparParaInforme(filas);
+  assert.equal(area, 'Obras');
+  assert.deepEqual(ordenados.map((c) => c.descripcion), [
+    'vencido hace mucho',
+    'vencido hace poco',
+    'vence pronto',
+    'vence lejos',
+    'sin fecha',
+  ]);
+});
+
+test('los compromisos sin secretaría van al final, con rótulo propio', async () => {
+  const { agruparParaInforme } = await import('../src/datos/reportes.js');
+  const grupos = agruparParaInforme([
+    { descripcion: 'a', area: '', estado_efectivo: 'pendiente', fecha_limite: null, dias_atraso: 0 },
+    { descripcion: 'b', area: 'Salud', estado_efectivo: 'pendiente', fecha_limite: null, dias_atraso: 0 },
+    { descripcion: 'c', area: 'Ambiente', estado_efectivo: 'pendiente', fecha_limite: null, dias_atraso: 0 },
+  ]);
+
+  assert.deepEqual(grupos.map(([a]) => a), ['Ambiente', 'Salud', 'Sin secretaría asignada']);
+});
