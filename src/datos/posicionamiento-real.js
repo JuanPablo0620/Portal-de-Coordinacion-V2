@@ -80,4 +80,16 @@ export const PROYECTOS_POSICIONAMIENTO_REAL = [
       'Firma de convenio por $40M con RIL: $20M Programa 30C, $10M Programa Ciudades Digitales, ' +
       '$10M Programa Ciudades Desarrollo Económico.',
   },
+  {
+    // A diferencia del resto de este archivo, CAF no viene de Coordinacion_db:
+    // es uno de los 21 ejes de `Ejes_de_Gestion_2026.pdf` (Valentín, 08/09/2026),
+    // cargado también acá por pedido explícito de JP el 15/09/2026 — queda
+    // duplicado a propósito en Ejes Estratégicos y en Posicionamiento.
+    nombre: 'CAF',
+    estadoReal: 'en ejecución',
+    fechaActualizacion: '2026-09-15',
+    comentario:
+      'Cooperación técnica en curso, con convenio, plan de trabajo y solicitud de desembolsos en elaboración; ' +
+      'sujeta a reglas estrictas de procurement (mínimo tres cotizaciones y no objeción de CAF).',
+  },
 ];

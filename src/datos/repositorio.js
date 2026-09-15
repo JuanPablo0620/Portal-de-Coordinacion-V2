@@ -525,12 +525,26 @@ export async function cargarProyectosPosicionamientoReales() {
  * mismo paso — es la vía que reemplaza el "Interés de Roco"/"Puntuales
  * estratégicos" de v1: acá no hay proyecto previo de otra secretaría al cual
  * "promover", el propio PDF de Coordinación es la fuente.
+ *
+ * No todos los 21 ejes son de Coordinación: algunos pertenecen a una
+ * secretaría real (confirmado por JP el 15/09/2026, ver `area` en cada
+ * entrada de `ejes-estrategicos-real.js`). Se usan los mismos id/nombre de
+ * área que `proyectos-reales-secretarias.js` para no duplicar el catálogo —
+ * así el proyecto aparece junto al resto de esa secretaría, no aislado. Los
+ * que no tienen secretaría confirmada (`area: null`) quedan en Coordinación:
+ * son iniciativas propias de Valentín, no de un área.
  */
+const AREAS_SECRETARIAS_EJES = {
+  'Secretaría de Obras': { id: 'ar_r_obras', nombre: 'Secretaría de Obras', prefijo: 'OBR' },
+  'Secretaría de Salud': { id: 'ar_salud', nombre: 'Secretaría de Salud', prefijo: 'SAL' },
+  'Secretaría de Capital Humano': { id: 'ar_r_capital', nombre: 'Secretaría de Capital Humano', prefijo: 'CAH' },
+};
+
 export async function cargarProyectosEjesEstrategicosReales() {
   const { PROYECTOS_EJES_ESTRATEGICOS_REAL } = await import('./ejes-estrategicos-real.js');
   const bd = await obtenerBD();
 
-  const area = await asegurarCatalogo('areas', {
+  const areaCoordinacion = await asegurarCatalogo('areas', {
     id: 'ar_coord',
     nombre: 'Coordinación',
     prefijo: 'COR',
@@ -552,6 +566,8 @@ export async function cargarProyectosEjesEstrategicosReales() {
   let creados = 0;
   for (const real of PROYECTOS_EJES_ESTRATEGICOS_REAL) {
     if (yaCargados.has(real.nombre)) continue;
+    const areaSecretaria = real.area ? AREAS_SECRETARIAS_EJES[real.area] : null;
+    const area = areaSecretaria ? await asegurarCatalogo('areas', { ...areaSecretaria, activo: true }) : areaCoordinacion;
     const proyecto = await crearProyecto({
       proyecto: real.nombre,
       area: area.nombre,
