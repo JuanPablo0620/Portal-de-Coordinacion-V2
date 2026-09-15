@@ -12,6 +12,7 @@ import { activos, hoyISO } from '../../datos/selectores.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { contarFiltros, useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
+import { esItem } from '../../utilidades/catalogos.js';
 
 const DEFAULTS = {
   area: '', programa: '', eje: '', tipo: '', estado: '', prioridad: '',
@@ -21,7 +22,7 @@ const DEFAULTS = {
 
 const BLOQUES_INICIALES = {
   resumen: true, proyectos: true, graficos: true, compromisos: true,
-  alertas: true, minutas: false, temas: false, mesas: false, eventos: false,
+  alertas: true, minutas: false, mesas: false, eventos: false,
 };
 
 export default function Reportes() {
@@ -91,7 +92,15 @@ export default function Reportes() {
 
 function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
   const opcionesArea = useOpciones('areas');
-  const opcionesEje = useOpciones('ejes');
+  /*
+   * «Compromisos» es un valor de `ejes` que ningún proyecto real usa —los
+   * compromisos cuelgan de seguimiento, monitoreo o mesa, nunca de un eje de
+   * proyecto—. Y acá hacía más daño que en Proyectos: el Eje recorta los
+   * PROYECTOS, y ese recorte se propaga a los compromisos, las alertas y las
+   * minutas del mismo documento. Elegirlo devolvía un reporte entero en cero,
+   * que es justo lo que parece un sistema roto.
+   */
+  const opcionesEje = useOpciones('ejes').filter((o) => !esItem(o, 'compromisos', 'ej_compromisos'));
   const opcionesTipo = useOpciones('tipos');
 
   /**
@@ -184,7 +193,6 @@ function SelectorBloques({ bloques, setBloques, reporte }) {
     compromisos: reporte.compromisos.length,
     alertas: reporte.alertas.length,
     minutas: reporte.seguimientos.filter((s) => s.texto_crudo).length,
-    temas: reporte.temas.length,
     mesas: reporte.mesas.length,
     eventos: reporte.eventos.length,
   };

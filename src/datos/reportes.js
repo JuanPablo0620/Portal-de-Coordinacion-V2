@@ -67,7 +67,6 @@ export const BLOQUES = [
   { clave: 'compromisos', titulo: 'Compromisos', descripcion: 'Listado con estado y vencimiento' },
   { clave: 'alertas', titulo: 'Alertas activas', descripcion: 'Del motor central de alertas' },
   { clave: 'minutas', titulo: 'Minutas de seguimiento', descripcion: 'Texto de lo conversado' },
-  { clave: 'temas', titulo: 'Temas de monitoreo', descripcion: 'Con criticidad y acción requerida' },
   { clave: 'mesas', titulo: 'Mesas de trabajo', descripcion: 'Con reuniones y periodicidad' },
   { clave: 'eventos', titulo: 'Eventos', descripcion: 'Con estado de requerimientos' },
 ];
@@ -163,10 +162,6 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
 
   const monitoreos = enModulo('monitoreos') ? selMonitoreos(bd, { area: filtros.area, desde, hasta }) : [];
 
-  const temas = monitoreos
-    .flatMap((m) => m.temas.map((t) => ({ ...t, area: m.area, fecha: m.fecha })))
-    .filter((t) => !hayRecorteProyecto || !t.id_proyecto || idsProyecto.has(t.id_proyecto));
-
   /**
    * Las mesas también respetan el período: se quedan las que sesionaron dentro
    * de la ventana. Antes salían las dieciséis en cualquier recorte, así que un
@@ -214,7 +209,6 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     compromisosVencidos: compromisos.filter((c) => c.estado_efectivo === 'alerta').length,
     seguimientos: seguimientos.length,
     monitoreos: monitoreos.length,
-    temasCriticos: temas.filter((t) => t.criticidad === 'alta' && !t.resuelto).length,
     eventos: eventos.length,
     mesas: mesas.length,
     alertas: alertas.length,
@@ -227,7 +221,6 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     compromisos,
     seguimientos,
     monitoreos,
-    temas,
     mesas,
     eventos,
     alertas,
@@ -240,7 +233,7 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
 
 function vacio() {
   return {
-    proyectos: [], compromisos: [], seguimientos: [], monitoreos: [], temas: [],
+    proyectos: [], compromisos: [], seguimientos: [], monitoreos: [],
     mesas: [], eventos: [], alertas: [], agregados: {}, resumen: {},
     rango: { desde: '', hasta: '' }, resumenFiltros: [],
   };

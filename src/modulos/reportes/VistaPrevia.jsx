@@ -10,7 +10,7 @@
  * un PDF al que le faltan filas sin decirlo es peor que uno largo.
  */
 import { Building2, FileBarChart } from 'lucide-react';
-import { BarraAvance, Chip, Criticidad, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
+import { BarraAvance, Chip, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { GraficoBarras, GraficoTorta } from '../../componentes/Graficos.jsx';
 import { ETIQUETAS_ALERTA } from '../../datos/alertas.js';
@@ -46,7 +46,6 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
           {bloques.proyectos && <BloqueProyectos filas={reporte.proyectos} />}
           {bloques.compromisos && <BloqueCompromisos filas={reporte.compromisos} />}
           {bloques.alertas && <BloqueAlertas alertas={reporte.alertas} />}
-          {bloques.temas && <BloqueTemas filas={reporte.temas} />}
           {bloques.minutas && <BloqueMinutas seguimientos={reporte.seguimientos} />}
           {bloques.mesas && <BloqueMesas filas={reporte.mesas} />}
           {bloques.eventos && <BloqueEventos filas={reporte.eventos} />}
@@ -124,7 +123,6 @@ function BloqueResumen({ resumen }) {
     ['Compromisos vencidos', numero(resumen.compromisosVencidos)],
     ['Seguimientos', numero(resumen.seguimientos)],
     ['Monitoreos', numero(resumen.monitoreos)],
-    ['Temas críticos sin resolver', numero(resumen.temasCriticos)],
     ['Eventos', numero(resumen.eventos)],
     ['Alertas activas', numero(resumen.alertas)],
     ['Monto planificado', moneda(resumen.montoPlanificado)],
@@ -254,27 +252,6 @@ function BloqueAlertas({ alertas }) {
   );
 }
 
-function BloqueTemas({ filas }) {
-  return (
-    <Tarjeta titulo={`Temas de monitoreo (${filas.length})`} sinPadding>
-      <Tabla
-        sinTope
-        nombreExport="reporte-temas"
-        filas={filas}
-        conBusqueda={false}
-        columnas={[
-          { clave: 'fecha', titulo: 'Fecha', ancho: 100, render: (f) => fFecha(f.fecha), formatoCSV: fFecha },
-          { clave: 'area', titulo: 'Área', ancho: 170 },
-          { clave: 'categoria', titulo: 'Categoría', ancho: 170 },
-          { clave: 'descripcion', titulo: 'Tema' },
-          { clave: 'criticidad', titulo: 'Criticidad', ancho: 105, render: (f) => <Criticidad nivel={f.criticidad} /> },
-          { clave: 'resuelto', titulo: 'Estado', ancho: 110, render: (f) => (f.resuelto ? <Chip tono="enregla">resuelto</Chip> : <Chip tono="vencido">sin resolver</Chip>) },
-        ]}
-        vacio={<Vacio compacto titulo="Sin temas de monitoreo en este recorte" />}
-      />
-    </Tarjeta>
-  );
-}
 
 function BloqueMinutas({ seguimientos }) {
   const conTexto = seguimientos.filter((s) => s.texto_crudo?.trim());

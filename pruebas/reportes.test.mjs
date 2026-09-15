@@ -163,3 +163,42 @@ test('las mesas del reporte respetan el período por sus reuniones', () => {
     assert.ok(enVentana, `la mesa ${m.nombre} no sesionó en el período`);
   }
 });
+
+/* ── El eje recorta proyectos, y ese recorte se propaga ─────────────── */
+
+/**
+ * Filtrar por un eje que ningún proyecto usa deja el reporte ENTERO en cero,
+ * no sólo la tabla de proyectos: los compromisos, las alertas y las minutas se
+ * limitan a los proyectos del recorte.
+ *
+ * Es el comportamiento correcto —el recorte es lo que ata las entidades al
+ * mismo universo— pero convierte a un eje sin proyectos en una trampa. Por eso
+ * «Compromisos», que ningún proyecto usa, ya no se ofrece en el filtro; esta
+ * prueba fija la razón, para que a nadie le parezca que puede volver a
+ * ofrecerse sin consecuencias.
+ */
+test('un eje que ningún proyecto usa vacía también los compromisos', () => {
+  const ejeInexistente = 'Eje que nadie usa';
+  assert.equal(
+    bd.proyectos.filter((p) => p.eje === ejeInexistente).length,
+    0,
+    'la premisa de la prueba: ningún proyecto tiene ese eje',
+  );
+
+  const r = armarReporte(bd, { eje: ejeInexistente }, HOY);
+  assert.deepEqual(r.proyectos, []);
+  // Los que cuelgan de un proyecto se van con él. Los sueltos sobreviven.
+  assert.ok(r.compromisos.every((c) => !c.id_proyecto));
+});
+
+test('filtrar por un eje real conserva los compromisos de esos proyectos', () => {
+  const eje = bd.proyectos.find((p) => p.eje)?.eje;
+  assert.ok(eje, 'la demo tiene al menos un proyecto con eje');
+
+  const r = armarReporte(bd, { eje }, HOY);
+  assert.ok(r.proyectos.length > 0);
+  assert.ok(r.proyectos.every((p) => p.eje === eje));
+
+  const ids = new Set(r.proyectos.map((p) => p.id_proyecto));
+  assert.ok(r.compromisos.every((c) => !c.id_proyecto || ids.has(c.id_proyecto)));
+});
