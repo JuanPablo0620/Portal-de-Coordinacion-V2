@@ -179,6 +179,14 @@ try {
         .filter((b) => b.textContent.trim().length < 30)
         .map((b) => b.querySelector('h2, h3')?.textContent ?? '(sin título)'),
       tablas: document.querySelectorAll('.bloque-reporte table').length,
+      // Un seguimiento tiene que aparecer UNA vez, con sus avances, sus
+      // problemas y sus compromisos adentro — no partido en varias fichas.
+      observaciones: (() => {
+        const titulo = [...document.querySelectorAll("h2")].find((h) => h.textContent.startsWith("Observaciones"));
+        const tarjeta = titulo?.closest(".bloque-reporte");
+        const numeros = (titulo?.textContent ?? "").replace(/[^0-9]/g, "");
+        return { fichas: tarjeta ? tarjeta.querySelectorAll("article").length : 0, declaradas: Number(numeros) };
+      })(),
       encabezadosSinTexto: [...document.querySelectorAll('.bloque-reporte thead th')].filter(
         (th) => !th.textContent.trim(),
       ).length,
@@ -189,6 +197,7 @@ try {
   console.log('BLOQUES', diagnostico.bloques, '· TABLAS', diagnostico.tablas);
   console.log('BLOQUES CASI VACÍOS', JSON.stringify(diagnostico.vacios));
   console.log('ENCABEZADOS SIN TEXTO', diagnostico.encabezadosSinTexto);
+  console.log('OBSERVACIONES · fichas', diagnostico.observaciones.fichas, '· declaradas', diagnostico.observaciones.declaradas);
   console.log('ERRORES', JSON.stringify(errores));
 } finally {
   await navegador?.close();
