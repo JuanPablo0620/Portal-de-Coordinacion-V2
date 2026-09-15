@@ -23,7 +23,7 @@ const DEFAULTS = {
 
 const BLOQUES_INICIALES = {
   resumen: true, proyectos: true, compromisos: true,
-  alertas: true, minutas: false, mesas: false, eventos: false,
+  minutas: false, mesas: false, eventos: false,
 };
 
 export default function Reportes() {
@@ -243,7 +243,6 @@ function SelectorBloques({ bloques, setBloques, reporte }) {
   const CANTIDAD = {
     proyectos: reporte.proyectos.length,
     compromisos: reporte.compromisos.length,
-    alertas: reporte.alertas.length,
     minutas: reporte.seguimientos.filter((s) => s.texto_crudo).length,
     mesas: reporte.mesas.length,
     eventos: reporte.eventos.length,

@@ -12,8 +12,8 @@
 import { Building2, FileBarChart } from 'lucide-react';
 import { BarraAvance, Chip, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
-import { ETIQUETAS_ALERTA } from '../../datos/alertas.js';
-import { fecha as fFecha, fechaLarga, moneda, numero } from '../../utilidades/formato.js';
+import { fecha as fFecha, fechaLarga, moneda, numero, sufijoArchivo } from '../../utilidades/formato.js';
+import { agruparParaInforme } from '../../datos/reportes.js';
 
 /**
  * Un avance/problema de seguimiento es hoy `{ descripcion, id_proyecto }`
@@ -50,7 +50,6 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
           {bloques.resumen && (bloques.compromisos || bloques.proyectos) && (
             <BloqueLeyenda conCompromisos={bloques.compromisos} conProyectos={bloques.proyectos} />
           )}
-          {bloques.alertas && <BloqueAlertas alertas={reporte.alertas} />}
           {bloques.compromisos && <BloqueCompromisos filas={reporte.compromisos} />}
           {bloques.mesas && <BloqueMesas filas={reporte.mesas} />}
           {bloques.minutas && <BloqueMinutas seguimientos={reporte.seguimientos} />}
@@ -243,62 +242,60 @@ function BloqueProyectos({ filas }) {
   );
 }
 
+/**
+ * Los compromisos, una tabla por secretaría.
+ *
+ * Todos juntos no se podían repartir: en la reunión cada secretario mira lo
+ * suyo, y una tabla de ciento treinta filas mezcladas obliga a leerlas todas
+ * para encontrar tres. Con una tabla por área, la hoja se recorta sola.
+ *
+ * La columna Área se va: con el nombre de la secretaría en el título de cada
+ * tabla, repetirlo en cada fila es gastar ancho en decir lo mismo.
+ */
 function BloqueCompromisos({ filas }) {
+  const columnas = [
+    { clave: 'descripcion', titulo: 'Compromiso' },
+    { clave: 'origen_tipo', titulo: 'Origen', ancho: 105 },
+    { clave: 'fecha_limite', titulo: 'Vence', ancho: 100, render: (f) => (f.fecha_limite ? fFecha(f.fecha_limite) : <span className="text-tenue">—</span>), formatoCSV: fFecha },
+    {
+      clave: 'estado_efectivo',
+      titulo: 'Estado',
+      ancho: 140,
+      render: (f) => (
+        <Semaforo
+          nivel={f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes)}
+          texto={f.estado_efectivo === 'alerta' ? `vencido · ${f.dias_atraso} d` : f.estado_efectivo}
+        />
+      ),
+    },
+  ];
+
+  if (filas.length === 0) {
+    return (
+      <Tarjeta titulo="Compromisos (0)">
+        <Vacio compacto titulo="Ningún compromiso cumple los filtros aplicados" />
+      </Tarjeta>
+    );
+  }
+
   return (
-    <Tarjeta titulo={`Compromisos (${filas.length})`} sinPadding>
-      <Tabla
-        sinTope
-        nombreExport="reporte-compromisos"
-        filas={filas}
-        conBusqueda={false}
-        columnas={[
-          { clave: 'descripcion', titulo: 'Compromiso' },
-          { clave: 'area', titulo: 'Área', ancho: 175 },
-          { clave: 'origen_tipo', titulo: 'Origen', ancho: 105 },
-          { clave: 'fecha_limite', titulo: 'Vence', ancho: 100, render: (f) => fFecha(f.fecha_limite), formatoCSV: fFecha },
-          {
-            clave: 'estado_efectivo',
-            titulo: 'Estado',
-            ancho: 140,
-            render: (f) => (
-              <Semaforo
-                nivel={f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes)}
-                texto={f.estado_efectivo === 'alerta' ? `alerta · ${f.dias_atraso} d` : f.estado_efectivo}
-              />
-            ),
-          },
-        ]}
-        vacio={<Vacio compacto titulo="Ningún compromiso cumple los filtros aplicados" />}
-      />
-    </Tarjeta>
+    <>
+      {agruparParaInforme(filas).map(([area, deLArea]) => (
+        <Tarjeta key={area} titulo={`Compromisos · ${area} (${deLArea.length})`} sinPadding>
+          <Tabla
+            sinTope
+            nombreExport={`reporte-compromisos-${sufijoArchivo(area)}`}
+            filas={deLArea}
+            conBusqueda={false}
+            columnas={columnas}
+          />
+        </Tarjeta>
+      ))}
+    </>
   );
 }
 
-function BloqueAlertas({ alertas }) {
-  return (
-    <Tarjeta titulo={`Alertas activas (${alertas.length})`} sinPadding>
-      <Tabla
-        sinTope
-        nombreExport="reporte-alertas"
-        filas={alertas}
-        conBusqueda={false}
-        columnas={[
-          { clave: 'tipo', titulo: 'Tipo', ancho: 230, render: (f) => ETIQUETAS_ALERTA[f.tipo] ?? f.tipo, formatoCSV: (v) => ETIQUETAS_ALERTA[v] ?? v },
-          { clave: 'titulo', titulo: 'Detalle' },
-          { clave: 'area', titulo: 'Área', ancho: 170 },
-          {
-            clave: 'dias_atraso',
-            titulo: 'Atraso',
-            ancho: 90,
-            alinear: 'derecha',
-            render: (f) => (f.dias_atraso > 0 ? <Chip tono="vencido">{f.dias_atraso} d</Chip> : <span className="text-tenue">—</span>),
-          },
-        ]}
-        vacio={<Vacio compacto titulo="Sin alertas activas en este recorte" />}
-      />
-    </Tarjeta>
-  );
-}
+
 
 
 function BloqueMinutas({ seguimientos }) {

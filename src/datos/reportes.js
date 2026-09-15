@@ -55,13 +55,56 @@ export function resolverRango(filtros, hoy = hoyISO()) {
   }
 }
 
+/**
+ * Agrupa por secretaría y ordena de más a menos urgente dentro de cada una.
+ *
+ * El orden es el de la atención: primero lo vencido —y entre lo vencido, lo
+ * que hace más tiempo que venció—, después lo que está por vencer de más
+ * cerca a más lejos, y último lo que no tiene fecha. Sin fecha no es lo menos
+ * importante porque sí: es lo que el sistema no puede vigilar, y va al final
+ * para que no tape lo que sí tiene plazo.
+ *
+ * Las secretarías van alfabéticas, y los compromisos sin área al final bajo un
+ * rótulo propio: son los del lote histórico, que no dicen de quién son.
+ */
+export function agruparParaInforme(filas) {
+  const SIN_AREA = 'Sin secretaría asignada';
+  const porArea = new Map();
+  for (const f of filas) {
+    const clave = f.area || SIN_AREA;
+    if (!porArea.has(clave)) porArea.set(clave, []);
+    porArea.get(clave).push(f);
+  }
+
+  for (const lista of porArea.values()) lista.sort(porUrgencia);
+
+  return [...porArea.entries()].sort(([a], [b]) => {
+    if (a === SIN_AREA) return 1;
+    if (b === SIN_AREA) return -1;
+    return a.localeCompare(b, 'es');
+  });
+}
+
+function porUrgencia(a, b) {
+  const rango = (c) => {
+    if (c.estado_efectivo === 'alerta') return 0;
+    if (c.fecha_limite) return 1;
+    return 2;
+  };
+  const ra = rango(a);
+  const rb = rango(b);
+  if (ra !== rb) return ra - rb;
+  if (ra === 0) return b.dias_atraso - a.dias_atraso;
+  if (ra === 1) return String(a.fecha_limite).localeCompare(String(b.fecha_limite));
+  return String(a.descripcion ?? '').localeCompare(String(b.descripcion ?? ''), 'es');
+}
+
 /* ── Bloques disponibles ────────────────────────────────────────────── */
 
 export const BLOQUES = [
   { clave: 'resumen', titulo: 'Resumen numérico', descripcion: 'Contadores del recorte' },
   { clave: 'proyectos', titulo: 'Tabla de proyectos', descripcion: 'Listado con avance y estado' },
   { clave: 'compromisos', titulo: 'Compromisos', descripcion: 'Listado con estado y vencimiento' },
-  { clave: 'alertas', titulo: 'Alertas activas', descripcion: 'Del motor central de alertas' },
   { clave: 'minutas', titulo: 'Minutas de seguimiento', descripcion: 'Texto de lo conversado' },
   { clave: 'mesas', titulo: 'Mesas de trabajo', descripcion: 'Con reuniones y periodicidad' },
   { clave: 'eventos', titulo: 'Eventos', descripcion: 'Con estado de requerimientos' },
