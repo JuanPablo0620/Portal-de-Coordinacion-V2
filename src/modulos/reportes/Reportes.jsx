@@ -14,6 +14,9 @@ import { contarFiltros, useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
 const DEFAULTS = {
   area: '', programa: '', eje: '', tipo: '', estado: '', prioridad: '',
+  // Cada entidad tiene su propio vocabulario de estado. Un solo filtro
+  // «Estado» ofrecía los del proyecto y no recortaba nada de lo demás.
+  estado_compromiso: '', estado_mesa: '', estado_evento: '',
   id_proyecto: '', modulo: '', rango: '', desde: '', hasta: '',
   solo_obras: false, solo_prioritarios: false, solo_con_alertas: false,
 };
@@ -124,6 +127,26 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
   const opcionesPrioridad = useMemo(() => deLosProyectos('prioridad'), [deLosProyectos]);
 
   /**
+   * Los estados de las otras entidades salen de sus propias colecciones, con
+   * el mismo criterio: sólo lo que existe. El área sí las recorta —un
+   * compromiso y un evento tienen área—; las mesas no, porque son
+   * territoriales y se atan a un área por sus compromisos.
+   */
+  const deLaColeccion = useMemo(() => {
+    return (coleccion, conArea = true) => {
+      const filas = activos(bd?.[coleccion] ?? []);
+      const fuente = conArea && filtros.area ? filas.filter((f) => f.area === filtros.area) : filas;
+      return [...new Set(fuente.map((f) => f.estado).filter(Boolean))].sort((a, b) =>
+        String(a).localeCompare(String(b), 'es'),
+      );
+    };
+  }, [bd, filtros.area]);
+
+  const opcionesEstadoCompromiso = useMemo(() => deLaColeccion('compromisos'), [deLaColeccion]);
+  const opcionesEstadoMesa = useMemo(() => deLaColeccion('mesas', false), [deLaColeccion]);
+  const opcionesEstadoEvento = useMemo(() => deLaColeccion('eventos'), [deLaColeccion]);
+
+  /**
    * Proyecto EN CASCADA, mismo criterio que Programa: solo los del área
    * elegida — sin esto la lista muestra los ~90 proyectos de las 7
    * secretarías juntos, que es demasiado para buscar a mano.
@@ -159,10 +182,10 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
           onChange={(e) => setFiltros({ programa: e.target.value })}
           placeholder={filtros.area ? `Todos (de ${filtros.area})` : 'Todos'}
         />
-        <CampoSelect etiqueta="Eje" opciones={opcionesEje} value={filtros.eje} onChange={(e) => setFiltros({ eje: e.target.value })} placeholder="Todos" />
-        <CampoSelect etiqueta="Tipo" opciones={opcionesTipo} value={filtros.tipo} onChange={(e) => setFiltros({ tipo: e.target.value })} placeholder="Todos" />
-        <CampoSelect etiqueta="Estado" opciones={opcionesEstado} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
-        <CampoSelect etiqueta="Prioridad" opciones={opcionesPrioridad} value={filtros.prioridad} onChange={(e) => setFiltros({ prioridad: e.target.value })} placeholder="Todas" />
+        <CampoSelect etiqueta="Eje del proyecto" opciones={opcionesEje} value={filtros.eje} onChange={(e) => setFiltros({ eje: e.target.value })} placeholder="Todos" />
+        <CampoSelect etiqueta="Tipo de proyecto" opciones={opcionesTipo} value={filtros.tipo} onChange={(e) => setFiltros({ tipo: e.target.value })} placeholder="Todos" />
+        <CampoSelect etiqueta="Estado del proyecto" opciones={opcionesEstado} value={filtros.estado} onChange={(e) => setFiltros({ estado: e.target.value })} placeholder="Todos" />
+        <CampoSelect etiqueta="Prioridad del proyecto" opciones={opcionesPrioridad} value={filtros.prioridad} onChange={(e) => setFiltros({ prioridad: e.target.value })} placeholder="Todas" />
         <CampoSelect
           etiqueta="Proyecto"
           opciones={proyectos}
@@ -171,6 +194,27 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
           placeholder={filtros.area ? `Todos (de ${filtros.area})` : 'Todos'}
         />
         <CampoSelect etiqueta="Módulo de origen" opciones={MODULOS_ORIGEN} value={filtros.modulo} onChange={(e) => setFiltros({ modulo: e.target.value })} placeholder="Todos" />
+        <CampoSelect
+          etiqueta="Estado del compromiso"
+          opciones={opcionesEstadoCompromiso}
+          value={filtros.estado_compromiso}
+          onChange={(e) => setFiltros({ estado_compromiso: e.target.value })}
+          placeholder="Todos"
+        />
+        <CampoSelect
+          etiqueta="Estado de la mesa"
+          opciones={opcionesEstadoMesa}
+          value={filtros.estado_mesa}
+          onChange={(e) => setFiltros({ estado_mesa: e.target.value })}
+          placeholder="Todas"
+        />
+        <CampoSelect
+          etiqueta="Estado del evento"
+          opciones={opcionesEstadoEvento}
+          value={filtros.estado_evento}
+          onChange={(e) => setFiltros({ estado_evento: e.target.value })}
+          placeholder="Todos"
+        />
         <CampoSelect etiqueta="Rango temporal" opciones={RANGOS.filter((r) => r.valor)} value={filtros.rango} onChange={(e) => setFiltros({ rango: e.target.value })} placeholder="Sin límite" />
         {filtros.rango === 'personalizado' && (
           <>

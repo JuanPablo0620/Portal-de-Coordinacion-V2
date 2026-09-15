@@ -105,8 +105,30 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     solo_prioritarios: filtros.solo_prioritarios || undefined,
   };
 
+  /**
+   * Un proyecto entra si estuvo VIVO en algún momento de la ventana, no si se
+   * cargó dentro de ella.
+   *
+   * Es la diferencia entre un hecho y un estado. Un compromiso vence un día;
+   * un proyecto dura. Recortando por fecha de carga, un informe de esta semana
+   * dejaba afuera la obra que arrancó en marzo y sigue en ejecución — que es
+   * justamente de lo que hay que hablar en la reunión de esta semana.
+   *
+   * Sin fecha de inicio se deja pasar: no se puede afirmar que estuviera
+   * afuera, y esconderlo sería peor que mostrarlo de más.
+   */
+  const vigenteEnPeriodo = (p, desde, hasta) => {
+    if (!desde && !hasta) return true;
+    const inicio = String(p.fecha_inicio ?? '').slice(0, 10);
+    const fin = String(p.fecha_fin_prevista ?? '').slice(0, 10);
+    if (hasta && inicio && inicio > hasta) return false;
+    if (desde && fin && fin < desde) return false;
+    return true;
+  };
+
   let proyectosFiltrados = selProyectos(bd, filtroProyecto);
   if (filtros.solo_con_alertas) proyectosFiltrados = proyectosFiltrados.filter((p) => conAlerta.has(p.id_proyecto));
+  proyectosFiltrados = proyectosFiltrados.filter((p) => vigenteEnPeriodo(p, desde, hasta));
 
   // El recorte por proyecto se aplica igual aunque el reporte sea de otro
   // módulo: es lo que ata las entidades vinculadas al mismo universo.
@@ -152,6 +174,10 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     ? selCompromisos(bd, { area: filtros.area }, hoy)
         .filter((c) => dentroDelPeriodo(c.fecha_limite) || c.estado_efectivo === 'alerta')
         .filter((c) => !hayRecorteProyecto || !c.id_proyecto || idsProyecto.has(c.id_proyecto))
+        // Su propio estado, no el del proyecto: son vocabularios distintos
+        // —pendiente, en curso, cumplido— y hasta ahora no había forma de
+        // pedir «los compromisos pendientes de Capital Humano».
+        .filter((c) => !filtros.estado_compromiso || c.estado === filtros.estado_compromiso)
     : [];
 
   const seguimientos = enModulo('seguimientos')
@@ -169,19 +195,39 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
    * Una mesa no tiene una fecha propia; la que la ubica en el tiempo es la de
    * sus reuniones.
    */
+  /**
+   * Las mesas no tienen área: son espacios territoriales de barrio, no de una
+   * secretaría. Lo que sí las ata a un área son los compromisos que salieron
+   * de sus reuniones. Por eso, con un área filtrada, entra la mesa donde esa
+   * secretaría asumió algo — y no las dieciséis, como antes, que hacía que un
+   * informe de Capital Humano listara mesas que no le tocaban.
+   */
+  const mesaTocaAlArea = (m) => {
+    if (!filtros.area) return true;
+    const reuniones = new Set(
+      activos(bd.reuniones_mesa).filter((r) => r.id_mesa === m.id).map((r) => r.id),
+    );
+    return activos(bd.compromisos).some(
+      (c) => c.area === filtros.area && c.origen_tipo === 'mesa' && reuniones.has(c.id_origen),
+    );
+  };
+
   const mesas = enModulo('mesas')
-    ? selMesas(bd, {}).filter((m) => {
-        if (!desde && !hasta) return true;
-        return activos(bd.reuniones_mesa).some(
-          (r) => r.id_mesa === m.id && dentroDelPeriodo(r.fecha),
-        );
-      })
+    ? selMesas(bd, {})
+        .filter((m) => {
+          if (!desde && !hasta) return true;
+          return activos(bd.reuniones_mesa).some(
+            (r) => r.id_mesa === m.id && dentroDelPeriodo(r.fecha),
+          );
+        })
+        .filter(mesaTocaAlArea)
+        .filter((m) => !filtros.estado_mesa || m.estado === filtros.estado_mesa)
     : [];
 
   const eventos = enModulo('eventos')
-    ? selEventos(bd, { area: filtros.area, desde, hasta }).filter(
-        (e) => !hayRecorteProyecto || !e.id_proyecto || idsProyecto.has(e.id_proyecto),
-      )
+    ? selEventos(bd, { area: filtros.area, desde, hasta })
+        .filter((e) => !hayRecorteProyecto || !e.id_proyecto || idsProyecto.has(e.id_proyecto))
+        .filter((e) => !filtros.estado_evento || e.estado === filtros.estado_evento)
     : [];
 
   const alertas = filtrarAlertas(alertasTodas, { area: filtros.area }).filter(
@@ -246,11 +292,14 @@ export function describirFiltros(filtros, rango) {
 
   agregar('Área', filtros.area);
   agregar('Programa', filtros.programa);
-  agregar('Eje', filtros.eje);
-  agregar('Tipo', filtros.tipo);
-  agregar('Estado', filtros.estado);
-  agregar('Prioridad', filtros.prioridad);
+  agregar('Eje del proyecto', filtros.eje);
+  agregar('Tipo de proyecto', filtros.tipo);
+  agregar('Estado del proyecto', filtros.estado);
+  agregar('Prioridad del proyecto', filtros.prioridad);
   agregar('Proyecto', filtros.id_proyecto);
+  agregar('Estado del compromiso', filtros.estado_compromiso);
+  agregar('Estado de la mesa', filtros.estado_mesa);
+  agregar('Estado del evento', filtros.estado_evento);
   agregar('Módulo de origen', MODULOS_ORIGEN.find((m) => m.valor === filtros.modulo)?.titulo);
 
   if (filtros.rango) {

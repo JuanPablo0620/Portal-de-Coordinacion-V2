@@ -203,3 +203,44 @@ test('filtrar por un eje real conserva los compromisos de esos proyectos', () =>
   const ids = new Set(r.proyectos.map((p) => p.id_proyecto));
   assert.ok(r.compromisos.every((c) => !c.id_proyecto || ids.has(c.id_proyecto)));
 });
+
+/* ── Cada entidad se filtra por SU estado ───────────────────────────── */
+
+test('el estado del compromiso recorta compromisos, no proyectos', () => {
+  const estado = bd.compromisos.find((c) => c.estado)?.estado;
+  assert.ok(estado, 'la demo tiene compromisos con estado');
+
+  const r = armarReporte(bd, { estado_compromiso: estado }, HOY);
+  assert.ok(r.compromisos.length > 0);
+  assert.ok(r.compromisos.every((c) => c.estado === estado));
+  // Los proyectos quedan enteros: el estado del compromiso no los recorta.
+  assert.equal(r.proyectos.length, bd.proyectos.length);
+});
+
+test('el estado del proyecto no recorta los compromisos por su propio estado', () => {
+  const estado = bd.proyectos.find((p) => p.estado)?.estado;
+  const r = armarReporte(bd, { estado }, HOY);
+  assert.ok(r.proyectos.every((p) => p.estado === estado));
+  // Lo que sí pasa es el recorte por proyecto, que es otra cosa.
+  const ids = new Set(r.proyectos.map((p) => p.id_proyecto));
+  assert.ok(r.compromisos.every((c) => !c.id_proyecto || ids.has(c.id_proyecto)));
+});
+
+/* ── El período mide vigencia, no fecha de carga ────────────────────── */
+
+test('un proyecto que arrancó antes del período pero sigue vivo entra igual', () => {
+  const p = bd.proyectos.find((x) => x.fecha_inicio && x.fecha_inicio < '2026-08-01');
+  assert.ok(p, 'la demo tiene proyectos anteriores a agosto');
+
+  const r = armarReporte(bd, { rango: 'personalizado', desde: '2026-08-01', hasta: '2026-08-31' }, HOY);
+  const entro = r.proyectos.some((x) => x.id_proyecto === p.id_proyecto);
+  const terminoAntes = p.fecha_fin_prevista && p.fecha_fin_prevista < '2026-08-01';
+  assert.equal(entro, !terminoAntes);
+});
+
+test('un proyecto que termina antes de la ventana queda afuera', () => {
+  const r = armarReporte(bd, { rango: 'personalizado', desde: '2026-08-01', hasta: '2026-08-31' }, HOY);
+  assert.ok(
+    r.proyectos.every((p) => !p.fecha_fin_prevista || p.fecha_fin_prevista >= '2026-08-01'),
+  );
+});
