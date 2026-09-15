@@ -1,13 +1,21 @@
 # Compromisos que nacen de un evento
 
 **Fecha:** 14/09/2026
-**Estado: APLICADA al SQL y al DER** (`supabase/migrations/0001_esquema.sql`,
-`docs/der-esquema-datos.md` punto 12). El esquema en sí sigue **sin migrar a
-Supabase** — eso no cambió, ver la sección 5 del DER. El movimiento de
-navegación de Eventos a una pestaña de Mesas de trabajo (mismo día, ver
-`docs/registro-de-cambios.md`) es independiente de esto: fue solo interfaz,
-sin `reuniones_evento` ni selector de compromisos por evento detrás todavía
-en el prototipo.
+**Estado: ESCRITA como `supabase/migrations/0036_compromisos_de_evento.sql`,
+todavía sin aplicar a Supabase.** Aplicarla necesita el SQL Editor, como
+todas: la red del municipio bloquea Postgres directo.
+
+Corrección del mismo día: esto se había escrito editando
+`0001_esquema.sql`, que está corrida en la base desde hace meses. Editar una
+migración ya aplicada no cambia nada en Supabase, solo desincroniza el repo de
+la base — y se verificó por REST que nada de esto existía allá. El `0001`
+volvió a su versión original y el contenido pasó a la `0036`, que es la que
+hay que correr. Misma regla que fijó `0032`.
+
+El movimiento de navegación de Eventos a una pestaña de Mesas de trabajo
+(mismo día, ver `docs/registro-de-cambios.md`) es independiente de esto: fue
+solo interfaz, sin `reuniones_evento` ni selector de compromisos por evento
+detrás todavía.
 
 ## 1. El hueco
 

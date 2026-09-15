@@ -34,7 +34,8 @@ memoria.
 | Qué | Estado |
 |---|---|
 | Migraciones `0001` a `0031` | **Aplicadas en la base real.** `0027` a `0030` verificadas por REST el 14/09; `0031` verificada llamando a su RPC, que responde |
-| Migración `0032` | **Escrita, sin aplicar.** Le saca a las novedades que rescató `0031` los saltos de línea que quedaron pegados |
+| Migraciones `0032` a `0036` | **Escritas, sin aplicar.** `0032` limpia los saltos de línea que dejó `0031`; `0033`-`0035` son notas de proyecto y el programa de estratégicos; `0036` suma la reunión de agenda de eventos como cuarto origen de compromisos |
+| `0001_esquema.sql` | Describe el esquema **tal como está corrido**, y no se edita. Lo nuevo va siempre en una migración propia — el 14/09 se revirtió un cambio que se le había hecho encima y pasó a `0036` |
 | Colecciones | Las 18 del esquema leen de Supabase. `actualizaciones_compromisos` es la excepción deliberada: se pide por compromiso, no se hidrata entera |
 | Catálogos | Los 12 administrables se guardan en la base. Lo que agrega una persona lo ven todas |
 | Escrituras | Ninguna operación del repositorio se saltea Supabase |
@@ -55,10 +56,24 @@ memoria.
 
 ## 2. Lo próximo, en orden de lo que más desbloquea
 
-1. **Aplicar `0032_limpiar_novedades_rescatadas.sql`.** Es cosmética y no
-   bloquea nada: una de las tres novedades rescatadas quedó con dos saltos de
-   línea al final, porque el `trim()` de Postgres saca espacios pero no
-   saltos. En pantalla son dos renglones vacíos colgando del comentario.
+1. **Aplicar las migraciones pendientes desde el SQL Editor**, en orden. Ninguna
+   se puede correr por REST: la red del municipio bloquea Postgres directo.
+
+   - `0032_limpiar_novedades_rescatadas.sql` — cosmética, no bloquea nada: una
+     de las tres novedades rescatadas quedó con dos saltos de línea al final,
+     porque el `trim()` de Postgres saca espacios pero no saltos. En pantalla
+     son dos renglones vacíos colgando del comentario.
+   - `0033` a `0035` — notas de proyecto y el programa de proyectos
+     estratégicos.
+   - `0036_compromisos_de_evento.sql` — la reunión de agenda de eventos como
+     cuarto origen de compromisos. Decisión de JP del 14/09: el diseño va como
+     está. Si el editor se queja del `alter type ... add value`, correr la
+     sección 1 sola y después el resto. Después conviene verificar por REST que
+     `reuniones_evento` responde y que `compromisos?origen_tipo=eq.evento` deja
+     de dar 400.
+
+   El front todavía no usa nada de `0036`: la migración habilita el esquema, las
+   pantallas de la reunión de eventos están por hacerse.
 
 2. **Probar contra datos reales lo que entró entre el 11 y el 14/09.** Es
    bastante y casi nada se usó todavía: el alta de un compromiso con

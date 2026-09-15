@@ -42,7 +42,9 @@ ver punto 11.
 El 14/09/2026, `compromisos` sumó un cuarto origen posible (`evento`) y dos
 tablas nuevas (`reuniones_evento`, `reuniones_evento_eventos`), para que la
 reunión de agenda de eventos pueda generar compromisos entre áreas — ver
-punto 12.
+punto 12. Eso vive en `supabase/migrations/0036_compromisos_de_evento.sql`,
+**escrita y todavía sin aplicar**: el `0001` describe el esquema tal como está
+corrido en la base, y no se lo edita.
 
 ---
 
@@ -670,8 +672,10 @@ que se pueda leer. Están en el SQL completo.
   como tabla propia el 25/08/2026 (PR #1) pero el prototipo nunca la
   adoptó, así que se sacó del SQL antes de que hubiera datos reales
   cargados que migrar.
-- **Compromisos de evento, sumados el 14/09/2026** (punto 12) — el esquema
-  ya tiene el cuarto origen y las dos tablas de `reuniones_evento`. El
+- **Compromisos de evento, escritos el 14/09/2026** (punto 12) — el cuarto
+  origen y las dos tablas de `reuniones_evento` están en la migración `0036`,
+  todavía sin correr en Supabase (verificado por REST el 14/09: en la base no
+  existen). El
   prototipo (`src/`) todavía no: por ahora el módulo Eventos se movió de
   navegación (pasó a ser una pestaña de Mesas de trabajo, ver
   `docs/registro-de-cambios.md` del 14/09/2026) pero sin `reuniones_evento`
@@ -679,13 +683,12 @@ que se pueda leer. Están en el SQL completo.
   la periodicidad exacta de esa reunión para completar `reuniones_evento`
   con el mismo criterio que las demás — JP confirmó que la coordina
   Coordinación y que no tiene cadencia fija.
-- **Solo existe `0001_esquema.sql`.** El propio archivo referencia (en
-  comentarios) dos migraciones que todavía no están escritas:
-  - `0002_logica.sql` — lógica de validación adicional (ej. el CHECK de
-    origen único de `compromisos` está anticipado en el comentario pero la
-    migración en sí falta).
-  - `0003_rls.sql` — Row Level Security, incluida la restricción de
-    `pedidos_roco.solicitante` por Ley 25.326.
+- **Esto ya no es cierto:** decía que «solo existe `0001_esquema.sql`» y que
+  faltaban escribir la lógica de validación y el RLS. Al 14/09/2026 hay
+  **36 migraciones**, de las cuales las `0001` a `0031` están corridas en la
+  base. El RLS existe desde `0003_rls.sql` y lo completaron `0009`, `0010`,
+  `0025` y `0026`; el CHECK de origen único de `compromisos` está en el propio
+  `0001`. Lo que queda sin aplicar son `0032` a `0036`.
 - **Mapeo módulo → tablas** (qué pantalla del front toca qué parte del
   esquema) está en
   [`docs/decisiones/2026-08-18-despliegue-del-modelo.md`](decisiones/2026-08-18-despliegue-del-modelo.md).

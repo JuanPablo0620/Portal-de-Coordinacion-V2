@@ -17,12 +17,6 @@
 --
 -- Sin tildes ni ñ en identificadores ni en literales SQL (convencion
 -- heredada de v1, mantenida por consistencia).
---
--- 14/09/2026: compromisos suma un cuarto origen ('evento', junto a
--- seguimiento/monitoreo/mesa) mas las tablas reuniones_evento y
--- reuniones_evento_eventos, para que la reunion de agenda de eventos pueda
--- generar compromisos entre areas igual que Seguimiento, Monitoreo y las
--- mesas. Ver docs/decisiones/2026-09-14-compromisos-de-eventos.md.
 -- =============================================================================
 
 create extension if not exists pgcrypto;
@@ -52,10 +46,7 @@ create type public.metrica_serie as enum ('cantidad', 'ingresados', 'resueltos')
 -- Nuevos de v2, sin equivalente en v1.
 create type public.tipo_seguimiento as enum ('programado', 'realizado');
 
--- 'evento', sumado el 14/09/2026: un compromiso puede nacer de la reunion de
--- agenda de eventos (ver reuniones_evento, mas abajo) ademas de nacer de un
--- seguimiento, un tema de monitoreo o una reunion de mesa.
-create type public.origen_compromiso as enum ('seguimiento', 'monitoreo', 'mesa', 'evento');
+create type public.origen_compromiso as enum ('seguimiento', 'monitoreo', 'mesa');
 
 create type public.estado_compromiso as enum ('pendiente', 'en_curso', 'cumplido');
 
@@ -341,7 +332,6 @@ create table public.pedidos_roco (
 -- (area organizadora explicita, tipo, proyecto vinculado opcional, estado).
 create table public.eventos (
   id                    uuid primary key default gen_random_uuid(),
-  id_legible            text unique,   -- coherencia con proyectos.id_legible; cosmetico, no es el PK
   nombre                text not null,
   fecha                 date not null,
   hora                  time,
@@ -357,61 +347,13 @@ create table public.eventos (
   updated_at            timestamptz not null default now()
 );
 
--- area_solicitante_id + observaciones + las columnas de auditoria se
--- sumaron el 14/09/2026: era la unica tabla del esquema sin ellas, y sin
--- created_at/updated_at el trigger generico de auditoria no tiene con que
--- fechar los cambios del checklist de un evento.
 create table public.requerimientos_evento (
   id                   uuid primary key default gen_random_uuid(),
   evento_id            uuid not null references public.eventos(id) on delete cascade,
   item_id              uuid not null references public.items_requerimiento(id),
   cantidad             numeric,
   area_responsable_id  uuid references public.areas(id),
-  area_solicitante_id  uuid references public.areas(id),
-  observaciones        text,
-  estado               public.estado_requerimiento not null default 'solicitado',
-  activo               boolean not null default true,
-  creado_por           uuid references public.perfiles(id),
-  created_at           timestamptz not null default now(),
-  updated_at           timestamptz not null default now(),
-  -- Soporte de la FK compuesta de compromisos.requerimiento_id: garantiza
-  -- que un compromiso nunca pueda colgar del requerimiento de OTRO evento.
-  -- Ver compromisos_requerimiento_fk, mas abajo.
-  constraint requerimientos_evento_id_evento_uk unique (id, evento_id)
-);
-
--- ---------------------------------------------------------------------------
--- Reunion de agenda de eventos (nuevo de v2, sumado el 14/09/2026).
---
--- Reunion periodica (sin cadencia fija, a diferencia de Monitoreo semanal o
--- Seguimiento cada 6 semanas) coordinada por Coordinacion, con representantes
--- de varias areas, donde se revisan los proximos eventos, su planificacion y
--- las necesidades puntuales que cada uno genera. De aca pueden nacer
--- compromisos entre areas — ver compromisos.id_reunion_evento_origen.
---
--- Tabla propia y NO una fila de `mesas`: en el vocabulario institucional
--- "mesa" son las mesas de barrio popular (Esperanza, EDLA, Favelita).
--- Reusar esa tabla hubiera obligado a excluir la reunion de eventos de cada
--- filtro por mesa, para siempre.
--- ---------------------------------------------------------------------------
-create table public.reuniones_evento (
-  id         uuid primary key default gen_random_uuid(),
-  fecha      date not null,
-  asistentes text,
-  temas      text,
-  activo     boolean not null default true,
-  creado_por uuid references public.perfiles(id),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
--- Agenda de la reunion: que eventos se trataron. M:N — una reunion repasa
--- varios eventos y un mismo evento se trata en varias reuniones sucesivas
--- (la de dos semanas antes, la de la semana anterior, etc.).
-create table public.reuniones_evento_eventos (
-  reunion_evento_id uuid not null references public.reuniones_evento(id) on delete cascade,
-  evento_id         uuid not null references public.eventos(id) on delete cascade,
-  primary key (reunion_evento_id, evento_id)
+  estado               public.estado_requerimiento not null default 'solicitado'
 );
 
 create table public.adjuntos (
@@ -524,51 +466,27 @@ create table public.mesas_proyectos (
 );
 
 create table public.compromisos (
-  id                        uuid primary key default gen_random_uuid(),
-  origen_tipo               public.origen_compromiso,
-  id_seguimiento_origen     uuid references public.seguimientos(id) on delete set null,
-  id_tema_origen            uuid references public.temas_monitoreo(id) on delete set null,
-  id_reunion_origen         uuid references public.reuniones_mesa(id) on delete set null,
-  -- Cuarto origen, sumado el 14/09/2026: un compromiso acordado en la
-  -- reunion de agenda de eventos. Entra al mismo CHECK de origen unico que
-  -- los tres anteriores.
-  id_reunion_evento_origen  uuid references public.reuniones_evento(id) on delete set null,
-  proyecto_id               uuid references public.proyectos(id),
-  -- evento_id es el OBJETO del compromiso (sobre que evento es), no su
-  -- origen — igual que proyecto_id de arriba. Por eso queda fuera del CHECK:
-  -- permite tanto el compromiso acordado en reunion (los dos campos
-  -- cargados) como el cargado a mano sobre un evento sin pasar por reunion
-  -- (solo evento_id) y el acuerdo general de la reunion que no es de ningun
-  -- evento puntual (solo id_reunion_evento_origen).
-  evento_id                 uuid references public.eventos(id) on delete set null,
-  -- Requerimiento puntual que este compromiso escala a seguimiento con
-  -- fecha (ej. "20 vallas" pasa de item de checklist a compromiso porque
-  -- Seguridad todavia no confirmo). Opcional: la mayoria de los
-  -- requerimientos se resuelve sin generar un compromiso. La FK compuesta de
-  -- mas abajo obliga a que, si esta cargado, sea un requerimiento del MISMO
-  -- evento_id.
-  requerimiento_id          uuid,
-  area_id                   uuid not null references public.areas(id),
-  descripcion               text not null,
-  responsable               text,
-  fecha_limite              date,
-  estado                    public.estado_compromiso not null default 'pendiente',
-  fecha_cumplimiento        date,
-  activo                    boolean not null default true,
-  creado_por                uuid references public.perfiles(id),
-  created_at                timestamptz not null default now(),
-  updated_at                timestamptz not null default now(),
+  id                     uuid primary key default gen_random_uuid(),
+  origen_tipo            public.origen_compromiso,
+  id_seguimiento_origen  uuid references public.seguimientos(id) on delete set null,
+  id_tema_origen         uuid references public.temas_monitoreo(id) on delete set null,
+  id_reunion_origen      uuid references public.reuniones_mesa(id) on delete set null,
+  proyecto_id            uuid references public.proyectos(id),
+  area_id                uuid not null references public.areas(id),
+  descripcion            text not null,
+  responsable            text,
+  fecha_limite           date,
+  estado                 public.estado_compromiso not null default 'pendiente',
+  fecha_cumplimiento     date,
+  activo                 boolean not null default true,
+  creado_por             uuid references public.perfiles(id),
+  created_at             timestamptz not null default now(),
+  updated_at             timestamptz not null default now(),
   -- Exactamente una columna de origen no nula, o ninguna (compromiso creado
   -- a mano, sin origen registrado).
   constraint compromisos_origen_unico check (
-    num_nonnulls(id_seguimiento_origen, id_tema_origen, id_reunion_origen, id_reunion_evento_origen) <= 1
-  ),
-  -- Si hay requerimiento_id tiene que ser un requerimiento de este mismo
-  -- evento_id — nunca de otro. Con evento_id nulo la FK no se evalua, asi
-  -- que un compromiso sin evento sigue siendo valido.
-  constraint compromisos_requerimiento_fk
-    foreign key (requerimiento_id, evento_id)
-    references public.requerimientos_evento(id, evento_id) on delete set null
+    num_nonnulls(id_seguimiento_origen, id_tema_origen, id_reunion_origen) <= 1
+  )
 );
 
 -- temas_monitoreo.compromiso_id — distinto de compromisos.id_tema_origen.
