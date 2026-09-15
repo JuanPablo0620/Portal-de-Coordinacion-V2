@@ -63,6 +63,10 @@ no detecta esta regresión. `node scripts/verificar-mapa.mjs` compila el portal,
 usa los dobles de sesión/datos de humo y comprueba el callejero en Chrome; requiere
 conexión a OpenFreeMap. No accede a datos de gestión reales.
 
+**Navegación del mapa:** restringida al rectángulo del límite oficial de Tres de
+Febrero con 6 % de margen para calles limítrofes; el alejamiento máximo se adapta
+al tamaño del panel. Se aplica también al formulario y al callejero municipal.
+
 1. **Aplicar las migraciones pendientes desde el SQL Editor**, en orden. Ninguna
    se puede correr por REST: la red del municipio bloquea Postgres directo.
 
