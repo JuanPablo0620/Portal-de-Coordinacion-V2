@@ -52,7 +52,9 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
           )}
           {bloques.compromisos && <BloqueCompromisos filas={reporte.compromisos} />}
           {bloques.mesas && <BloqueMesas filas={reporte.mesas} />}
-          {bloques.minutas && <BloqueMinutas seguimientos={reporte.seguimientos} />}
+          {bloques.minutas && (
+            <BloqueObservaciones seguimientos={reporte.seguimientos} compromisos={reporte.compromisos} />
+          )}
           {bloques.proyectos && <BloqueProyectos filas={reporte.proyectos} />}
           {bloques.eventos && <BloqueEventos filas={reporte.eventos} />}
         </>
@@ -333,7 +335,7 @@ function FichaCompromiso({ compromiso: c }) {
 }
 
 /**
- * Cinco renglones en blanco para escribir sobre el informe impreso.
+ * Tres renglones en blanco para escribir sobre el informe impreso.
  *
  * Van debajo de cada compromiso y no en una columna al costado: lo que se
  * anota en una reunión es una frase, no una palabra, y al costado no entra.
@@ -343,7 +345,7 @@ function Anotaciones() {
     <div className="mt-2.5">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-tenue">Anotaciones</p>
       <div className="mt-1 flex flex-col">
-        {[0, 1, 2, 3, 4].map((i) => (
+        {[0, 1, 2].map((i) => (
           <span key={i} aria-hidden="true" className="h-[18px] border-b border-dotted border-borde-fuerte/40" />
         ))}
       </div>
@@ -385,51 +387,93 @@ function UltimaNovedad({ novedad }) {
 
 
 
-function BloqueMinutas({ seguimientos }) {
-  const conTexto = seguimientos.filter((s) => s.texto_crudo?.trim());
+/**
+ * Lo que dejó cada seguimiento: avances, problemas y compromisos asumidos.
+ *
+ * NO se incluye el texto de «Lo conversado». Es la transcripción cruda de la
+ * reunión —media carilla por seguimiento, escrita al correr— y lo que importa
+ * en un informe es lo que se decidió, no cómo se llegó. El texto sigue estando
+ * en el seguimiento, para quien necesite volver a él.
+ *
+ * Por eso también un seguimiento sin ninguna de las tres cosas no aparece: si
+ * no dejó avance, ni problema, ni compromiso, no hay nada que informar.
+ */
+function BloqueObservaciones({ seguimientos, compromisos }) {
+  const porSeguimiento = new Map();
+  for (const c of compromisos) {
+    if (c.origen_tipo !== 'seguimiento' || !c.id_origen) continue;
+    if (!porSeguimiento.has(c.id_origen)) porSeguimiento.set(c.id_origen, []);
+    porSeguimiento.get(c.id_origen).push(c);
+  }
+
+  const conContenido = seguimientos
+    .map((s) => ({ ...s, compromisos: porSeguimiento.get(s.id) ?? [] }))
+    .filter((s) => s.avances?.length || s.problemas?.length || s.compromisos.length);
+
   return (
-    <Tarjeta titulo={`Minutas de seguimiento (${conTexto.length})`}>
-      {conTexto.length === 0 ? (
-        <Vacio compacto titulo="Sin minutas en este recorte" descripcion="Sólo se incluyen los seguimientos realizados con texto cargado." />
+    <Tarjeta titulo={`Observaciones de Seguimiento (${conContenido.length})`}>
+      {conContenido.length === 0 ? (
+        <Vacio
+          compacto
+          titulo="Sin observaciones en este recorte"
+          descripcion="Sólo se incluyen los seguimientos que dejaron un avance, un problema o un compromiso."
+        />
       ) : (
         <div className="flex flex-col gap-3">
-          {conTexto.map((s) => (
-            <article key={s.id} className="bloque-reporte rounded-chip border border-borde p-3">
-              <header className="mb-1.5 flex flex-wrap items-center gap-2">
+          {conContenido.map((s) => (
+            <article key={s.id} className="evitar-corte rounded-chip border border-borde p-3">
+              <header className="mb-2 flex flex-wrap items-center gap-2">
                 <Chip tono="acento">{fFecha(s.fecha)}</Chip>
                 <span className="text-sm font-medium text-tinta">{s.area}</span>
                 {s.participantes && <span className="text-[11px] text-tenue">{s.participantes}</span>}
               </header>
-              <p className="whitespace-pre-wrap text-xs leading-relaxed text-gris">{s.texto_crudo}</p>
-              {(s.avances?.length > 0 || s.problemas?.length > 0) && (
-                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {s.avances?.length > 0 && (
-                    <div>
-                      <p className="mb-1 text-[11px] font-semibold text-enregla-texto">Avances informados</p>
-                      <ul className="list-inside list-disc text-[11px] text-gris">
-                        {s.avances.map((a, i) => (
-                          <li key={i}>{textoDe(a)}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {s.problemas?.length > 0 && (
-                    <div>
-                      <p className="mb-1 text-[11px] font-semibold text-vencido-texto">Problemas / trabas</p>
-                      <ul className="list-inside list-disc text-[11px] text-gris">
-                        {s.problemas.map((p, i) => (
-                          <li key={i}>{textoDe(p)}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
+
+              <div className="flex flex-col gap-2">
+                <ListaObservacion
+                  titulo="Avances informados"
+                  clase="text-enregla-texto"
+                  items={s.avances}
+                />
+                <ListaObservacion
+                  titulo="Problemas / trabas"
+                  clase="text-vencido-texto"
+                  items={s.problemas}
+                />
+                {s.compromisos.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold text-acento">Compromisos asumidos</p>
+                    <ul className="flex flex-col gap-0.5">
+                      {s.compromisos.map((c) => (
+                        <li key={c.id} className="text-[11px] leading-snug text-gris">
+                          {c.descripcion}
+                          {c.fecha_limite && (
+                            <span className="tabular text-tenue"> · vence el {fFecha(c.fecha_limite)}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </article>
           ))}
         </div>
       )}
     </Tarjeta>
+  );
+}
+
+function ListaObservacion({ titulo, clase, items }) {
+  if (!items?.length) return null;
+  return (
+    <div>
+      <p className={`mb-1 text-[11px] font-semibold ${clase}`}>{titulo}</p>
+      <ul className="list-inside list-disc text-[11px] leading-snug text-gris">
+        {items.map((x, i) => (
+          <li key={i}>{textoDe(x)}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

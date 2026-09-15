@@ -105,7 +105,9 @@ export const BLOQUES = [
   { clave: 'resumen', titulo: 'Resumen numérico', descripcion: 'Contadores del recorte' },
   { clave: 'proyectos', titulo: 'Tabla de proyectos', descripcion: 'Listado con avance y estado' },
   { clave: 'compromisos', titulo: 'Compromisos', descripcion: 'Listado con estado y vencimiento' },
-  { clave: 'minutas', titulo: 'Minutas de seguimiento', descripcion: 'Texto de lo conversado' },
+  // La clave sigue siendo `minutas` aunque el rótulo cambie: las
+  // configuraciones guardadas la tienen adentro, y renombrarla las rompería.
+  { clave: 'minutas', titulo: 'Observaciones de Seguimiento', descripcion: 'Avances, problemas y compromisos asumidos' },
   { clave: 'mesas', titulo: 'Mesas de trabajo', descripcion: 'Con reuniones y periodicidad' },
   { clave: 'eventos', titulo: 'Eventos', descripcion: 'Con estado de requerimientos' },
 ];
