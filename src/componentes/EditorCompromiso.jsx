@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, History, MessageSquareText } from 'lucide-react';
 import { Boton } from './Basicos.jsx';
 import { CampoArea, CampoFecha, CampoRadios } from './Campo.jsx';
 import { SelectorUnidad } from './SelectorUnidad.jsx';
 import { ESTADOS_COMPROMISO } from '../datos/catalogos.js';
 import { historialCompromiso } from '../datos/repositorio.js';
 import { fecha as fFecha } from '../utilidades/formato.js';
+
+const OPCIONES_ESTADO = ESTADOS_COMPROMISO.map((valor) => ({
+  valor,
+  titulo: valor.replaceAll('_', ' '),
+}));
 
 /**
  * Formulario para "actualizar" un compromiso ya cargado: cambiar su estado,
@@ -31,12 +36,29 @@ export function EditorCompromiso({
   alCancelar,
   guardando = false,
   conFechaLimite = true,
+  diseno = 'normal',
+  pie,
 }) {
+  if (diseno === 'panel-operativo') {
+    return (
+      <EditorPanelOperativo
+        compromiso={compromiso}
+        borrador={borrador}
+        alCambiarBorrador={alCambiarBorrador}
+        alGuardar={alGuardar}
+        alCancelar={alCancelar}
+        guardando={guardando}
+        conFechaLimite={conFechaLimite}
+        pie={pie}
+      />
+    );
+  }
+
   return (
     <div className="border-t border-dashed border-borde-fuerte/40 p-2.5">
       <CampoRadios
         etiqueta="Nuevo estado"
-        opciones={ESTADOS_COMPROMISO}
+        opciones={OPCIONES_ESTADO}
         valor={borrador?.estado ?? compromiso.estado}
         alCambiar={(v) => alCambiarBorrador({ estado: v })}
       />
@@ -74,9 +96,103 @@ export function EditorCompromiso({
           </Boton>
         )}
         <Boton variante="primario" tamanio="sm" icono={Check} onClick={alGuardar} disabled={guardando}>
-          Guardar cambios
+          {guardando ? 'Guardando…' : 'Guardar cambios'}
         </Boton>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Variante para Seguimiento → Compromisos.
+ *
+ * En esta pantalla la tarea no es editar un registro aislado: durante una
+ * reunión se leen novedades y se cargan movimientos uno detrás de otro. La
+ * división lectura/formulario deja ambos contextos visibles y evita que la
+ * actualización más reciente quede perdida entre metadatos y campos.
+ */
+function EditorPanelOperativo({
+  compromiso,
+  borrador,
+  alCambiarBorrador,
+  alGuardar,
+  alCancelar,
+  guardando,
+  conFechaLimite,
+  pie,
+}) {
+  return (
+    <div className="overflow-hidden rounded-card border border-borde bg-card shadow-card">
+      <div className="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <section className="min-w-0 p-4 sm:p-5" aria-label="Historial del compromiso">
+          <HistorialOperativo compromisoId={compromiso.id} />
+        </section>
+
+        <section className="border-t border-borde bg-paper/55 p-4 sm:p-5 lg:border-l lg:border-t-0" aria-label="Registrar novedad">
+          <h3 className="text-sm font-semibold text-tinta">Registrar novedad</h3>
+          <p className="mt-1 text-xs leading-relaxed text-gris">
+            El cambio de estado y el comentario se guardan juntos como un nuevo movimiento.
+          </p>
+
+          <CampoRadios
+            etiqueta="Nuevo estado"
+            className="mt-4 [&_label]:inline-flex [&_label]:min-h-11 [&_label]:items-center"
+            opciones={OPCIONES_ESTADO}
+            valor={borrador?.estado ?? compromiso.estado}
+            alCambiar={(v) => alCambiarBorrador({ estado: v })}
+          />
+          <CampoArea
+            etiqueta="Actualización"
+            ayuda="opcional — se registra con la fecha de hoy"
+            className="mt-3"
+            filas={3}
+            placeholder="¿Qué cambió desde la última reunión?"
+            value={borrador?.nuevaActualizacion ?? ''}
+            onChange={(e) => alCambiarBorrador({ nuevaActualizacion: e.target.value })}
+          />
+          {conFechaLimite && (
+            <CampoFecha
+              etiqueta="Fecha límite"
+              className="mt-3"
+              value={borrador?.fecha_limite ?? compromiso.fecha_limite ?? ''}
+              onChange={(e) => alCambiarBorrador({ fecha_limite: e.target.value })}
+            />
+          )}
+
+          {/* También se conserva acá la corrección del organigrama para los
+              compromisos históricos que todavía no tienen unidad asignada. */}
+          <div className="mt-3">
+            <SelectorUnidad
+              area={compromiso.area}
+              idSubsecretaria={borrador?.id_subsecretaria ?? compromiso.id_subsecretaria ?? ''}
+              idDireccion={borrador?.id_direccion ?? compromiso.id_direccion ?? ''}
+              alCambiar={alCambiarBorrador}
+              columnas={1}
+              compacto
+            />
+          </div>
+
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            {alCancelar && (
+              <Boton tamanio="sm" className="min-h-11" onClick={alCancelar} disabled={guardando}>
+                Cerrar
+              </Boton>
+            )}
+            <Boton
+              variante="primario"
+              tamanio="sm"
+              icono={Check}
+              className="min-h-11 min-w-36"
+              onClick={alGuardar}
+              disabled={guardando}
+            >
+              {guardando ? 'Guardando…' : 'Guardar movimiento'}
+            </Boton>
+          </div>
+        </section>
+      </div>
+
+      {pie && <footer className="border-t border-borde bg-card px-4 py-3 sm:px-5">{pie}</footer>}
     </div>
   );
 }
@@ -126,6 +242,106 @@ function Historial({ compromisoId }) {
           </li>
         ))}
       </ol>
+    </div>
+  );
+}
+
+/**
+ * La misma fuente del historial, presentada como información principal.
+ * El primer movimiento se separa visualmente; el resto forma una cronología.
+ */
+function HistorialOperativo({ compromisoId }) {
+  const [estado, setEstado] = useState({ cargando: true, filas: [] });
+
+  useEffect(() => {
+    let vigente = true;
+    setEstado({ cargando: true, filas: [] });
+    historialCompromiso(compromisoId)
+      .then((filas) => vigente && setEstado({ cargando: false, filas }))
+      .catch(() => vigente && setEstado({ cargando: false, filas: [] }));
+    return () => {
+      vigente = false;
+    };
+  }, [compromisoId]);
+
+  const utiles = estado.filas.filter((f) => f.comentarios || f.estado_anterior);
+
+  if (estado.cargando) {
+    return <p role="status" className="text-xs text-tenue">Cargando actualizaciones…</p>;
+  }
+
+  if (utiles.length === 0) {
+    return (
+      <div className="flex min-h-36 flex-col items-center justify-center rounded-card border border-dashed border-borde-fuerte/50 bg-paper/50 px-5 text-center">
+        <History size={22} className="text-tenue" />
+        <h3 className="mt-2 text-sm font-semibold text-tinta">Todavía no hay actualizaciones</h3>
+        <p className="mt-1 max-w-sm text-xs leading-relaxed text-gris">
+          El próximo cambio de estado o comentario quedará registrado en este historial.
+        </p>
+      </div>
+    );
+  }
+
+  const [ultima, ...anteriores] = utiles;
+
+  return (
+    <div>
+      <article className="rounded-card border border-acento-medio border-l-[3px] border-l-acento bg-acento-suave p-4">
+        <header className="flex flex-wrap items-center gap-2 text-acento-fuerte">
+          <MessageSquareText size={17} aria-hidden="true" />
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide">Última novedad</h3>
+          <time className="tabular ml-auto text-xs text-gris" dateTime={ultima.fecha_actualizacion}>
+            {fFecha(ultima.fecha_actualizacion)}
+          </time>
+        </header>
+        <Movimiento fila={ultima} destacado />
+      </article>
+
+      {anteriores.length > 0 && (
+        <div className="mt-5">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-tinta">
+            <History size={17} aria-hidden="true" />
+            Movimientos anteriores
+          </h3>
+          <ol className="relative mt-3 ml-1.5 border-l-2 border-acento-medio pl-5">
+            {anteriores.map((fila) => (
+              <li key={fila.id} className="relative pb-4 last:pb-0">
+                <span
+                  aria-hidden="true"
+                  className="absolute -left-[1.7rem] top-1 h-3 w-3 rounded-full border-[3px] border-card bg-acento ring-1 ring-acento-medio"
+                />
+                <time className="tabular block text-[11px] font-medium text-tenue" dateTime={fila.fecha_actualizacion}>
+                  {fFecha(fila.fecha_actualizacion)}
+                </time>
+                <Movimiento fila={fila} />
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Movimiento({ fila, destacado = false }) {
+  const cambioEstado = fila.estado_anterior && fila.estado_anterior !== fila.estado;
+
+  return (
+    <div className={destacado ? 'mt-2 pl-6' : 'mt-1'}>
+      {fila.comentarios ? (
+        <p className={`whitespace-pre-line leading-relaxed text-tinta ${destacado ? 'text-sm' : 'text-xs'}`}>
+          {fila.comentarios}
+        </p>
+      ) : (
+        <p className="text-xs text-gris">Cambio de estado.</p>
+      )}
+      {cambioEstado && (
+        <p className="mt-1.5 text-xs text-gris">
+          <span className="capitalize">{fila.estado_anterior}</span>
+          <span className="mx-1.5" aria-hidden="true">→</span>
+          <span className="font-semibold capitalize text-acento-fuerte">{fila.estado}</span>
+        </p>
+      )}
     </div>
   );
 }

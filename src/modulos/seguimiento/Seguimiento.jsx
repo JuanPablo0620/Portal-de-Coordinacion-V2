@@ -291,6 +291,7 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
   // cualquier otra fila.
   const [expandidoId, setExpandidoId] = useState(() => filtros.compromiso || null);
   const [borrador, setBorrador] = useState(null);
+  const [guardandoId, setGuardandoId] = useState(null);
 
   /**
    * La lista abre en los compromisos VIGENTES.
@@ -347,9 +348,14 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
   }
 
   async function guardarCompromiso(f) {
-    await acciones.actualizarEstadoCompromiso(f.id, borrador);
-    setExpandidoId(null);
-    setBorrador(null);
+    setGuardandoId(f.id);
+    try {
+      await acciones.actualizarEstadoCompromiso(f.id, borrador);
+      setExpandidoId(null);
+      setBorrador(null);
+    } finally {
+      setGuardandoId(null);
+    }
   }
 
   return (
@@ -431,56 +437,58 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
           alHacerClicFila={alternarFila}
           filaExpandida={expandidoId}
           renderExpandido={(f) => (
-            <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-tenue">Área</p>
-                  <p className="text-sm text-tinta">{f.area || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-tenue">Unidad</p>
-                  <p className="text-sm text-tinta">{unidadDe(bd, f) || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-tenue">Proyecto</p>
-                  {f.id_proyecto ? (
+            <EditorCompromiso
+              compromiso={f}
+              borrador={borrador}
+              alCambiarBorrador={(parcial) => setBorrador((b) => ({ ...b, ...parcial }))}
+              alGuardar={() => guardarCompromiso(f)}
+              alCancelar={() => alternarFila(f)}
+              guardando={guardandoId === f.id}
+              conFechaLimite={false}
+              diseno="panel-operativo"
+              pie={
+                <div className="grid grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-tenue">Área</p>
+                    <p className="mt-0.5 text-xs text-tinta">{f.area || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-tenue">Unidad</p>
+                    <p className="mt-0.5 text-xs text-tinta">{unidadDe(bd, f) || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-tenue">Proyecto</p>
+                    {f.id_proyecto ? (
+                      <button
+                        type="button"
+                        className="mt-0.5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navegar(`/proyectos/${f.id_proyecto}`);
+                        }}
+                      >
+                        <Chip tono="acento">{f.id_proyecto}</Chip>
+                      </button>
+                    ) : (
+                      <p className="mt-0.5 text-xs text-tenue">—</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-tenue">Origen</p>
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navegar(`/proyectos/${f.id_proyecto}`);
+                        navegar(RUTA_ORIGEN[f.origen_tipo]?.(f) ?? '/seguimiento');
                       }}
+                      className="mt-0.5 text-xs font-medium capitalize text-acento underline-offset-2 hover:underline"
                     >
-                      <Chip tono="acento">{f.id_proyecto}</Chip>
+                      {f.origen_tipo}
                     </button>
-                  ) : (
-                    <p className="text-sm text-tenue">—</p>
-                  )}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-tenue">Origen</p>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navegar(RUTA_ORIGEN[f.origen_tipo]?.(f) ?? '/seguimiento');
-                    }}
-                    className="text-sm text-acento underline-offset-2 hover:underline"
-                  >
-                    {f.origen_tipo}
-                  </button>
-                </div>
-              </div>
-
-              <EditorCompromiso
-                compromiso={f}
-                borrador={borrador}
-                alCambiarBorrador={(parcial) => setBorrador((b) => ({ ...b, ...parcial }))}
-                alGuardar={() => guardarCompromiso(f)}
-                alCancelar={() => alternarFila(f)}
-                conFechaLimite={false}
-              />
-            </div>
+              }
+            />
           )}
           vacio={
             <Vacio

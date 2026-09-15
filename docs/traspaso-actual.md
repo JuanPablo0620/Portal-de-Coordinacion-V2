@@ -19,7 +19,7 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 14/09/2026 · Claude, por pedido de Tomás
+**Última actualización:** 15/09/2026 · Codex, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
@@ -46,7 +46,7 @@ memoria.
 | Mesas | Agendar y editar reuniones, carpeta de Drive por mesa y por reunión, color por mesa |
 | Base cartográfica del Mapa | OpenFreeMap con estilo Liberty queda como base predeterminada; el Geoportal conserva el callejero municipal alternativo y sigue aportando límites y cuadras oficiales |
 | Posicionamiento | Ficha propia por programa, con su carpeta de Drive |
-| Compromisos | La novedad va a `actualizaciones_compromisos`, ya no se concatena a `descripcion` |
+| Compromisos | La novedad va a `actualizaciones_compromisos`, ya no se concatena a `descripcion`. En Seguimiento, el detalle desplegable usa un panel operativo: última novedad e historial a la izquierda, carga de estado/comentario a la derecha y metadatos al pie |
 | Eventos | Rediseñado como agenda ejecutiva y, desde el 14/09, ya no es un módulo propio: es una pestaña de Mesas de trabajo. `/eventos` redirige conservando sus parámetros |
 | Cobertura de Monitoreo | Gráfico apilado semana a semana del mes en curso, por secretaría. Coordinación y Secretaría General quedan afuera: no tienen Monitoreo propio |
 | Cierre de Monitoreo | «Finalizar monitoreo» cuenta también las actualizaciones de compromiso, no sólo las de proyecto — un área sin proyectos cargados no podía cerrar nunca su monitoreo |
