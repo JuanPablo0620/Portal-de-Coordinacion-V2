@@ -10,7 +10,7 @@
  * un PDF al que le faltan filas sin decirlo es peor que uno largo.
  */
 import { Building2, FileBarChart } from 'lucide-react';
-import { BarraAvance, Chip, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
+import { Chip, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { fecha as fFecha, fechaLarga, numero } from '../../utilidades/formato.js';
 import { agruparParaInforme } from '../../datos/reportes.js';
@@ -477,38 +477,91 @@ function ListaObservacion({ titulo, clase, items }) {
   );
 }
 
+/**
+ * Las mesas, en lista y con sus compromisos, igual que los compromisos.
+ *
+ * Una mesa no se entiende por sus metadatos —tipo, referente, periodicidad—
+ * sino por lo que se asumió en ella. En tabla, esos compromisos no entraban:
+ * quedaba una fila con el nombre y un número de reuniones, que no dice nada
+ * de lo que hay que seguir. Acá cada mesa abre su lista, y cada compromiso
+ * dice de qué secretaría y de qué dirección es.
+ */
 function BloqueMesas({ filas }) {
   return (
-    <Tarjeta titulo={`Mesas de trabajo (${filas.length})`} sinPadding>
-      <Tabla
-        sinTope
-        nombreExport="reporte-mesas"
-        filas={filas}
-        conBusqueda={false}
-        columnas={[
-          { clave: 'nombre', titulo: 'Mesa' },
-          { clave: 'tipo', titulo: 'Tipo', ancho: 140, render: (f) => <Chip tono="acento">{f.tipo}</Chip> },
-          {
-            clave: 'areas',
-            titulo: 'Secretarías',
-            ancho: 200,
-            sinOrdenar: true,
-            formatoCSV: (v) => (v ?? []).join(' · '),
-            // Una mesa no tiene área propia: las que salen acá son las que
-            // asumieron algún compromiso en sus reuniones.
-            render: (f) =>
-              f.areas?.length ? f.areas.join(' · ') : <span className="text-tenue">sin compromisos</span>,
-          },
-          { clave: 'referente', titulo: 'Referente', ancho: 130 },
-          { clave: 'periodicidad', titulo: 'Periodicidad', ancho: 115 },
-          { clave: 'estado', titulo: 'Estado', ancho: 100 },
-          { clave: 'cantidad_reuniones', titulo: 'Reuniones', ancho: 95, alinear: 'derecha' },
-          { clave: 'ultima_reunion', titulo: 'Última', ancho: 105, render: (f) => (f.ultima_reunion ? fFecha(f.ultima_reunion) : '—'), formatoCSV: (v) => (v ? fFecha(v) : '') },
-          COLUMNA_ANOTACIONES,
-        ]}
-        vacio={<Vacio compacto titulo="Sin mesas en este recorte" />}
-      />
+    <Tarjeta titulo={`Mesas de trabajo (${filas.length})`}>
+      {filas.length === 0 ? (
+        <Vacio compacto titulo="Sin mesas en este recorte" />
+      ) : (
+        <ol className="flex flex-col">
+          {filas.map((m) => (
+            <FichaMesaInforme key={m.id} mesa={m} />
+          ))}
+        </ol>
+      )}
     </Tarjeta>
+  );
+}
+
+function FichaMesaInforme({ mesa: m }) {
+  return (
+    <li className="evitar-corte border-b border-borde/70 py-4 last:border-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm font-semibold leading-snug text-tinta">{m.nombre}</p>
+        <Chip tono="acento">{m.tipo}</Chip>
+        <Chip tono="neutro">{m.estado}</Chip>
+      </div>
+
+      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-tenue">
+        {m.referente && <span>referente: {m.referente}</span>}
+        {m.periodicidad && <span>· {m.periodicidad}</span>}
+        <span>· {m.cantidad_reuniones} reunion{m.cantidad_reuniones === 1 ? '' : 'es'}</span>
+        {m.ultima_reunion && <span className="tabular">· última: {fFecha(m.ultima_reunion)}</span>}
+      </p>
+
+      <CompromisosDeMesa compromisos={m.compromisos ?? []} />
+      <Anotaciones />
+    </li>
+  );
+}
+
+/**
+ * Lo que se asumió en la mesa, con la unidad que se hizo cargo.
+ *
+ * Que no haya ninguno es información: una mesa que se reunió y no dejó
+ * compromisos es exactamente lo que hay que preguntar en la reunión
+ * siguiente.
+ */
+function CompromisosDeMesa({ compromisos }) {
+  if (compromisos.length === 0) {
+    return <p className="mt-2 text-[11px] italic text-tenue">Sin compromisos asumidos en esta mesa.</p>;
+  }
+
+  return (
+    <div className="mt-2 border-l-2 border-borde pl-2.5">
+      <p className="mb-1 text-[11px] font-semibold text-acento">
+        Compromisos de la mesa ({compromisos.length})
+      </p>
+      <ul className="flex flex-col gap-1.5">
+        {compromisos.map((c) => {
+          const nivel = c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes);
+          return (
+            <li key={c.id} className="text-[11px] leading-snug text-gris">
+              <span className="text-tinta">{c.descripcion}</span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-tenue">
+                <Semaforo
+                  nivel={nivel}
+                  texto={c.estado_efectivo === 'alerta' ? 'vencido' : c.estado_efectivo}
+                />
+                {/* La secretaría y, si está cargada, la unidad de adentro. */}
+                <span>{c.area || 'sin secretaría'}</span>
+                {c.unidad && <span>· {c.unidad}</span>}
+                {c.fecha_limite && <span className="tabular">· vence el {fFecha(c.fecha_limite)}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -526,14 +579,6 @@ function BloqueEventos({ filas }) {
           { clave: 'lugar', titulo: 'Lugar', ancho: 180 },
           { clave: 'area_organizadora', titulo: 'Área', ancho: 170 },
           { clave: 'estado', titulo: 'Estado', ancho: 105 },
-          {
-            clave: 'requerimientos',
-            titulo: 'Requerimientos',
-            ancho: 145,
-            valorOrden: (f) => f.requerimientos.porcentaje,
-            render: (f) => (f.requerimientos.total ? <BarraAvance valor={f.requerimientos.porcentaje} /> : <span className="text-tenue">—</span>),
-            formatoCSV: (v) => `${v.confirmados}/${v.total}`,
-          },
           COLUMNA_ANOTACIONES,
         ]}
         vacio={<Vacio compacto titulo="Sin eventos en este recorte" />}

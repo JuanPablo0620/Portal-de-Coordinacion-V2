@@ -17,6 +17,7 @@ import {
   seguimientos as selSeguimientos,
   sumarDias,
   trimestreDe,
+  unidadDe,
 } from './selectores.js';
 import { calcularAlertas, filtrarAlertas, proyectosConAlerta } from './alertas.js';
 
@@ -243,29 +244,25 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
    * secretaría asumió algo — y no las dieciséis, como antes, que hacía que un
    * informe de Capital Humano listara mesas que no le tocaban.
    */
-  const mesaTocaAlArea = (m) => {
-    if (!filtros.area) return true;
-    const reuniones = new Set(
-      activos(bd.reuniones_mesa).filter((r) => r.id_mesa === m.id).map((r) => r.id),
-    );
-    return activos(bd.compromisos).some(
-      (c) => c.area === filtros.area && c.origen_tipo === 'mesa' && reuniones.has(c.id_origen),
-    );
-  };
+  const mesaTocaAlArea = (m) => !filtros.area || compromisosDeMesa(m).length > 0;
 
   /**
-   * Las secretarías que asumieron algo en esa mesa, para que el informe diga a
-   * quién le toca cada cosa. Una mesa no tiene área propia; las que aparecen
-   * acá salen de los compromisos de sus reuniones.
+   * Los compromisos que salieron de una mesa, con la unidad que los asumió.
+   *
+   * Una mesa no tiene área propia —es territorial— y lo que la ata a una
+   * secretaría son estos compromisos. Van con `unidad` resuelta acá, en la
+   * capa de datos, porque el nombre de la subsecretaría y la dirección viven
+   * en `bd` y la pantalla del informe no la tiene.
    */
-  const areasDeMesa = (m) => {
+  const todosLosCompromisos = selCompromisos(bd, { area: filtros.area }, hoy);
+
+  const compromisosDeMesa = (m) => {
     const reuniones = new Set(
       activos(bd.reuniones_mesa).filter((r) => r.id_mesa === m.id).map((r) => r.id),
     );
-    const areas = activos(bd.compromisos)
-      .filter((c) => c.origen_tipo === 'mesa' && reuniones.has(c.id_origen) && c.area)
-      .map((c) => c.area);
-    return [...new Set(areas)].sort((a, b) => a.localeCompare(b, 'es'));
+    return todosLosCompromisos
+      .filter((c) => c.origen_tipo === 'mesa' && reuniones.has(c.id_origen))
+      .map((c) => ({ ...c, unidad: unidadDe(bd, c) }));
   };
 
   const mesas = enModulo('mesas')
@@ -278,7 +275,16 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
         })
         .filter(mesaTocaAlArea)
         .filter((m) => !filtros.estado_mesa || m.estado === filtros.estado_mesa)
-        .map((m) => ({ ...m, areas: areasDeMesa(m) }))
+        .map((m) => {
+          const suyos = compromisosDeMesa(m);
+          return {
+            ...m,
+            compromisos: suyos,
+            areas: [...new Set(suyos.map((c) => c.area).filter(Boolean))].sort((a, b) =>
+              a.localeCompare(b, 'es'),
+            ),
+          };
+        })
     : [];
 
   const eventos = enModulo('eventos')
