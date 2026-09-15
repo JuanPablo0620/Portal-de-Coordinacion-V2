@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, History, MessageSquareText } from 'lucide-react';
+import { Check, ChevronDown, History, MessageSquareText } from 'lucide-react';
 import { Boton } from './Basicos.jsx';
 import { CampoArea, CampoFecha, CampoRadios } from './Campo.jsx';
 import { SelectorUnidad } from './SelectorUnidad.jsx';
@@ -124,11 +124,11 @@ function EditorPanelOperativo({
   return (
     <div className="overflow-hidden rounded-card border border-borde bg-card shadow-card">
       <div className="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <section className="min-w-0 p-4 sm:p-5" aria-label="Historial del compromiso">
+        <section className="min-w-0 p-4" aria-label="Historial del compromiso">
           <HistorialOperativo compromisoId={compromiso.id} />
         </section>
 
-        <section className="border-t border-borde bg-paper/55 p-4 sm:p-5 lg:border-l lg:border-t-0" aria-label="Registrar novedad">
+        <section className="border-t border-borde bg-paper/55 p-4 lg:border-l lg:border-t-0" aria-label="Registrar novedad">
           <h3 className="text-sm font-semibold text-tinta">Registrar novedad</h3>
           <p className="mt-1 text-xs leading-relaxed text-gris">
             El cambio de estado y el comentario se guardan juntos como un nuevo movimiento.
@@ -136,7 +136,7 @@ function EditorPanelOperativo({
 
           <CampoRadios
             etiqueta="Nuevo estado"
-            className="mt-4 [&_label]:inline-flex [&_label]:min-h-11 [&_label]:items-center"
+            className="mt-3 [&_label]:inline-flex [&_label]:min-h-11 [&_label]:items-center"
             opciones={OPCIONES_ESTADO}
             valor={borrador?.estado ?? compromiso.estado}
             alCambiar={(v) => alCambiarBorrador({ estado: v })}
@@ -145,7 +145,7 @@ function EditorPanelOperativo({
             etiqueta="Actualización"
             ayuda="opcional — se registra con la fecha de hoy"
             className="mt-3"
-            filas={3}
+            filas={2}
             placeholder="¿Qué cambió desde la última reunión?"
             value={borrador?.nuevaActualizacion ?? ''}
             onChange={(e) => alCambiarBorrador({ nuevaActualizacion: e.target.value })}
@@ -161,18 +161,28 @@ function EditorPanelOperativo({
 
           {/* También se conserva acá la corrección del organigrama para los
               compromisos históricos que todavía no tienen unidad asignada. */}
-          <div className="mt-3">
-            <SelectorUnidad
-              area={compromiso.area}
-              idSubsecretaria={borrador?.id_subsecretaria ?? compromiso.id_subsecretaria ?? ''}
-              idDireccion={borrador?.id_direccion ?? compromiso.id_direccion ?? ''}
-              alCambiar={alCambiarBorrador}
-              columnas={1}
-              compacto
-            />
-          </div>
+          <details className="group mt-3 overflow-hidden rounded-chip border border-borde bg-card">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-xs font-medium text-gris marker:content-none hover:bg-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-acento">
+              Editar unidad responsable
+              <ChevronDown
+                size={16}
+                aria-hidden="true"
+                className="shrink-0 text-tenue transition-transform group-open:rotate-180 motion-reduce:transition-none"
+              />
+            </summary>
+            <div className="border-t border-borde p-3">
+              <SelectorUnidad
+                area={compromiso.area}
+                idSubsecretaria={borrador?.id_subsecretaria ?? compromiso.id_subsecretaria ?? ''}
+                idDireccion={borrador?.id_direccion ?? compromiso.id_direccion ?? ''}
+                alCambiar={alCambiarBorrador}
+                columnas={1}
+                compacto
+              />
+            </div>
+          </details>
 
-          <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <div className="mt-3 flex flex-wrap justify-end gap-2">
             {alCancelar && (
               <Boton tamanio="sm" className="min-h-11" onClick={alCancelar} disabled={guardando}>
                 Cerrar
@@ -192,7 +202,7 @@ function EditorPanelOperativo({
         </section>
       </div>
 
-      {pie && <footer className="border-t border-borde bg-card px-4 py-3 sm:px-5">{pie}</footer>}
+      {pie && <footer className="border-t border-borde bg-card px-4 py-2.5">{pie}</footer>}
     </div>
   );
 }
@@ -286,7 +296,7 @@ function HistorialOperativo({ compromisoId }) {
 
   return (
     <div>
-      <article className="rounded-card border border-acento-medio border-l-[3px] border-l-acento bg-acento-suave p-4">
+      <article className="rounded-card border border-acento-medio border-l-[3px] border-l-acento bg-acento-suave p-3.5">
         <header className="flex flex-wrap items-center gap-2 text-acento-fuerte">
           <MessageSquareText size={17} aria-hidden="true" />
           <h3 className="text-[11px] font-semibold uppercase tracking-wide">Última novedad</h3>

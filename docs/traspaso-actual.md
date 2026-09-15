@@ -46,13 +46,13 @@ memoria.
 | Mesas | Agendar y editar reuniones, carpeta de Drive por mesa y por reunión, color por mesa |
 | Base cartográfica del Mapa | OpenFreeMap con estilo Liberty queda como base predeterminada; el Geoportal conserva el callejero municipal alternativo y sigue aportando límites y cuadras oficiales |
 | Posicionamiento | Ficha propia por programa, con su carpeta de Drive |
-| Compromisos | La novedad va a `actualizaciones_compromisos`, ya no se concatena a `descripcion`. En Seguimiento, el detalle desplegable usa un panel operativo: última novedad e historial a la izquierda, carga de estado/comentario a la derecha y metadatos al pie |
+| Compromisos | La novedad va a `actualizaciones_compromisos`, ya no se concatena a `descripcion`. En Seguimiento, el detalle desplegable usa un panel operativo compacto: última novedad e historial a la izquierda, carga de estado/comentario a la derecha, edición de unidad responsable plegada y metadatos al pie |
 | Eventos | Rediseñado como agenda ejecutiva y, desde el 14/09, ya no es un módulo propio: es una pestaña de Mesas de trabajo. `/eventos` redirige conservando sus parámetros |
 | Cobertura de Monitoreo | Gráfico apilado semana a semana del mes en curso, por secretaría. Coordinación y Secretaría General quedan afuera: no tienen Monitoreo propio |
 | Cierre de Monitoreo | «Finalizar monitoreo» cuenta también las actualizaciones de compromiso, no sólo las de proyecto — un área sin proyectos cargados no podía cerrar nunca su monitoreo |
 | Mis áreas | «Compromisos pendientes» dejó de ser tabla: agrupado por vencimiento, con los días que faltan. El CSV sigue siendo el mismo |
 | Filtros de Monitoreo | Arrancan plegados (`desplegable` en `TarjetaFiltros`, opt-in). Plegados siguen diciendo cuántos hay aplicados |
-| `npm run verificar` | Pasa: 369 tests, build, humo y accesibilidad |
+| `npm run verificar` | Pasa: 396 tests, build, humo y accesibilidad |
 
 ## 2. Lo próximo, en orden de lo que más desbloquea
 
