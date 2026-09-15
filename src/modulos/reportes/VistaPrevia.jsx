@@ -12,7 +12,7 @@
 import { Building2, FileBarChart } from 'lucide-react';
 import { BarraAvance, Chip, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
-import { fecha as fFecha, fechaLarga, numero, sufijoArchivo } from '../../utilidades/formato.js';
+import { fecha as fFecha, fechaLarga, numero } from '../../utilidades/formato.js';
 import { agruparParaInforme } from '../../datos/reportes.js';
 
 /**
@@ -255,34 +255,20 @@ function BloqueProyectos({ filas }) {
 }
 
 /**
- * Los compromisos, una tabla por secretaría.
+ * Los compromisos, en lista y agrupados por secretaría.
  *
- * Todos juntos no se podían repartir: en la reunión cada secretario mira lo
- * suyo, y una tabla de ciento treinta filas mezcladas obliga a leerlas todas
- * para encontrar tres. Con una tabla por área, la hoja se recorta sola.
+ * No es una tabla a propósito. Lo que hay que leer de un compromiso es su
+ * texto —una oración entera, a veces dos renglones— y eso en una celda de
+ * tabla se aprieta contra las columnas de al lado o se corta. En lista, el
+ * compromiso ocupa el ancho de la hoja y los datos que lo acompañan —origen,
+ * vencimiento, estado— van abajo, en una línea que se lee de corrido.
  *
- * La columna Área se va: con el nombre de la secretaría en el título de cada
- * tabla, repetirlo en cada fila es gastar ancho en decir lo mismo.
+ * Debajo va la última novedad cargada. Es la diferencia entre «esto vence el
+ * 30» y «esto vence el 30, y hace tres días el área avisó que está trabado en
+ * Legales»: lo primero es una fecha, lo segundo es de lo que hay que hablar en
+ * la reunión.
  */
 function BloqueCompromisos({ filas }) {
-  const columnas = [
-    { clave: 'descripcion', titulo: 'Compromiso' },
-    { clave: 'origen_tipo', titulo: 'Origen', ancho: 105 },
-    { clave: 'fecha_limite', titulo: 'Vence', ancho: 100, render: (f) => (f.fecha_limite ? fFecha(f.fecha_limite) : <span className="text-tenue">—</span>), formatoCSV: fFecha },
-    {
-      clave: 'estado_efectivo',
-      titulo: 'Estado',
-      ancho: 140,
-      render: (f) => (
-        <Semaforo
-          nivel={f.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(f.dias_restantes)}
-          texto={f.estado_efectivo === 'alerta' ? `vencido · ${f.dias_atraso} d` : f.estado_efectivo}
-        />
-      ),
-    },
-    COLUMNA_ANOTACIONES,
-  ];
-
   if (filas.length === 0) {
     return (
       <Tarjeta titulo="Compromisos (0)">
@@ -294,17 +280,88 @@ function BloqueCompromisos({ filas }) {
   return (
     <>
       {agruparParaInforme(filas).map(([area, deLArea]) => (
-        <Tarjeta key={area} titulo={`Compromisos · ${area} (${deLArea.length})`} sinPadding>
-          <Tabla
-            sinTope
-            nombreExport={`reporte-compromisos-${sufijoArchivo(area)}`}
-            filas={deLArea}
-            conBusqueda={false}
-            columnas={columnas}
-          />
+        <Tarjeta key={area} titulo={`Compromisos · ${area} (${deLArea.length})`}>
+          <ol className="flex flex-col">
+            {deLArea.map((c) => (
+              <FichaCompromiso key={c.id} compromiso={c} />
+            ))}
+          </ol>
         </Tarjeta>
       ))}
     </>
+  );
+}
+
+function FichaCompromiso({ compromiso: c }) {
+  const nivel = c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes);
+  const plazo =
+    c.estado_efectivo === 'alerta'
+      ? `venció el ${fFecha(c.fecha_limite)} · ${c.dias_atraso} días de atraso`
+      : c.fecha_limite
+        ? `vence el ${fFecha(c.fecha_limite)}`
+        : 'sin fecha límite';
+
+  return (
+    <li className="border-b border-borde/70 py-2.5 last:border-0">
+      <div className="flex items-start gap-2">
+        <span className="mt-1.5 shrink-0">
+          <Semaforo nivel={nivel} soloPunto texto={c.estado_efectivo} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm leading-snug text-tinta">{c.descripcion}</p>
+
+          {/* Los datos que en la tabla eran columnas, acá en una sola línea. */}
+          <p className="mt-0.5 text-[11px] text-tenue">
+            <Semaforo
+              nivel={nivel}
+              texto={c.estado_efectivo === 'alerta' ? 'vencido' : c.estado_efectivo}
+            />
+            <span className="ml-1.5">{plazo}</span>
+            {c.origen_tipo && <span className="ml-1.5">· origen: {c.origen_tipo}</span>}
+            {c.id_proyecto && <span className="ml-1.5">· {c.id_proyecto}</span>}
+          </p>
+
+          <UltimaNovedad novedad={c.ultima_actualizacion} />
+        </div>
+
+        {/* El espacio para escribir a mano, igual que la columna de las tablas. */}
+        <span
+          aria-hidden="true"
+          className="ml-2 hidden w-40 shrink-0 self-stretch border-b border-dashed border-borde-fuerte/50 print:block"
+        />
+      </div>
+    </li>
+  );
+}
+
+/**
+ * La última novedad, o el silencio.
+ *
+ * Que un compromiso no tenga ninguna es información: significa que desde que
+ * se cargó nadie informó nada. Decirlo es más útil que dejar el hueco, porque
+ * en la reunión eso es una pregunta.
+ */
+function UltimaNovedad({ novedad }) {
+  if (!novedad) {
+    return <p className="mt-1 text-[11px] italic text-tenue">Sin novedades cargadas.</p>;
+  }
+
+  const cambioDeEstado =
+    novedad.estado_anterior && novedad.estado_anterior !== novedad.estado
+      ? `${novedad.estado_anterior} → ${novedad.estado}`
+      : '';
+
+  return (
+    <div className="mt-1 border-l-2 border-borde pl-2">
+      <p className="text-[11px] text-tenue">
+        Última novedad
+        {novedad.fecha && <span className="tabular"> · {fFecha(novedad.fecha)}</span>}
+        {cambioDeEstado && <span> · {cambioDeEstado}</span>}
+      </p>
+      {novedad.texto && (
+        <p className="whitespace-pre-line text-xs leading-snug text-gris">{novedad.texto}</p>
+      )}
+    </div>
   );
 }
 

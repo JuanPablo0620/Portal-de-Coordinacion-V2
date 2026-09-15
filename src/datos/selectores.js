@@ -330,15 +330,39 @@ export function estadoCompromiso(c, hoy) {
 }
 
 export function compromisos(bd, filtros = {}, hoy = hoyISO()) {
+  /*
+   * La última novedad viene pegada al compromiso cuando los datos salen de
+   * Supabase (`supabaseCompromisos.cargar`). Contra la base local hay que
+   * armarla acá, desde la colección, para que las dos den lo mismo.
+   */
+  const novedades = new Map();
+  for (const a of bd.actualizaciones_compromisos ?? []) {
+    if (!a.comentarios && !a.estado_anterior) continue;
+    const previa = novedades.get(a.compromiso_id);
+    if (previa && String(previa.creado_en ?? '') >= String(a.creado_en ?? '')) continue;
+    novedades.set(a.compromiso_id, a);
+  }
+
   return activos(bd.compromisos)
     .map((c) => {
       const estado_efectivo = estadoCompromiso(c, hoy);
       const dias = diasHasta(c.fecha_limite, hoy);
+      const local = novedades.get(c.id);
       return {
         ...c,
         estado_efectivo,
         dias_restantes: dias,
         dias_atraso: estado_efectivo === 'alerta' ? Math.abs(dias) : 0,
+        ultima_actualizacion:
+          c.ultima_actualizacion ??
+          (local
+            ? {
+                fecha: local.fecha_actualizacion ?? '',
+                texto: local.comentarios ?? '',
+                estado: local.estado ?? '',
+                estado_anterior: local.estado_anterior ?? '',
+              }
+            : null),
       };
     })
     .filter((c) =>

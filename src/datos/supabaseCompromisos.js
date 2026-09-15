@@ -90,13 +90,48 @@ function aFormaLocal(fila) {
   };
 }
 
+/**
+ * La última novedad de cada compromiso, para mostrarla junto a él.
+ *
+ * Va en su propia consulta y con su propio try/catch, por el mismo motivo que
+ * `id_monitoreo_origen` no entra en CAMPOS: si esto falla —la tabla es de 0014
+ * y el trigger que la llena, de 0031— no puede dejar sin compromisos a media
+ * aplicación. Sin ella, cada compromiso se muestra igual, sin la novedad.
+ *
+ * Se descartan las filas que no dicen nada: el trigger asienta también los
+ * cambios de `activo` sin comentario ni cambio de estado, y mostrar «se
+ * actualizó» sin decir qué cambió es peor que no mostrar nada.
+ */
+async function ultimasNovedades() {
+  const { data, error } = await supabase
+    .from('actualizaciones_compromisos')
+    .select('compromiso_id, fecha_actualizacion, estado, estado_anterior, comentarios, created_at')
+    .order('created_at', { ascending: false });
+  if (error) return new Map();
+
+  const ultima = new Map();
+  for (const f of data) {
+    if (ultima.has(f.compromiso_id)) continue;
+    if (!f.comentarios && !f.estado_anterior) continue;
+    ultima.set(f.compromiso_id, {
+      fecha: f.fecha_actualizacion ?? String(f.created_at ?? '').slice(0, 10),
+      texto: f.comentarios ?? '',
+      estado: f.estado ?? '',
+      estado_anterior: f.estado_anterior ?? '',
+    });
+  }
+  return ultima;
+}
+
 export async function cargar() {
   const { data, error } = await supabase
     .from('compromisos')
     .select(CAMPOS)
     .order('fecha_limite', { ascending: true, nullsFirst: false });
   if (error) throw error;
-  return data.map(aFormaLocal);
+
+  const novedades = await ultimasNovedades();
+  return data.map((f) => ({ ...aFormaLocal(f), ultima_actualizacion: novedades.get(f.id) ?? null }));
 }
 
 async function proyectoId(codigo) {

@@ -271,3 +271,46 @@ test('sin fecha límite un compromiso NUNCA llega a alerta', async () => {
   assert.equal(estadoCompromiso({ estado: 'pendiente', fecha_limite: null }, '2026-09-01'), 'pendiente');
   assert.equal(estadoCompromiso({ estado: 'en_curso' }, '2026-09-01'), 'en_curso');
 });
+
+/* ── La última novedad de un compromiso ─────────────────────────────── */
+
+/**
+ * El informe muestra, debajo de cada compromiso, la última novedad cargada.
+ * Contra Supabase viene pegada al compromiso; contra la base local hay que
+ * armarla desde `actualizaciones_compromisos`, y las dos tienen que dar lo
+ * mismo — si no, el informe dice una cosa en producción y otra en la demo.
+ */
+const BD_NOVEDADES = {
+  compromisos: [
+    { id: 'c1', descripcion: 'Con novedades', estado: 'en_curso', fecha_limite: '2026-09-30', activo: true },
+    { id: 'c2', descripcion: 'Sin novedades', estado: 'pendiente', fecha_limite: '2026-09-30', activo: true },
+  ],
+  actualizaciones_compromisos: [
+    { compromiso_id: 'c1', fecha_actualizacion: '2026-08-01', comentarios: 'la vieja', estado: 'en_curso', creado_en: '2026-08-01T10:00:00' },
+    { compromiso_id: 'c1', fecha_actualizacion: '2026-08-05', comentarios: 'la nueva', estado: 'en_curso', creado_en: '2026-08-05T10:00:00' },
+    // Sin comentario ni cambio de estado: no dice nada, no cuenta.
+    { compromiso_id: 'c2', fecha_actualizacion: '2026-08-06', comentarios: '', estado: 'pendiente', creado_en: '2026-08-06T10:00:00' },
+  ],
+};
+
+test('cada compromiso trae su última novedad, la más reciente', () => {
+  const [c1] = compromisos(BD_NOVEDADES, { id: 'c1' }, HOY).filter((c) => c.id === 'c1');
+  assert.equal(c1.ultima_actualizacion.texto, 'la nueva');
+  assert.equal(c1.ultima_actualizacion.fecha, '2026-08-05');
+});
+
+test('una actualización que no dice nada no cuenta como novedad', () => {
+  const [c2] = compromisos(BD_NOVEDADES, {}, HOY).filter((c) => c.id === 'c2');
+  assert.equal(c2.ultima_actualizacion, null);
+});
+
+test('la novedad que ya viene con el compromiso gana sobre la local', () => {
+  const bd = {
+    ...BD_NOVEDADES,
+    compromisos: [
+      { ...BD_NOVEDADES.compromisos[0], ultima_actualizacion: { fecha: '2026-08-09', texto: 'la de Supabase' } },
+    ],
+  };
+  const [c1] = compromisos(bd, {}, HOY);
+  assert.equal(c1.ultima_actualizacion.texto, 'la de Supabase');
+});
