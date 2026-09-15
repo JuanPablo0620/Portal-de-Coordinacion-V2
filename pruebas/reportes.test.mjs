@@ -136,11 +136,10 @@ test('el período no esconde la deuda vencida que viene de antes', () => {
   );
 });
 
-test('el módulo de origen recorta también los proyectos y los gráficos', () => {
+test('el módulo de origen recorta también los proyectos', () => {
   const soloMesas = armarReporte(bd, { modulo: 'mesas' }, HOY);
   assert.equal(soloMesas.proyectos.length, 0, 'un informe de mesas traía la tabla de proyectos entera');
   assert.equal(soloMesas.resumen.proyectos, 0);
-  assert.deepEqual(soloMesas.agregados.porArea, []);
   assert.ok(soloMesas.mesas.length > 0, 'el módulo pedido sí tiene que venir');
 
   const soloProyectos = armarReporte(bd, { modulo: 'proyectos' }, HOY);
@@ -161,5 +160,104 @@ test('las mesas del reporte respetan el período por sus reuniones', () => {
       (r) => r.id_mesa === m.id && r.fecha >= semanal.rango.desde && r.fecha <= semanal.rango.hasta,
     );
     assert.ok(enVentana, `la mesa ${m.nombre} no sesionó en el período`);
+  }
+});
+
+/* ── El eje recorta proyectos, y ese recorte se propaga ─────────────── */
+
+/**
+ * Filtrar por un eje que ningún proyecto usa deja el reporte ENTERO en cero,
+ * no sólo la tabla de proyectos: los compromisos, las alertas y las minutas se
+ * limitan a los proyectos del recorte.
+ *
+ * Es el comportamiento correcto —el recorte es lo que ata las entidades al
+ * mismo universo— pero convierte a cualquier opción sin proyectos detrás en una
+ * trampa: no vacía una tabla, vacía el documento. Por eso los filtros de
+ * proyecto se derivan de los datos y no del catálogo. Esta prueba fija la
+ * razón, para que a nadie le parezca que puede volver a ofrecerse el catálogo
+ * plano sin consecuencias.
+ */
+test('un eje que ningún proyecto usa vacía también los compromisos', () => {
+  const ejeInexistente = 'Eje que nadie usa';
+  assert.equal(
+    bd.proyectos.filter((p) => p.eje === ejeInexistente).length,
+    0,
+    'la premisa de la prueba: ningún proyecto tiene ese eje',
+  );
+
+  const r = armarReporte(bd, { eje: ejeInexistente }, HOY);
+  assert.deepEqual(r.proyectos, []);
+  // Los que cuelgan de un proyecto se van con él. Los sueltos sobreviven.
+  assert.ok(r.compromisos.every((c) => !c.id_proyecto));
+});
+
+test('filtrar por un eje real conserva los compromisos de esos proyectos', () => {
+  const eje = bd.proyectos.find((p) => p.eje)?.eje;
+  assert.ok(eje, 'la demo tiene al menos un proyecto con eje');
+
+  const r = armarReporte(bd, { eje }, HOY);
+  assert.ok(r.proyectos.length > 0);
+  assert.ok(r.proyectos.every((p) => p.eje === eje));
+
+  const ids = new Set(r.proyectos.map((p) => p.id_proyecto));
+  assert.ok(r.compromisos.every((c) => !c.id_proyecto || ids.has(c.id_proyecto)));
+});
+
+/* ── Cada entidad se filtra por SU estado ───────────────────────────── */
+
+test('el estado del compromiso recorta compromisos, no proyectos', () => {
+  const estado = bd.compromisos.find((c) => c.estado)?.estado;
+  assert.ok(estado, 'la demo tiene compromisos con estado');
+
+  const r = armarReporte(bd, { estado_compromiso: estado }, HOY);
+  assert.ok(r.compromisos.length > 0);
+  assert.ok(r.compromisos.every((c) => c.estado === estado));
+  // Los proyectos quedan enteros: el estado del compromiso no los recorta.
+  assert.equal(r.proyectos.length, bd.proyectos.length);
+});
+
+test('el estado del proyecto no recorta los compromisos por su propio estado', () => {
+  const estado = bd.proyectos.find((p) => p.estado)?.estado;
+  const r = armarReporte(bd, { estado }, HOY);
+  assert.ok(r.proyectos.every((p) => p.estado === estado));
+  // Lo que sí pasa es el recorte por proyecto, que es otra cosa.
+  const ids = new Set(r.proyectos.map((p) => p.id_proyecto));
+  assert.ok(r.compromisos.every((c) => !c.id_proyecto || ids.has(c.id_proyecto)));
+});
+
+/* ── El período mide vigencia, no fecha de carga ────────────────────── */
+
+test('un proyecto que arrancó antes del período pero sigue vivo entra igual', () => {
+  const p = bd.proyectos.find((x) => x.fecha_inicio && x.fecha_inicio < '2026-08-01');
+  assert.ok(p, 'la demo tiene proyectos anteriores a agosto');
+
+  const r = armarReporte(bd, { rango: 'personalizado', desde: '2026-08-01', hasta: '2026-08-31' }, HOY);
+  const entro = r.proyectos.some((x) => x.id_proyecto === p.id_proyecto);
+  const terminoAntes = p.fecha_fin_prevista && p.fecha_fin_prevista < '2026-08-01';
+  assert.equal(entro, !terminoAntes);
+});
+
+test('un proyecto que termina antes de la ventana queda afuera', () => {
+  const r = armarReporte(bd, { rango: 'personalizado', desde: '2026-08-01', hasta: '2026-08-31' }, HOY);
+  assert.ok(
+    r.proyectos.every((p) => !p.fecha_fin_prevista || p.fecha_fin_prevista >= '2026-08-01'),
+  );
+});
+
+test('cada mesa del reporte dice qué secretarías asumieron algo en ella', () => {
+  const r = armarReporte(bd, {}, HOY);
+  assert.ok(r.mesas.length > 0);
+
+  for (const m of r.mesas) {
+    assert.ok(Array.isArray(m.areas), `la mesa ${m.nombre} no trae la lista de secretarías`);
+    // Lo que sale son las áreas de los compromisos de SUS reuniones, no las
+    // del sistema entero.
+    const reuniones = new Set(bd.reuniones_mesa.filter((x) => x.id_mesa === m.id).map((x) => x.id));
+    const esperadas = new Set(
+      bd.compromisos
+        .filter((c) => c.origen_tipo === 'mesa' && reuniones.has(c.id_origen) && c.area)
+        .map((c) => c.area),
+    );
+    assert.deepEqual(new Set(m.areas), esperadas, `secretarías mal atribuidas en ${m.nombre}`);
   }
 });

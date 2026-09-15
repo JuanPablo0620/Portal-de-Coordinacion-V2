@@ -35,9 +35,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { WMS_CAPA_BASE, WMS_OWS } from '../datos/geoportal.js';
 
-/** Centro y zoom de arranque: el partido entero en pantalla. */
-const CENTRO_PARTIDO = [-34.6, -58.565];
-const ZOOM_PARTIDO = 13;
+/** Extremos de geonode:limites3f (Geoportal, 14/09/2026), en latitud/longitud.
+ * Locales para que la restricción siga funcionando si el Geoportal no responde.
+ */
+const LIMITES_PARTIDO = [
+  [-34.65462691, -58.64634474],
+  [-34.545685, -58.52314397],
+];
 
 export const CAPAS_BASE = Object.freeze([
   { valor: 'libre', titulo: 'Mapa claro' },
@@ -118,13 +122,16 @@ export function MapaLeaflet({
     let vivo = true;
     let instancia = null;
     let reloj = null;
+    let observador = null;
 
     (async () => {
       const [modulo, adaptador, maplibre, worker] = await Promise.all([
         import('leaflet'),
         import('@maplibre/maplibre-gl-leaflet'),
         import('maplibre-gl'),
-        import('maplibre-gl/dist/maplibre-gl-worker.mjs?url'),
+        // `?url` solo copia el archivo y pierde su import de shared.mjs en
+        // producción. El pipeline de workers incluye todas sus dependencias.
+        import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'),
         import('leaflet/dist/leaflet.css'),
         import('maplibre-gl/dist/maplibre-gl.css'),
       ]);
@@ -135,15 +142,34 @@ export function MapaLeaflet({
       leaflet.current = L;
       leaflet.current.maplibreGL = adaptador.maplibreGL;
 
+      const limites = L.latLngBounds(LIMITES_PARTIDO).pad(0.06);
       instancia = L.map(contenedor.current, {
-        center: CENTRO_PARTIDO,
-        zoom: ZOOM_PARTIDO,
+        center: limites.getCenter(),
+        zoom: 13,
+        minZoom: 11,
+        maxZoom: 20,
+        zoomSnap: 0.25,
+        maxBounds: limites,
+        maxBoundsViscosity: 1,
+        bounceAtZoomLimits: false,
         zoomControl: true,
         // El mapa es la superficie principal del módulo: la rueda acerca y
         // aleja directamente cuando el cursor está sobre él.
         scrollWheelZoom: true,
         attributionControl: true,
       });
+      // El alejamiento máximo es la vista del partido, adaptada al tamaño
+      // disponible. Restringir sólo el arrastre aún permitiría ver el mundo
+      // usando la rueda o el botón menos.
+      const limitarAlejamiento = () => {
+        instancia.setMinZoom(Math.max(11, instancia.getBoundsZoom(limites)));
+        instancia.panInsideBounds(limites, { animate: false });
+      };
+      limitarAlejamiento();
+      instancia.fitBounds(limites, { animate: false });
+      instancia.on('resize', limitarAlejamiento);
+      observador = new ResizeObserver(() => instancia.invalidateSize({ pan: false }));
+      observador.observe(contenedor.current);
       L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(instancia);
       capaFormas.current = L.layerGroup().addTo(instancia);
       instancia.on('click', (e) => {
@@ -180,6 +206,7 @@ export function MapaLeaflet({
     return () => {
       vivo = false;
       clearTimeout(reloj);
+      observador?.disconnect();
       instancia?.remove();
       mapa.current = null;
       capaFormas.current = null;

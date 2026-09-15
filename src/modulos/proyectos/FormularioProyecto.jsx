@@ -27,7 +27,9 @@ const VACIO = {
   avance: '',
   unidad: '',
   estado: 'planificado',
-  prioridad: 'media',
+  // Sin elegir. La prioridad es un juicio de quien carga, y arrancar en
+  // «media» hacía que el formulario la asumiera por él.
+  prioridad: '',
   fecha_inicio: '',
   fecha_fin_prevista: '',
   es_obra: false,

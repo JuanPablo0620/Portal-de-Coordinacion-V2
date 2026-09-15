@@ -206,7 +206,9 @@ export function validarFilasProyecto(objetos, catalogos, hoy) {
       id_area: area?.id,
       es_obra: Boolean(tipo?.es_obra),
       estado: limpio.estado || 'planificado',
-      prioridad: limpio.prioridad || 'media',
+      // Sin prioridad en el CSV, sin prioridad en la base: inventarla es
+      // afirmar algo que la planilla no dice.
+      prioridad: limpio.prioridad || '',
       fecha_carga: limpio.fecha_inicio || hoy,
     });
   });

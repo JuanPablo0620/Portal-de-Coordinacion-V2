@@ -10,9 +10,8 @@
  * un PDF al que le faltan filas sin decirlo es peor que uno largo.
  */
 import { Building2, FileBarChart } from 'lucide-react';
-import { BarraAvance, Chip, Criticidad, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
+import { BarraAvance, Chip, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
-import { GraficoBarras, GraficoTorta } from '../../componentes/Graficos.jsx';
 import { ETIQUETAS_ALERTA } from '../../datos/alertas.js';
 import { fecha as fFecha, fechaLarga, moneda, numero } from '../../utilidades/formato.js';
 
@@ -41,14 +40,21 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
         </Tarjeta>
       ) : (
         <>
+          {/* El orden es el de la reunión: primero el número, después lo que
+              reclama acción, después lo que se conversó, y al final el detalle
+              de respaldo. No es alfabético ni el orden en que se programó. */}
           {bloques.resumen && <BloqueResumen resumen={reporte.resumen} />}
-          {bloques.graficos && <BloqueGraficos agregados={reporte.agregados} />}
-          {bloques.proyectos && <BloqueProyectos filas={reporte.proyectos} />}
-          {bloques.compromisos && <BloqueCompromisos filas={reporte.compromisos} />}
+          {/* Va pegada al resumen y no a cada tabla: quien recibe el informe
+              impreso no tiene un tooltip donde preguntar qué significa un
+              punto naranja, y repetirla en cada bloque la vuelve ruido. */}
+          {bloques.resumen && (bloques.compromisos || bloques.proyectos) && (
+            <BloqueLeyenda conCompromisos={bloques.compromisos} conProyectos={bloques.proyectos} />
+          )}
           {bloques.alertas && <BloqueAlertas alertas={reporte.alertas} />}
-          {bloques.temas && <BloqueTemas filas={reporte.temas} />}
-          {bloques.minutas && <BloqueMinutas seguimientos={reporte.seguimientos} />}
+          {bloques.compromisos && <BloqueCompromisos filas={reporte.compromisos} />}
           {bloques.mesas && <BloqueMesas filas={reporte.mesas} />}
+          {bloques.minutas && <BloqueMinutas seguimientos={reporte.seguimientos} />}
+          {bloques.proyectos && <BloqueProyectos filas={reporte.proyectos} />}
           {bloques.eventos && <BloqueEventos filas={reporte.eventos} />}
         </>
       )}
@@ -115,6 +121,75 @@ function PieImpresion({ filtros, hoy }) {
 
 /* ── Bloques ────────────────────────────────────────────────────────── */
 
+/**
+ * Qué significa cada color, para quien lee el informe en papel.
+ *
+ * Los dos vocabularios son distintos y conviene no mezclarlos: el de un
+ * compromiso habla de su PLAZO —cuánto falta o cuánto hace que venció— y el
+ * de un proyecto, de su ESTADO declarado. El mismo verde dice cosas
+ * diferentes en cada tabla.
+ */
+function BloqueLeyenda({ conCompromisos, conProyectos }) {
+  const compromisos = [
+    ['vencido', 'vencido: pasó la fecha límite y sigue sin cumplirse'],
+    ['proximo', 'vence en 3 días o menos'],
+    ['atencion', 'vence entre 4 y 15 días'],
+    ['enregla', 'vence en más de 15 días, o ya está cumplido'],
+    ['sindato', 'sin fecha límite cargada'],
+  ];
+  const proyectos = [
+    ['vencido', 'suspendido'],
+    ['proximo', 'demorado'],
+    ['enregla', 'en ejecución'],
+    ['sindato', 'planificado'],
+  ];
+
+  return (
+    <Tarjeta titulo="Cómo leer los colores">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {conCompromisos && (
+          <div>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-tenue">
+              Compromisos · por plazo
+            </p>
+            <ul className="flex flex-col gap-1">
+              {compromisos.map(([nivel, texto]) => (
+                <li key={nivel} className="flex items-start gap-2 text-xs leading-snug text-gris">
+                  <span className="mt-1 shrink-0">
+                    <Semaforo nivel={nivel} soloPunto texto={texto} />
+                  </span>
+                  {texto}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {conProyectos && (
+          <div>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-tenue">
+              Proyectos · por estado
+            </p>
+            <ul className="flex flex-col gap-1">
+              {proyectos.map(([nivel, texto]) => (
+                <li key={nivel} className="flex items-start gap-2 text-xs leading-snug text-gris">
+                  <span className="mt-1 shrink-0">
+                    <Semaforo nivel={nivel} soloPunto texto={texto} />
+                  </span>
+                  {texto}
+                </li>
+              ))}
+              <li className="flex items-start gap-2 text-xs leading-snug text-gris">
+                <Chip tono="acento">Finalizado</Chip>
+                <span className="mt-0.5">terminado, no va más al seguimiento</span>
+              </li>
+            </ul>
+          </div>
+        )}
+      </div>
+    </Tarjeta>
+  );
+}
+
 function BloqueResumen({ resumen }) {
   const items = [
     ['Proyectos', numero(resumen.proyectos)],
@@ -124,7 +199,6 @@ function BloqueResumen({ resumen }) {
     ['Compromisos vencidos', numero(resumen.compromisosVencidos)],
     ['Seguimientos', numero(resumen.seguimientos)],
     ['Monitoreos', numero(resumen.monitoreos)],
-    ['Temas críticos sin resolver', numero(resumen.temasCriticos)],
     ['Eventos', numero(resumen.eventos)],
     ['Alertas activas', numero(resumen.alertas)],
     ['Monto planificado', moneda(resumen.montoPlanificado)],
@@ -144,34 +218,6 @@ function BloqueResumen({ resumen }) {
   );
 }
 
-function BloqueGraficos({ agregados }) {
-  return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Tarjeta titulo="Proyectos por área">
-        <GraficoBarras datos={agregados.porArea ?? []} horizontal alto={Math.max(200, (agregados.porArea?.length ?? 0) * 30)} anchoEtiqueta={170} />
-      </Tarjeta>
-      <Tarjeta titulo="Proyectos por eje">
-        <GraficoTorta datos={agregados.porEje ?? []} alto={260} />
-      </Tarjeta>
-      <Tarjeta titulo="Proyectos por estado">
-        <GraficoBarras datos={agregados.porEstado ?? []} alto={240} />
-      </Tarjeta>
-      <Tarjeta titulo="Ejecución presupuestaria por área">
-        <GraficoBarras
-          datos={agregados.gastoPorArea ?? []}
-          horizontal
-          alto={Math.max(200, (agregados.gastoPorArea?.length ?? 0) * 30)}
-          anchoEtiqueta={170}
-          formato={moneda}
-          series={[
-            { clave: 'planificado', titulo: 'Planificado' },
-            { clave: 'ejecutado', titulo: 'Ejecutado' },
-          ]}
-        />
-      </Tarjeta>
-    </div>
-  );
-}
 
 function BloqueProyectos({ filas }) {
   return (
@@ -254,27 +300,6 @@ function BloqueAlertas({ alertas }) {
   );
 }
 
-function BloqueTemas({ filas }) {
-  return (
-    <Tarjeta titulo={`Temas de monitoreo (${filas.length})`} sinPadding>
-      <Tabla
-        sinTope
-        nombreExport="reporte-temas"
-        filas={filas}
-        conBusqueda={false}
-        columnas={[
-          { clave: 'fecha', titulo: 'Fecha', ancho: 100, render: (f) => fFecha(f.fecha), formatoCSV: fFecha },
-          { clave: 'area', titulo: 'Área', ancho: 170 },
-          { clave: 'categoria', titulo: 'Categoría', ancho: 170 },
-          { clave: 'descripcion', titulo: 'Tema' },
-          { clave: 'criticidad', titulo: 'Criticidad', ancho: 105, render: (f) => <Criticidad nivel={f.criticidad} /> },
-          { clave: 'resuelto', titulo: 'Estado', ancho: 110, render: (f) => (f.resuelto ? <Chip tono="enregla">resuelto</Chip> : <Chip tono="vencido">sin resolver</Chip>) },
-        ]}
-        vacio={<Vacio compacto titulo="Sin temas de monitoreo en este recorte" />}
-      />
-    </Tarjeta>
-  );
-}
 
 function BloqueMinutas({ seguimientos }) {
   const conTexto = seguimientos.filter((s) => s.texto_crudo?.trim());
@@ -335,6 +360,17 @@ function BloqueMesas({ filas }) {
         columnas={[
           { clave: 'nombre', titulo: 'Mesa' },
           { clave: 'tipo', titulo: 'Tipo', ancho: 140, render: (f) => <Chip tono="acento">{f.tipo}</Chip> },
+          {
+            clave: 'areas',
+            titulo: 'Secretarías',
+            ancho: 200,
+            sinOrdenar: true,
+            formatoCSV: (v) => (v ?? []).join(' · '),
+            // Una mesa no tiene área propia: las que salen acá son las que
+            // asumieron algún compromiso en sus reuniones.
+            render: (f) =>
+              f.areas?.length ? f.areas.join(' · ') : <span className="text-tenue">sin compromisos</span>,
+          },
           { clave: 'referente', titulo: 'Referente', ancho: 130 },
           { clave: 'periodicidad', titulo: 'Periodicidad', ancho: 115 },
           { clave: 'estado', titulo: 'Estado', ancho: 100 },
