@@ -28,7 +28,6 @@ import {
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import {
   Aviso,
-  BarraAvance,
   Boton,
   Chip,
   EstadoProyecto,
@@ -480,19 +479,7 @@ function PanelCartera({ cartera, filtros, setFiltros, alEditar, alRegistrarNoved
               ),
             },
             { clave: 'descripcion_estrategica', titulo: 'Descripción', ancho: 260 },
-            {
-              clave: 'origen_estrategico',
-              titulo: 'Origen',
-              ancho: 130,
-              render: (p) => <Chip tono="neutro">{ETIQUETA_ORIGEN[p.origen_estrategico] ?? 'Base maestra'}</Chip>,
-            },
             { clave: 'estado', titulo: 'Estado', ancho: 130, render: (p) => <EstadoProyecto estado={p.estado} /> },
-            {
-              clave: 'porcentaje_avance',
-              titulo: 'Avance',
-              ancho: 130,
-              render: (p) => <BarraAvance valor={p.porcentaje_avance} compacta />,
-            },
             {
               clave: 'dias_sin_novedad',
               titulo: 'Sin novedades',

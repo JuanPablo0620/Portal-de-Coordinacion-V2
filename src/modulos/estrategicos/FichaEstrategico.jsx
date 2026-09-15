@@ -13,7 +13,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, ClipboardList, NotebookPen, Plus, Trash2, XCircle } from 'lucide-react';
+import { ArrowLeft, Check, ClipboardList, FolderOpen, NotebookPen, Plus, Trash2, XCircle } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import {
   Aviso,
@@ -25,9 +25,9 @@ import {
   Vacio,
   nivelPorDias,
 } from '../../componentes/Basicos.jsx';
-import { CampoArea, CampoFecha } from '../../componentes/Campo.jsx';
+import { CampoArea, CampoFecha, CampoTexto } from '../../componentes/Campo.jsx';
 import { EditorCompromiso } from '../../componentes/EditorCompromiso.jsx';
-import { ModalConfirmacion } from '../../componentes/Modal.jsx';
+import { Modal, ModalConfirmacion } from '../../componentes/Modal.jsx';
 import {
   compromisos as selCompromisos,
   diasHasta,
@@ -53,6 +53,7 @@ export default function FichaEstrategico() {
   const [confirmandoBaja, setConfirmandoBaja] = useState(false);
   const [quitando, setQuitando] = useState(false);
   const [errorQuitar, setErrorQuitar] = useState(null);
+  const [editandoDrive, setEditandoDrive] = useState(false);
 
   const marcado = parametros.get('compromiso') || parametros.get('nota') || '';
 
@@ -117,6 +118,18 @@ export default function FichaEstrategico() {
             <Boton icono={ArrowLeft} onClick={() => navegar('/estrategicos')}>
               Volver
             </Boton>
+            {proyecto.url_drive ? (
+              <Boton
+                icono={FolderOpen}
+                onClick={() => window.open(proyecto.url_drive, '_blank', 'noopener,noreferrer')}
+              >
+                Carpeta de Drive
+              </Boton>
+            ) : (
+              <Boton icono={FolderOpen} onClick={() => setEditandoDrive(true)}>
+                Agregar carpeta
+              </Boton>
+            )}
             <Boton icono={XCircle} onClick={() => setConfirmandoBaja(true)} disabled={quitando}>
               Sacar de la cartera
             </Boton>
@@ -140,6 +153,15 @@ export default function FichaEstrategico() {
             {/* Un proyecto sin secretaría muestra un guion, no un hueco: el
                 espacio en blanco se lee como un error de carga. */}
             <Chip tono="neutro">{proyecto.area || '—'}</Chip>
+            {proyecto.url_drive && (
+              <button
+                type="button"
+                onClick={() => setEditandoDrive(true)}
+                className="text-[11px] text-acento underline-offset-2 hover:underline"
+              >
+                cambiar carpeta
+              </button>
+            )}
             {vencidos > 0 && (
               <Chip tono="vencido">
                 {vencidos} compromiso{vencidos === 1 ? '' : 's'} vencido{vencidos === 1 ? '' : 's'}
@@ -149,7 +171,7 @@ export default function FichaEstrategico() {
         </Tarjeta>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr] lg:items-start">
-          <PanelCompromisos compromisos={compromisos} marcado={marcado} />
+          <PanelCompromisos compromisos={compromisos} marcado={marcado} proyecto={proyecto} />
           <PanelNotas notas={notas} idProyecto={id} marcado={marcado} hoy={hoy} />
         </div>
       </Pagina>
@@ -162,13 +184,64 @@ export default function FichaEstrategico() {
         mensaje={`«${proyecto.proyecto}» vuelve a seguirse como cualquier otro proyecto. No se borra nada: el motivo, los compromisos y las notas quedan, y se puede volver a declarar cuando haga falta.`}
         textoConfirmar="Sacar de la cartera"
       />
+
+      {editandoDrive && <EditarDrive proyecto={proyecto} alCerrar={() => setEditandoDrive(false)} />}
     </>
+  );
+}
+
+function EditarDrive({ proyecto, alCerrar }) {
+  const [url, setUrl] = useState(proyecto.url_drive ?? '');
+  const [error, setError] = useState('');
+  const [guardando, setGuardando] = useState(false);
+
+  async function guardar() {
+    setError('');
+    setGuardando(true);
+    try {
+      await acciones.actualizarProyecto(proyecto.id_proyecto, { url_drive: url.trim() });
+      alCerrar();
+    } catch (err) {
+      setError(err?.message || 'No se pudo guardar la carpeta. Probá de nuevo.');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <Modal
+      abierto
+      alCerrar={alCerrar}
+      ancho="md"
+      titulo="Carpeta de Drive"
+      descripcion={proyecto.proyecto}
+      pie={
+        <>
+          <Boton onClick={alCerrar}>Cancelar</Boton>
+          <Boton variante="primario" onClick={guardar} disabled={guardando}>
+            Guardar
+          </Boton>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <CampoTexto
+          etiqueta="Dirección de la carpeta"
+          ayuda="pegá el enlace de Drive"
+          placeholder="https://drive.google.com/drive/folders/…"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+        />
+        <p className="text-[11px] text-tenue">Dejalo vacío para sacar el enlace.</p>
+        {error && <Aviso tono="error">{error}</Aviso>}
+      </div>
+    </Modal>
   );
 }
 
 /* ── Compromisos ────────────────────────────────────────────────────── */
 
-function PanelCompromisos({ compromisos, marcado }) {
+function PanelCompromisos({ compromisos, marcado, proyecto }) {
   // Si se llegó desde un compromiso, se abre ya expandido: quien hizo clic
   // venía a actualizarlo, y pedirle un clic más para llegar donde ya iba no
   // aporta nada.
@@ -176,6 +249,39 @@ function PanelCompromisos({ compromisos, marcado }) {
   const [borrador, setBorrador] = useState(marcado ? {} : null);
   const [error, setError] = useState(null);
   const [guardando, setGuardando] = useState(false);
+
+  const [nuevo, setNuevo] = useState(null);
+  const [nuevaDescripcion, setNuevaDescripcion] = useState('');
+  const [nuevaFecha, setNuevaFecha] = useState('');
+  const [errorNuevo, setErrorNuevo] = useState(null);
+  const [guardandoNuevo, setGuardandoNuevo] = useState(false);
+
+  async function crearCompromiso() {
+    if (!nuevaDescripcion.trim()) {
+      setErrorNuevo('Describí qué se comprometió.');
+      return;
+    }
+    setGuardandoNuevo(true);
+    setErrorNuevo(null);
+    try {
+      await acciones.crearCompromiso({
+        origen_tipo: 'estrategico',
+        id_origen: proyecto.id_proyecto,
+        id_proyecto: proyecto.id_proyecto,
+        area: proyecto.area,
+        descripcion: nuevaDescripcion.trim(),
+        fecha_limite: nuevaFecha || null,
+        estado: 'pendiente',
+      });
+      setNuevo(false);
+      setNuevaDescripcion('');
+      setNuevaFecha('');
+    } catch (e) {
+      setErrorNuevo(e?.message ?? 'No se pudo crear el compromiso.');
+    } finally {
+      setGuardandoNuevo(false);
+    }
+  }
 
   function alternar(c) {
     if (expandidoId === c.id) {
@@ -205,11 +311,51 @@ function PanelCompromisos({ compromisos, marcado }) {
   return (
     <Tarjeta
       titulo="Compromisos del proyecto"
-      descripcion="Se actualizan con el mismo formulario que Monitoreo y Seguimiento: la descripción queda quieta y la novedad se guarda como una fila del historial, con su fecha."
+      descripcion="Se pueden cargar directamente acá, sin pasar por Monitoreo ni Seguimiento — es el circuito propio de Valentín. La descripción queda quieta y la novedad se guarda como una fila del historial, con su fecha."
+      acciones={
+        !nuevo && (
+          <Boton tamanio="sm" icono={Plus} onClick={() => setNuevo(true)}>
+            Nuevo compromiso
+          </Boton>
+        )
+      }
     >
       {error && (
         <div className="mb-3">
           <Aviso tono="error">{error}</Aviso>
+        </div>
+      )}
+
+      {nuevo && (
+        <div className="mb-3 space-y-2 rounded-chip border border-acento/40 bg-acento/5 p-3">
+          <CampoArea
+            etiqueta="Qué se comprometió"
+            filas={2}
+            placeholder="Descripción del compromiso"
+            value={nuevaDescripcion}
+            onChange={(e) => setNuevaDescripcion(e.target.value)}
+          />
+          <CampoFecha
+            etiqueta="Fecha límite"
+            ayuda="opcional"
+            value={nuevaFecha}
+            onChange={(e) => setNuevaFecha(e.target.value)}
+          />
+          {errorNuevo && <Aviso tono="error">{errorNuevo}</Aviso>}
+          <div className="flex justify-end gap-2">
+            <Boton
+              tamanio="sm"
+              onClick={() => {
+                setNuevo(false);
+                setErrorNuevo(null);
+              }}
+            >
+              Cancelar
+            </Boton>
+            <Boton tamanio="sm" variante="primario" onClick={crearCompromiso} disabled={guardandoNuevo}>
+              Guardar compromiso
+            </Boton>
+          </div>
         </div>
       )}
 
@@ -218,7 +364,7 @@ function PanelCompromisos({ compromisos, marcado }) {
           compacto
           icono={ClipboardList}
           titulo="Sin compromisos"
-          descripcion="Los compromisos de este proyecto se generan desde un monitoreo, un seguimiento o una reunión de mesa."
+          descripcion="Cargá uno con el botón de arriba, o llega solo si sale de un monitoreo, un seguimiento o una reunión de mesa."
         />
       ) : (
         <ul className="flex flex-col gap-2">
