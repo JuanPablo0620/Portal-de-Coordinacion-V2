@@ -12,7 +12,7 @@
 import { Building2, FileBarChart } from 'lucide-react';
 import { BarraAvance, Chip, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
-import { fecha as fFecha, fechaLarga, moneda, numero, sufijoArchivo } from '../../utilidades/formato.js';
+import { fecha as fFecha, fechaLarga, numero, sufijoArchivo } from '../../utilidades/formato.js';
 import { agruparParaInforme } from '../../datos/reportes.js';
 
 /**
@@ -189,6 +189,21 @@ function BloqueLeyenda({ conCompromisos, conProyectos }) {
   );
 }
 
+/**
+ * Columna vacía para escribir a mano sobre el informe impreso.
+ *
+ * Va última en cada tabla y no lleva nada: el punto es el espacio. Se queda
+ * fuera del CSV —no hay nada que exportar— y no se puede ordenar por ella.
+ */
+const COLUMNA_ANOTACIONES = {
+  clave: 'anotaciones',
+  titulo: 'Anotaciones',
+  ancho: 190,
+  sinOrdenar: true,
+  sinExportar: true,
+  render: () => '',
+};
+
 function BloqueResumen({ resumen }) {
   const items = [
     ['Proyectos', numero(resumen.proyectos)],
@@ -200,8 +215,6 @@ function BloqueResumen({ resumen }) {
     ['Monitoreos', numero(resumen.monitoreos)],
     ['Eventos', numero(resumen.eventos)],
     ['Alertas activas', numero(resumen.alertas)],
-    ['Monto planificado', moneda(resumen.montoPlanificado)],
-    ['Monto ejecutado', moneda(resumen.montoEjecutado)],
   ];
   return (
     <Tarjeta titulo="Resumen del recorte">
@@ -233,8 +246,7 @@ function BloqueProyectos({ filas }) {
           { clave: 'area', titulo: 'Área', ancho: 175 },
           { clave: 'eje', titulo: 'Eje', ancho: 145 },
           { clave: 'estado', titulo: 'Estado', ancho: 115, render: (f) => <EstadoProyecto estado={f.estado} /> },
-          { clave: 'porcentaje_avance', titulo: 'Avance', ancho: 130, render: (f) => <BarraAvance valor={f.porcentaje_avance} /> },
-          { clave: 'monto_planificado', titulo: 'Planificado', ancho: 125, alinear: 'derecha', render: (f) => moneda(f.monto_planificado) },
+          COLUMNA_ANOTACIONES,
         ]}
         vacio={<Vacio compacto titulo="Ningún proyecto cumple los filtros aplicados" />}
       />
@@ -268,6 +280,7 @@ function BloqueCompromisos({ filas }) {
         />
       ),
     },
+    COLUMNA_ANOTACIONES,
   ];
 
   if (filas.length === 0) {
@@ -373,6 +386,7 @@ function BloqueMesas({ filas }) {
           { clave: 'estado', titulo: 'Estado', ancho: 100 },
           { clave: 'cantidad_reuniones', titulo: 'Reuniones', ancho: 95, alinear: 'derecha' },
           { clave: 'ultima_reunion', titulo: 'Última', ancho: 105, render: (f) => (f.ultima_reunion ? fFecha(f.ultima_reunion) : '—'), formatoCSV: (v) => (v ? fFecha(v) : '') },
+          COLUMNA_ANOTACIONES,
         ]}
         vacio={<Vacio compacto titulo="Sin mesas en este recorte" />}
       />
@@ -402,6 +416,7 @@ function BloqueEventos({ filas }) {
             render: (f) => (f.requerimientos.total ? <BarraAvance valor={f.requerimientos.porcentaje} /> : <span className="text-tenue">—</span>),
             formatoCSV: (v) => `${v.confirmados}/${v.total}`,
           },
+          COLUMNA_ANOTACIONES,
         ]}
         vacio={<Vacio compacto titulo="Sin eventos en este recorte" />}
       />
