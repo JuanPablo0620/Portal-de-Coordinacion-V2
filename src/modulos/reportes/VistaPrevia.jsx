@@ -44,6 +44,12 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
               reclama acción, después lo que se conversó, y al final el detalle
               de respaldo. No es alfabético ni el orden en que se programó. */}
           {bloques.resumen && <BloqueResumen resumen={reporte.resumen} />}
+          {/* Va pegada al resumen y no a cada tabla: quien recibe el informe
+              impreso no tiene un tooltip donde preguntar qué significa un
+              punto naranja, y repetirla en cada bloque la vuelve ruido. */}
+          {bloques.resumen && (bloques.compromisos || bloques.proyectos) && (
+            <BloqueLeyenda conCompromisos={bloques.compromisos} conProyectos={bloques.proyectos} />
+          )}
           {bloques.alertas && <BloqueAlertas alertas={reporte.alertas} />}
           {bloques.compromisos && <BloqueCompromisos filas={reporte.compromisos} />}
           {bloques.mesas && <BloqueMesas filas={reporte.mesas} />}
@@ -114,6 +120,75 @@ function PieImpresion({ filtros, hoy }) {
 }
 
 /* ── Bloques ────────────────────────────────────────────────────────── */
+
+/**
+ * Qué significa cada color, para quien lee el informe en papel.
+ *
+ * Los dos vocabularios son distintos y conviene no mezclarlos: el de un
+ * compromiso habla de su PLAZO —cuánto falta o cuánto hace que venció— y el
+ * de un proyecto, de su ESTADO declarado. El mismo verde dice cosas
+ * diferentes en cada tabla.
+ */
+function BloqueLeyenda({ conCompromisos, conProyectos }) {
+  const compromisos = [
+    ['vencido', 'vencido: pasó la fecha límite y sigue sin cumplirse'],
+    ['proximo', 'vence en 3 días o menos'],
+    ['atencion', 'vence entre 4 y 15 días'],
+    ['enregla', 'vence en más de 15 días, o ya está cumplido'],
+    ['sindato', 'sin fecha límite cargada'],
+  ];
+  const proyectos = [
+    ['vencido', 'suspendido'],
+    ['proximo', 'demorado'],
+    ['enregla', 'en ejecución'],
+    ['sindato', 'planificado'],
+  ];
+
+  return (
+    <Tarjeta titulo="Cómo leer los colores">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {conCompromisos && (
+          <div>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-tenue">
+              Compromisos · por plazo
+            </p>
+            <ul className="flex flex-col gap-1">
+              {compromisos.map(([nivel, texto]) => (
+                <li key={nivel} className="flex items-start gap-2 text-xs leading-snug text-gris">
+                  <span className="mt-1 shrink-0">
+                    <Semaforo nivel={nivel} soloPunto texto={texto} />
+                  </span>
+                  {texto}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {conProyectos && (
+          <div>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-tenue">
+              Proyectos · por estado
+            </p>
+            <ul className="flex flex-col gap-1">
+              {proyectos.map(([nivel, texto]) => (
+                <li key={nivel} className="flex items-start gap-2 text-xs leading-snug text-gris">
+                  <span className="mt-1 shrink-0">
+                    <Semaforo nivel={nivel} soloPunto texto={texto} />
+                  </span>
+                  {texto}
+                </li>
+              ))}
+              <li className="flex items-start gap-2 text-xs leading-snug text-gris">
+                <Chip tono="acento">Finalizado</Chip>
+                <span className="mt-0.5">terminado, no va más al seguimiento</span>
+              </li>
+            </ul>
+          </div>
+        )}
+      </div>
+    </Tarjeta>
+  );
+}
 
 function BloqueResumen({ resumen }) {
   const items = [

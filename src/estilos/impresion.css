@@ -55,11 +55,25 @@
    * página, que es lo que hace legible una tabla larga en papel.
    */
   .bloque-reporte {
+    /*
+     * BLOQUE, no flex. Es lo que faltaba: permitir el corte no alcanza si la
+     * caja es un contenedor flex, porque los navegadores no saben fragmentar
+     * flex entre páginas — lo desbordan. Por eso la tarjeta de Mesas se
+     * dibujaba encima de la tabla de compromisos en vez de empezar debajo.
+     */
+    display: block !important;
     break-inside: auto;
     page-break-inside: auto;
     margin-bottom: 10mm;
     box-shadow: none !important;
     border: 1px solid #d5dae1 !important;
+  }
+
+  /* Lo mismo adentro: una grilla o un flex que envuelva una tabla larga
+     tampoco se fragmenta. */
+  .bloque-reporte > div,
+  .bloque-reporte > section {
+    display: block !important;
   }
 
   /* El título de un bloque nunca queda solo al pie de una página. */
@@ -83,6 +97,23 @@
 
   .bloque-reporte thead {
     position: static !important;
+  }
+
+  /*
+   * El encabezado que se repite en cada página tiene que decir algo.
+   *
+   * El título de cada columna vive dentro de un botón `inline-flex` junto al
+   * ícono de ordenar. Con el ancho fijo de la columna y el tamaño de papel, el
+   * ícono se quedaba con el espacio y el texto se comprimía hasta desaparecer:
+   * se repetían filas de flechitas sin nombre. En papel no se ordena nada, así
+   * que el ícono sobra y el botón vuelve a ser texto corrido.
+   */
+  .bloque-reporte th button {
+    display: inline !important;
+  }
+
+  .bloque-reporte th svg {
+    display: none !important;
   }
 
   .salto-pagina {

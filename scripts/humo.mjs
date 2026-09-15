@@ -83,6 +83,7 @@ const CON_DEMO = [
   ['/mapa?periodo=todo', 'Todos los cortes cargados'],
   ['/reportes', 'Municipio de Tres de Febrero'],
   ['/reportes', 'Filtros aplicados'],
+  ['/reportes', 'Cómo leer los colores'],
   ['/configuracion', 'Tu usuario'],
   ['/configuracion', 'Cargar datos de demostración'],
 ];
