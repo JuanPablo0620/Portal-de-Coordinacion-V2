@@ -273,12 +273,6 @@ body {
   font: inherit;
 }
 
-.mapa-leaflet .maplibregl-canvas-container,
-.mapa-leaflet .maplibregl-canvas {
-  position: absolute;
-  inset: 0;
-}
-
 /* En modo dibujo el cursor dice que el mapa espera un clic. */
 .mapa-dibujando .leaflet-container {
   cursor: crosshair;
