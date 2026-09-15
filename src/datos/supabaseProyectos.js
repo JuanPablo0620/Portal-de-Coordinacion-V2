@@ -263,7 +263,16 @@ function aFormaLocal(fila, observaciones) {
     avance: obs.avance ?? 0,
     unidad: obs.unidad ?? '',
     responsable: fila.responsable ?? '',
-    prioridad: fila.prioridad ?? 'media',
+    /*
+     * Vacía cuando la base no la tiene, NO «media».
+     *
+     * El `?? 'media'` afirmaba una prioridad que nadie había decidido: los
+     * proyectos se importaron de los `_db`, que no registran prioridad, así
+     * que los noventa y pico leían «media». En pantalla eso es un dato falso,
+     * y además dejaba el filtro de Prioridad con una sola opción —la inventada—
+     * y el contador de prioritarios en cero para siempre.
+     */
+    prioridad: fila.prioridad ?? '',
     fecha_inicio: fila.fecha_inicio ?? '',
     fecha_fin_prevista: fila.fecha_fin_proyectada ?? '',
     es_obra: fila.es_obra,

@@ -212,3 +212,23 @@ test('sin columna de año, la planificación toma el año de la pantalla', () =>
   );
   assert.equal(aceptadas[0].anio, 2027);
 });
+
+/* ── Lo que la planilla no dice, no se inventa ──────────────────────── */
+
+/**
+ * La importación completaba `prioridad: 'media'` cuando la columna venía
+ * vacía. Parece inofensivo y no lo es: afirma un juicio que nadie hizo, deja
+ * el filtro de Prioridad con una sola opción —la inventada— y el contador de
+ * proyectos prioritarios en cero para siempre, porque ninguno llega a «alta».
+ */
+test('una fila sin prioridad se importa sin prioridad, no en «media»', () => {
+  const modelo = bd.proyectos[0];
+  const { aceptadas, rechazadas } = validarFilasProyecto(
+    [{ proyecto: 'Proyecto sin prioridad', area: modelo.area, estado: modelo.estado, prioridad: '' }],
+    catalogos,
+    HOY,
+  );
+
+  assert.deepEqual(rechazadas, [], 'sin prioridad la fila sigue siendo válida');
+  assert.equal(aceptadas[0].prioridad, '');
+});
