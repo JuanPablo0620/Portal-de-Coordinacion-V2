@@ -355,6 +355,12 @@ function SelectorAreas({ usuario, areasCatalogo, asignadas }) {
   const alternar = (nombre) =>
     setSeleccion((s) => (s.includes(nombre) ? s.filter((n) => n !== nombre) : [...s, nombre]));
 
+  const nombresCatalogo = areasCatalogo.map((a) => a.nombre);
+  const todasElegidas = nombresCatalogo.length > 0 && nombresCatalogo.every((n) => seleccion.includes(n));
+  // «Elegir todo» es un toggle, no un botón de una sola dirección: con todas
+  // marcadas, tocarlo tiene que vaciar la selección, no quedarse sin efecto.
+  const alternarTodas = () => setSeleccion(todasElegidas ? [] : nombresCatalogo);
+
   const huboCambios = seleccion.slice().sort().join('|') !== asignadas.slice().sort().join('|');
 
   async function guardar() {
@@ -391,16 +397,24 @@ function SelectorAreas({ usuario, areasCatalogo, asignadas }) {
       {areasCatalogo.length === 0 ? (
         <Aviso tono="info">No hay áreas cargadas en el catálogo todavía.</Aviso>
       ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {areasCatalogo.map((a) => (
-            <CampoCheck
-              key={a.id}
-              etiqueta={a.nombre}
-              checked={seleccion.includes(a.nombre)}
-              onChange={() => alternar(a.nombre)}
-            />
-          ))}
-        </div>
+        <>
+          <CampoCheck
+            etiqueta={todasElegidas ? 'Quitar todas' : 'Elegir todas'}
+            checked={todasElegidas}
+            onChange={alternarTodas}
+            className="mb-2.5 border-b border-borde pb-2.5 font-medium"
+          />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {areasCatalogo.map((a) => (
+              <CampoCheck
+                key={a.id}
+                etiqueta={a.nombre}
+                checked={seleccion.includes(a.nombre)}
+                onChange={() => alternar(a.nombre)}
+              />
+            ))}
+          </div>
+        </>
       )}
     </Tarjeta>
   );
