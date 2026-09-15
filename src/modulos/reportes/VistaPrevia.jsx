@@ -12,7 +12,6 @@
 import { Building2, FileBarChart } from 'lucide-react';
 import { BarraAvance, Chip, EstadoProyecto, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
-import { GraficoBarras, GraficoTorta } from '../../componentes/Graficos.jsx';
 import { ETIQUETAS_ALERTA } from '../../datos/alertas.js';
 import { fecha as fFecha, fechaLarga, moneda, numero } from '../../utilidades/formato.js';
 
@@ -41,13 +40,15 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
         </Tarjeta>
       ) : (
         <>
+          {/* El orden es el de la reunión: primero el número, después lo que
+              reclama acción, después lo que se conversó, y al final el detalle
+              de respaldo. No es alfabético ni el orden en que se programó. */}
           {bloques.resumen && <BloqueResumen resumen={reporte.resumen} />}
-          {bloques.graficos && <BloqueGraficos agregados={reporte.agregados} />}
-          {bloques.proyectos && <BloqueProyectos filas={reporte.proyectos} />}
-          {bloques.compromisos && <BloqueCompromisos filas={reporte.compromisos} />}
           {bloques.alertas && <BloqueAlertas alertas={reporte.alertas} />}
-          {bloques.minutas && <BloqueMinutas seguimientos={reporte.seguimientos} />}
+          {bloques.compromisos && <BloqueCompromisos filas={reporte.compromisos} />}
           {bloques.mesas && <BloqueMesas filas={reporte.mesas} />}
+          {bloques.minutas && <BloqueMinutas seguimientos={reporte.seguimientos} />}
+          {bloques.proyectos && <BloqueProyectos filas={reporte.proyectos} />}
           {bloques.eventos && <BloqueEventos filas={reporte.eventos} />}
         </>
       )}
@@ -142,34 +143,6 @@ function BloqueResumen({ resumen }) {
   );
 }
 
-function BloqueGraficos({ agregados }) {
-  return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Tarjeta titulo="Proyectos por área">
-        <GraficoBarras datos={agregados.porArea ?? []} horizontal alto={Math.max(200, (agregados.porArea?.length ?? 0) * 30)} anchoEtiqueta={170} />
-      </Tarjeta>
-      <Tarjeta titulo="Proyectos por eje">
-        <GraficoTorta datos={agregados.porEje ?? []} alto={260} />
-      </Tarjeta>
-      <Tarjeta titulo="Proyectos por estado">
-        <GraficoBarras datos={agregados.porEstado ?? []} alto={240} />
-      </Tarjeta>
-      <Tarjeta titulo="Ejecución presupuestaria por área">
-        <GraficoBarras
-          datos={agregados.gastoPorArea ?? []}
-          horizontal
-          alto={Math.max(200, (agregados.gastoPorArea?.length ?? 0) * 30)}
-          anchoEtiqueta={170}
-          formato={moneda}
-          series={[
-            { clave: 'planificado', titulo: 'Planificado' },
-            { clave: 'ejecutado', titulo: 'Ejecutado' },
-          ]}
-        />
-      </Tarjeta>
-    </div>
-  );
-}
 
 function BloqueProyectos({ filas }) {
   return (
@@ -312,6 +285,17 @@ function BloqueMesas({ filas }) {
         columnas={[
           { clave: 'nombre', titulo: 'Mesa' },
           { clave: 'tipo', titulo: 'Tipo', ancho: 140, render: (f) => <Chip tono="acento">{f.tipo}</Chip> },
+          {
+            clave: 'areas',
+            titulo: 'Secretarías',
+            ancho: 200,
+            sinOrdenar: true,
+            formatoCSV: (v) => (v ?? []).join(' · '),
+            // Una mesa no tiene área propia: las que salen acá son las que
+            // asumieron algún compromiso en sus reuniones.
+            render: (f) =>
+              f.areas?.length ? f.areas.join(' · ') : <span className="text-tenue">sin compromisos</span>,
+          },
           { clave: 'referente', titulo: 'Referente', ancho: 130 },
           { clave: 'periodicidad', titulo: 'Periodicidad', ancho: 115 },
           { clave: 'estado', titulo: 'Estado', ancho: 100 },

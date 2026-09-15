@@ -136,11 +136,10 @@ test('el período no esconde la deuda vencida que viene de antes', () => {
   );
 });
 
-test('el módulo de origen recorta también los proyectos y los gráficos', () => {
+test('el módulo de origen recorta también los proyectos', () => {
   const soloMesas = armarReporte(bd, { modulo: 'mesas' }, HOY);
   assert.equal(soloMesas.proyectos.length, 0, 'un informe de mesas traía la tabla de proyectos entera');
   assert.equal(soloMesas.resumen.proyectos, 0);
-  assert.deepEqual(soloMesas.agregados.porArea, []);
   assert.ok(soloMesas.mesas.length > 0, 'el módulo pedido sí tiene que venir');
 
   const soloProyectos = armarReporte(bd, { modulo: 'proyectos' }, HOY);
@@ -243,4 +242,22 @@ test('un proyecto que termina antes de la ventana queda afuera', () => {
   assert.ok(
     r.proyectos.every((p) => !p.fecha_fin_prevista || p.fecha_fin_prevista >= '2026-08-01'),
   );
+});
+
+test('cada mesa del reporte dice qué secretarías asumieron algo en ella', () => {
+  const r = armarReporte(bd, {}, HOY);
+  assert.ok(r.mesas.length > 0);
+
+  for (const m of r.mesas) {
+    assert.ok(Array.isArray(m.areas), `la mesa ${m.nombre} no trae la lista de secretarías`);
+    // Lo que sale son las áreas de los compromisos de SUS reuniones, no las
+    // del sistema entero.
+    const reuniones = new Set(bd.reuniones_mesa.filter((x) => x.id_mesa === m.id).map((x) => x.id));
+    const esperadas = new Set(
+      bd.compromisos
+        .filter((c) => c.origen_tipo === 'mesa' && reuniones.has(c.id_origen) && c.area)
+        .map((c) => c.area),
+    );
+    assert.deepEqual(new Set(m.areas), esperadas, `secretarías mal atribuidas en ${m.nombre}`);
+  }
 });

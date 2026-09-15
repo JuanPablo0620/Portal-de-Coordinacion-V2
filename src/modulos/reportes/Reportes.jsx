@@ -22,7 +22,7 @@ const DEFAULTS = {
 };
 
 const BLOQUES_INICIALES = {
-  resumen: true, proyectos: true, graficos: true, compromisos: true,
+  resumen: true, proyectos: true, compromisos: true,
   alertas: true, minutas: false, mesas: false, eventos: false,
 };
 

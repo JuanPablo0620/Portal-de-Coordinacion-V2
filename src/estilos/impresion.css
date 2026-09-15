@@ -42,13 +42,47 @@
     padding: 0 !important;
   }
 
-  /* Los bloques del reporte no se parten entre páginas */
+  /*
+   * Los bloques SÍ pueden partirse entre páginas.
+   *
+   * Antes llevaban `break-inside: avoid`, con la idea de que una tarjeta no
+   * quedara cortada al medio. Funciona mientras el bloque entra en una página;
+   * cuando no —una tabla de noventa proyectos—, el navegador no tiene dónde
+   * ponerlo entero y lo desborda: el contenido se sale de la caja y se pisa con
+   * lo que sigue. Es lo que se veía en el PDF.
+   *
+   * Lo que no se parte es la FILA (más abajo) y el encabezado se repite en cada
+   * página, que es lo que hace legible una tabla larga en papel.
+   */
   .bloque-reporte {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
     margin-bottom: 10mm;
     box-shadow: none !important;
     border: 1px solid #d5dae1 !important;
+  }
+
+  /* El título de un bloque nunca queda solo al pie de una página. */
+  .bloque-reporte > header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /*
+   * El scroll de las tablas desaparece al imprimir.
+   *
+   * `overflow: auto` en papel no hace scroll: RECORTA. Una tabla más alta que
+   * la página se cortaba en seco, sin continuar en la siguiente. Y el
+   * encabezado `sticky` se apilaba encima de las filas en vez de repetirse.
+   */
+  .bloque-reporte .scroll-fino,
+  .bloque-reporte [class*='overflow-'] {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .bloque-reporte thead {
+    position: static !important;
   }
 
   .salto-pagina {

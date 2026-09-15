@@ -8,14 +8,11 @@
  */
 import {
   activos,
-  avancePorDimension,
   compromisos as selCompromisos,
   eventos as selEventos,
-  gastoPorDimension,
   hoyISO,
   mesas as selMesas,
   monitoreos as selMonitoreos,
-  porDimension,
   proyectos as selProyectos,
   seguimientos as selSeguimientos,
   sumarDias,
@@ -63,7 +60,6 @@ export function resolverRango(filtros, hoy = hoyISO()) {
 export const BLOQUES = [
   { clave: 'resumen', titulo: 'Resumen numérico', descripcion: 'Contadores del recorte' },
   { clave: 'proyectos', titulo: 'Tabla de proyectos', descripcion: 'Listado con avance y estado' },
-  { clave: 'graficos', titulo: 'Gráficos', descripcion: 'Distribución y avance agregado' },
   { clave: 'compromisos', titulo: 'Compromisos', descripcion: 'Listado con estado y vencimiento' },
   { clave: 'alertas', titulo: 'Alertas activas', descripcion: 'Del motor central de alertas' },
   { clave: 'minutas', titulo: 'Minutas de seguimiento', descripcion: 'Texto de lo conversado' },
@@ -84,7 +80,7 @@ export const MODULOS_ORIGEN = [
 
 /**
  * @returns {{ proyectos, compromisos, seguimientos, monitoreos, mesas, eventos,
- *             alertas, agregados, resumen, resumenFiltros }}
+ *             alertas, resumen, resumenFiltros }}
  */
 export function armarReporte(bd, filtros, hoy = hoyISO()) {
   if (!bd) return vacio();
@@ -212,6 +208,21 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     );
   };
 
+  /**
+   * Las secretarías que asumieron algo en esa mesa, para que el informe diga a
+   * quién le toca cada cosa. Una mesa no tiene área propia; las que aparecen
+   * acá salen de los compromisos de sus reuniones.
+   */
+  const areasDeMesa = (m) => {
+    const reuniones = new Set(
+      activos(bd.reuniones_mesa).filter((r) => r.id_mesa === m.id).map((r) => r.id),
+    );
+    const areas = activos(bd.compromisos)
+      .filter((c) => c.origen_tipo === 'mesa' && reuniones.has(c.id_origen) && c.area)
+      .map((c) => c.area);
+    return [...new Set(areas)].sort((a, b) => a.localeCompare(b, 'es'));
+  };
+
   const mesas = enModulo('mesas')
     ? selMesas(bd, {})
         .filter((m) => {
@@ -222,6 +233,7 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
         })
         .filter(mesaTocaAlArea)
         .filter((m) => !filtros.estado_mesa || m.estado === filtros.estado_mesa)
+        .map((m) => ({ ...m, areas: areasDeMesa(m) }))
     : [];
 
   const eventos = enModulo('eventos')
@@ -233,19 +245,6 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
   const alertas = filtrarAlertas(alertasTodas, { area: filtros.area }).filter(
     (a) => !hayRecorteProyecto || !a.id_proyecto || idsProyecto.has(a.id_proyecto),
   );
-
-  // Los gráficos son de proyectos: si el reporte no es de proyectos, no hay
-  // agregado que dibujar. Devolverlos igual pintaba el sistema entero al lado
-  // de una tabla de mesas.
-  const agregados = enModulo('proyectos')
-    ? {
-        porArea: porDimension(bd, 'area', filtroProyecto),
-        porEje: porDimension(bd, 'eje', filtroProyecto),
-        porEstado: porDimension(bd, 'estado', filtroProyecto),
-        avancePorArea: avancePorDimension(bd, 'area', filtroProyecto),
-        gastoPorArea: gastoPorDimension(bd, 'area', filtroProyecto),
-      }
-    : { porArea: [], porEje: [], porEstado: [], avancePorArea: [], gastoPorArea: [] };
 
   const resumen = {
     proyectos: proyectos.length,
@@ -270,7 +269,6 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     mesas,
     eventos,
     alertas,
-    agregados,
     resumen,
     rango: { desde, hasta },
     resumenFiltros: describirFiltros(filtros, { desde, hasta }),
@@ -280,7 +278,7 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
 function vacio() {
   return {
     proyectos: [], compromisos: [], seguimientos: [], monitoreos: [],
-    mesas: [], eventos: [], alertas: [], agregados: {}, resumen: {},
+    mesas: [], eventos: [], alertas: [], resumen: {},
     rango: { desde: '', hasta: '' }, resumenFiltros: [],
   };
 }
