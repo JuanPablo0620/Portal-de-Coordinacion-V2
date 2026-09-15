@@ -124,7 +124,9 @@ export function MapaLeaflet({
         import('leaflet'),
         import('@maplibre/maplibre-gl-leaflet'),
         import('maplibre-gl'),
-        import('maplibre-gl/dist/maplibre-gl-worker.mjs?url'),
+        // `?url` solo copia el archivo y pierde su import de shared.mjs en
+        // producción. El pipeline de workers incluye todas sus dependencias.
+        import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'),
         import('leaflet/dist/leaflet.css'),
         import('maplibre-gl/dist/maplibre-gl.css'),
       ]);
