@@ -5,9 +5,7 @@ import { usePerfil, useSesion } from '../estado/sesion.js';
 import { acciones } from '../estado/tienda.js';
 import {
   CalendarCheck,
-  CloudCog,
   FileBarChart,
-  FolderKanban,
   Gem,
   Globe2,
   HardHat,
@@ -26,7 +24,6 @@ import {
 const MODULOS = [
   { ruta: '/', titulo: 'Inicio', icono: LayoutDashboard, exacta: true },
   { ruta: '/mis-areas', titulo: 'Mis áreas', icono: UserCheck },
-  { ruta: '/proyectos', titulo: 'Proyectos y Puntuales', icono: FolderKanban },
   { ruta: '/obras', titulo: 'Obras', icono: HardHat },
   { ruta: '/seguimiento', titulo: 'Seguimiento', icono: CalendarCheck },
   { ruta: '/monitoreo', titulo: 'Monitoreo', icono: Radar },
@@ -39,7 +36,6 @@ const MODULOS = [
   { ruta: '/mesas', titulo: 'Mesas de trabajo', icono: Users },
   { ruta: '/mapa', titulo: 'Mapa de cortes', icono: MapPinned },
   { ruta: '/reportes', titulo: 'Reportes', icono: FileBarChart },
-  { ruta: '/vigentes-supabase', titulo: 'Vigentes (Supabase)', icono: CloudCog },
 ];
 
 function Navegacion({ alNavegar }) {

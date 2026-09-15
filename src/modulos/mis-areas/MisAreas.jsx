@@ -180,7 +180,9 @@ export default function MisAreas() {
                   conBusqueda={false}
                   columnas={COLUMNAS_VENCIDOS}
                   colorEncabezado="#f6d8dc"
-                  alHacerClicFila={(c) => navegar(`/seguimiento?tab=compromisos&compromiso=${c.id}`)}
+                  alHacerClicFila={(c) =>
+                    navegar(`/seguimiento?tab=compromisos&area=${encodeURIComponent(c.area)}&compromiso=${c.id}`)
+                  }
                 />
               </Tarjeta>
             )}
@@ -198,7 +200,9 @@ export default function MisAreas() {
             <PendientesPorVencimiento
               compromisos={compromisosPropios}
               areasCatalogo={areasCatalogo}
-              alAbrir={(c) => navegar(`/seguimiento?tab=compromisos&compromiso=${c.id}`)}
+              alAbrir={(c) =>
+                navegar(`/seguimiento?tab=compromisos&area=${encodeURIComponent(c.area)}&compromiso=${c.id}`)
+              }
             />
 
             <div>
