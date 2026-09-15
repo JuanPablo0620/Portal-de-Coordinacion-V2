@@ -134,7 +134,27 @@ try {
     const vacias = [];
     for (let x = 1; x <= ultima; x += 1) if (!ocupadas.has(x)) vacias.push(x);
 
-    return { bloques, superpuestos, vacias, altoPagina: Math.round(ALTO) };
+    /*
+     * Las unidades que pidieron no partirse. `break-inside: avoid` sólo se
+     * cumple si la unidad ENTRA en una hoja; si es más alta, el navegador la
+     * desborda y vuelve el pisado. Medirlas es la única forma de saber que la
+     * promesa se puede cumplir.
+     */
+    const noParten = [...document.querySelectorAll('.evitar-corte')].map((e) => ({
+      alto: Math.round(e.getBoundingClientRect().height),
+      texto: e.textContent.trim().slice(0, 50),
+    }));
+    const noEntran = noParten.filter((u) => u.alto > ALTO);
+
+    return {
+      bloques,
+      superpuestos,
+      vacias,
+      altoPagina: Math.round(ALTO),
+      unidades: noParten.length,
+      altoMaximo: noParten.length ? Math.max(...noParten.map((u) => u.alto)) : 0,
+      noEntran: noEntran.slice(0, 5),
+    };
   });
 
   console.log('ALTO ÚTIL (px)', paginacion.altoPagina);
@@ -143,6 +163,12 @@ try {
   }
   console.log('SUPERPUESTOS', JSON.stringify(paginacion.superpuestos));
   console.log('PÁGINAS SIN NINGÚN BLOQUE', JSON.stringify(paginacion.vacias));
+  console.log(
+    'UNIDADES QUE NO SE PARTEN', paginacion.unidades,
+    '· la más alta', paginacion.altoMaximo + 'px',
+    '· no entran en una hoja:', paginacion.noEntran.length,
+  );
+  if (paginacion.noEntran.length) console.log('  ', JSON.stringify(paginacion.noEntran));
 
   /* ── Lo que se puede comprobar sin ojos ── */
   const diagnostico = await pagina.evaluate(() => {

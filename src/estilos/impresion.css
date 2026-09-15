@@ -116,6 +116,17 @@
     display: none !important;
   }
 
+  /*
+   * Unidades cortas que no se parten: un compromiso con su novedad y sus
+   * renglones para anotar, una minuta. Son chicas —entran sobradas en una
+   * hoja— asi que evitar el corte nunca las deja sin donde caer, a diferencia
+   * de un bloque entero con noventa filas.
+   */
+  .evitar-corte {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .salto-pagina {
     break-before: page;
     page-break-before: always;

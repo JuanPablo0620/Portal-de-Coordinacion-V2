@@ -302,35 +302,52 @@ function FichaCompromiso({ compromiso: c }) {
         : 'sin fecha límite';
 
   return (
-    <li className="border-b border-borde/70 py-2.5 last:border-0">
-      <div className="flex items-start gap-2">
+    // `evitar-corte` mantiene junto al compromiso con sus renglones: partirlo
+    // deja media ficha en una hoja y el espacio para anotar en la siguiente,
+    // que es peor que dejar el hueco al pie.
+    <li className="evitar-corte border-b border-borde/70 py-4 last:border-0">
+      <div className="flex items-start gap-2.5">
         <span className="mt-1.5 shrink-0">
           <Semaforo nivel={nivel} soloPunto texto={c.estado_efectivo} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm leading-snug text-tinta">{c.descripcion}</p>
+          <p className="text-sm leading-relaxed text-tinta">{c.descripcion}</p>
 
           {/* Los datos que en la tabla eran columnas, acá en una sola línea. */}
-          <p className="mt-0.5 text-[11px] text-tenue">
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-tenue">
             <Semaforo
               nivel={nivel}
               texto={c.estado_efectivo === 'alerta' ? 'vencido' : c.estado_efectivo}
             />
-            <span className="ml-1.5">{plazo}</span>
-            {c.origen_tipo && <span className="ml-1.5">· origen: {c.origen_tipo}</span>}
-            {c.id_proyecto && <span className="ml-1.5">· {c.id_proyecto}</span>}
+            <span>{plazo}</span>
+            {c.origen_tipo && <span>· origen: {c.origen_tipo}</span>}
+            {c.id_proyecto && <span>· {c.id_proyecto}</span>}
           </p>
 
           <UltimaNovedad novedad={c.ultima_actualizacion} />
+          <Anotaciones />
         </div>
-
-        {/* El espacio para escribir a mano, igual que la columna de las tablas. */}
-        <span
-          aria-hidden="true"
-          className="ml-2 hidden w-40 shrink-0 self-stretch border-b border-dashed border-borde-fuerte/50 print:block"
-        />
       </div>
     </li>
+  );
+}
+
+/**
+ * Cinco renglones en blanco para escribir sobre el informe impreso.
+ *
+ * Van debajo de cada compromiso y no en una columna al costado: lo que se
+ * anota en una reunión es una frase, no una palabra, y al costado no entra.
+ */
+function Anotaciones() {
+  return (
+    <div className="mt-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-tenue">Anotaciones</p>
+      <div className="mt-1 flex flex-col">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <span key={i} aria-hidden="true" className="h-[18px] border-b border-dotted border-borde-fuerte/40" />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -343,7 +360,7 @@ function FichaCompromiso({ compromiso: c }) {
  */
 function UltimaNovedad({ novedad }) {
   if (!novedad) {
-    return <p className="mt-1 text-[11px] italic text-tenue">Sin novedades cargadas.</p>;
+    return <p className="mt-2 text-[11px] italic text-tenue">Sin novedades cargadas.</p>;
   }
 
   const cambioDeEstado =
@@ -352,14 +369,14 @@ function UltimaNovedad({ novedad }) {
       : '';
 
   return (
-    <div className="mt-1 border-l-2 border-borde pl-2">
+    <div className="mt-2 border-l-2 border-borde py-0.5 pl-2.5">
       <p className="text-[11px] text-tenue">
         Última novedad
         {novedad.fecha && <span className="tabular"> · {fFecha(novedad.fecha)}</span>}
         {cambioDeEstado && <span> · {cambioDeEstado}</span>}
       </p>
       {novedad.texto && (
-        <p className="whitespace-pre-line text-xs leading-snug text-gris">{novedad.texto}</p>
+        <p className="mt-0.5 whitespace-pre-line text-xs leading-relaxed text-gris">{novedad.texto}</p>
       )}
     </div>
   );
