@@ -330,6 +330,29 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
 
   const vencidos = filas.filter((f) => f.estado_efectivo === 'alerta').length;
 
+  /**
+   * Con «Todas» las áreas seleccionadas la lista era una observación abajo de
+   * la otra sin decir de quién es cada una: el área sólo aparecía al desplegar
+   * la fila. Se agrupa por secretaría, con el nombre y el recuento una vez por
+   * bloque, en lugar de una columna que repita el mismo texto treinta veces.
+   *
+   * Cuando el filtro deja una sola área, agrupar no distingue nada —sería un
+   * único encabezado que repite lo que ya dice el filtro—, así que no se agrupa.
+   */
+  const areasEnLista = useMemo(() => new Set(filas.map((f) => f.area ?? '')), [filas]);
+  const agrupar = areasEnLista.size > 1;
+
+  /** Vencidos por área: es el dato que decide a qué bloque hay que ir primero. */
+  const vencidosPorArea = useMemo(() => {
+    const cuenta = new Map();
+    for (const f of filas) {
+      if (f.estado_efectivo !== 'alerta') continue;
+      const clave = f.area ?? '';
+      cuenta.set(clave, (cuenta.get(clave) ?? 0) + 1);
+    }
+    return cuenta;
+  }, [filas]);
+
   const RUTA_ORIGEN = {
     seguimiento: (f) => `/seguimiento?tab=calendario&seguimiento=${f.id_origen}`,
     monitoreo: (f) => `/monitoreo?tab=ultimos&monitoreo=${f.id_origen}`,
@@ -434,6 +457,29 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
             },
             ...COLUMNAS_COMPROMISO.filter((c) => c.clave === 'fecha_limite' || c.clave === 'estado_efectivo'),
           ]}
+          agruparPor={agrupar ? (f) => f.area ?? '' : undefined}
+          renderGrupo={({ clave, total }) => {
+            const identidad = identidadArea(clave, opcionesArea);
+            const vencidosArea = vencidosPorArea.get(clave) ?? 0;
+            return (
+              /* El mismo color que usa el área en el calendario y en la leyenda:
+                 la franja de la izquierda es la que separa un bloque del otro de
+                 un vistazo, sin leer. El fondo va tenue para que el nombre del
+                 área no le gane al texto de los compromisos, que es lo que se
+                 viene a leer. */
+              <div
+                className="flex flex-wrap items-center gap-2 border-l-[3px] px-3 py-2"
+                style={{ background: identidad.fondo, borderColor: identidad.color }}
+              >
+                <Chip tono={identidad.tono}>{identidad.sigla}</Chip>
+                <span className="text-sm font-semibold text-tinta">{identidad.nombreArea}</span>
+                <span className="tabular text-xs text-gris">
+                  {total} compromiso{total === 1 ? '' : 's'}
+                </span>
+                {vencidosArea > 0 && <Chip tono="vencido">{vencidosArea} vencido{vencidosArea === 1 ? '' : 's'}</Chip>}
+              </div>
+            );
+          }}
           alHacerClicFila={alternarFila}
           filaExpandida={expandidoId}
           renderExpandido={(f) => (

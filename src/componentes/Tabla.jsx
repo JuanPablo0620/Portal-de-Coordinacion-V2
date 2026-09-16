@@ -64,6 +64,21 @@ export function Tabla({
    */
   filaExpandida,
   renderExpandido,
+  /**
+   * Corta la lista en bloques con un encabezado propio. `agruparPor(fila)`
+   * devuelve la clave del bloque y `renderGrupo({ clave, filas })` lo dibuja
+   * en una fila que ocupa todo el ancho.
+   *
+   * Existe por la lista de compromisos con todas las secretarías juntas: las
+   * filas dicen qué hay que hacer y para cuándo, pero no de quién es, así que
+   * treinta observaciones seguidas se leen como una sola masa. Agrupar pone el
+   * dueño una vez por bloque en lugar de repetirlo en una columna por fila.
+   *
+   * El orden que elija el usuario en los encabezados sigue valiendo DENTRO de
+   * cada bloque: agrupar reordena, no reemplaza al orden.
+   */
+  agruparPor,
+  renderGrupo,
 }) {
   const [texto, setTexto] = useState('');
   const [orden, setOrden] = useState(ordenInicial ?? null);
@@ -112,6 +127,22 @@ export function Tabla({
     });
   }, [filasFiltradas, orden, columnas]);
 
+  /* Las filas ya ordenadas, reagrupadas por bloque. `sort` es estable en JS,
+     así que juntar por clave de grupo conserva el orden interno que venía de
+     arriba. Los bloques van alfabéticos y el vacío («sin área») al final, que
+     es donde se lo busca. */
+  const filasAgrupadas = useMemo(() => {
+    if (!agruparPor) return filasVisibles;
+    return [...filasVisibles].sort((a, b) => {
+      const ga = String(agruparPor(a) ?? '');
+      const gb = String(agruparPor(b) ?? '');
+      if (ga === gb) return 0;
+      if (!ga) return 1;
+      if (!gb) return -1;
+      return ga.localeCompare(gb, 'es');
+    });
+  }, [filasVisibles, agruparPor]);
+
   // Cualquier cambio de recorte vuelve a empezar por arriba: si el usuario
   // filtra, lo que quiere ver son las primeras filas del resultado nuevo.
   useEffect(() => {
@@ -145,8 +176,21 @@ export function Tabla({
     };
   }, [sinTope]);
 
-  const filasPintadas = sinTope ? filasVisibles : filasVisibles.slice(0, tope);
-  const restantes = filasVisibles.length - filasPintadas.length;
+  const filasPintadas = sinTope ? filasAgrupadas : filasAgrupadas.slice(0, tope);
+  const restantes = filasAgrupadas.length - filasPintadas.length;
+
+  /* Cuántas filas tiene cada bloque. Se cuenta sobre TODO lo visible y no
+     sobre lo pintado: si el tope recorta, el encabezado tiene que seguir
+     diciendo cuántos compromisos tiene esa secretaría, no cuántos entraron. */
+  const totalesGrupo = useMemo(() => {
+    if (!agruparPor) return null;
+    const cuenta = new Map();
+    for (const fila of filasAgrupadas) {
+      const clave = String(agruparPor(fila) ?? '');
+      cuenta.set(clave, (cuenta.get(clave) ?? 0) + 1);
+    }
+    return cuenta;
+  }, [filasAgrupadas, agruparPor]);
 
   function alternarOrden(clave) {
     setOrden((previo) => {
@@ -187,7 +231,7 @@ export function Tabla({
             <Boton
               tamanio="sm"
               icono={Download}
-              onClick={() => descargarCSV(nombreExport, filasVisibles, columnasCSV ?? columnas)}
+              onClick={() => descargarCSV(nombreExport, filasAgrupadas, columnasCSV ?? columnas)}
               disabled={!filasVisibles.length}
               title="Exportar a CSV lo que se ve en la tabla"
             >
@@ -249,8 +293,24 @@ export function Tabla({
               {filasPintadas.map((fila, i) => {
                 const clave = claveFila(fila, i);
                 const expandida = renderExpandido && filaExpandida != null && clave === filaExpandida;
+                // Encabezado de bloque: sólo cuando la fila estrena grupo.
+                const grupo = agruparPor ? String(agruparPor(fila) ?? '') : null;
+                const estrenaGrupo =
+                  agruparPor && (i === 0 || String(agruparPor(filasPintadas[i - 1]) ?? '') !== grupo);
                 return (
                   <Fragment key={clave}>
+                    {estrenaGrupo && (
+                      /* `scope=rowgroup` + `role=rowheader` para que el lector de
+                         pantalla anuncie de quién son las filas que siguen, en vez
+                         de leer una celda suelta. */
+                      <tr className="border-b border-borde">
+                        {/* Sin padding ni fondo propios: los pone `renderGrupo`,
+                            que es quien sabe de qué color es cada grupo. */}
+                        <th scope="rowgroup" colSpan={columnas.length} className="p-0 text-left font-normal">
+                          {renderGrupo?.({ clave: grupo, total: totalesGrupo?.get(grupo) ?? 0 })}
+                        </th>
+                      </tr>
+                    )}
                     <tr
                       onClick={alHacerClicFila ? () => alHacerClicFila(fila) : undefined}
                       /* Una fila que se abre con el mouse tiene que abrirse con el
