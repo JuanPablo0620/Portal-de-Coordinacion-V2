@@ -190,6 +190,15 @@ export default function Mapa() {
   const formas = useMemo(() => {
     const lista = limite.length
       ? [
+          // Primero la cortina, para que quede debajo de todo lo demás: apaga
+          // los partidos vecinos, que en este módulo son sólo referencia.
+          {
+            id: null,
+            tipo: 'mascara',
+            puntos: limite,
+            clase: 'corte-fuera-partido',
+            interactiva: false,
+          },
           {
             id: null,
             tipo: 'linea',

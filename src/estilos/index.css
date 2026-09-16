@@ -289,11 +289,25 @@ body {
   cursor: pointer;
 }
 
-/* Delimitación oficial del partido: orienta el mapa sin competir con los
-   cortes, que conservan el semáforo como señal principal. */
+/* Todo lo que NO es Tres de Febrero. El mapa se lee de un vistazo cuando el
+   partido es lo único a foco: los vecinos siguen ahí como referencia —para
+   entender dónde desemboca una avenida cortada— pero lavados, sin pelearle
+   la atención al distrito. No se oculta del todo a propósito: un recorte a
+   fondo blanco deja al partido flotando y se pierde la continuidad de las
+   calles que lo cruzan. */
+.corte-fuera-partido {
+  fill: var(--color-card);
+  fill-opacity: 0.84;
+  stroke: none;
+  pointer-events: none;
+}
+
+/* Delimitación oficial del partido: con la cortina detrás ya no compite con
+   los cortes, que conservan el semáforo como señal principal, así que puede
+   ir a trazo pleno y cerrar la figura. */
 .corte-limite-partido {
   stroke: var(--color-limite-mapa);
-  stroke-opacity: 0.82;
+  stroke-opacity: 1;
   fill: none;
   pointer-events: none;
 }

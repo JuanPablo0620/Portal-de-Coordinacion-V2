@@ -43,6 +43,18 @@ const LIMITES_PARTIDO = [
   [-34.545685, -58.52314397],
 ];
 
+/** Anillo exterior de la cortina que apaga todo lo que no es Tres de Febrero.
+ * No es el mundo entero a propósito: un anillo que llegue al antimeridiano se
+ * dibuja mal al proyectarlo. Con `maxBounds` atado al partido, cubrir unos
+ * grados alrededor alcanza y sobra.
+ */
+const ANILLO_EXTERIOR = [
+  { lat: -38, lng: -62 },
+  { lat: -38, lng: -55 },
+  { lat: -31, lng: -55 },
+  { lat: -31, lng: -62 },
+];
+
 export const CAPAS_BASE = Object.freeze([
   { valor: 'libre', titulo: 'Mapa claro' },
   { valor: 'municipal', titulo: 'Callejero municipal' },
@@ -81,7 +93,8 @@ function crearCapaBase(L, cual, maplibreGL) {
 }
 
 /**
- * @param {object[]} formas  `{ id, tipo: 'linea'|'punto', puntos, clase, titulo }`
+ * @param {object[]} formas  `{ id, tipo: 'linea'|'punto'|'mascara', puntos, clase, titulo }`
+ *   — `mascara` recibe anillos cerrados y pinta todo lo que queda AFUERA de ellos.
  *   — `puntos` es un array de polilíneas para `linea` y un `{lat,lng}` para `punto`.
  *   Opcionales: `grosor` (ancho del trazo), `interactiva: false` (no responde al
  *   clic) y `mostrarPuntas: false` (sin los círculos de los extremos).
@@ -279,7 +292,18 @@ export function MapaLeaflet({
       const clase = `corte-forma ${forma.clase ?? ''} ${seleccion ? 'corte-sel' : ''}`.trim();
       const capas = [];
 
-      if (forma.tipo === 'punto') {
+      if (forma.tipo === 'mascara') {
+        /* Cortina con agujero: un polígono que cubre los alrededores y deja
+           calado el contorno del partido. `fillRule: evenodd` —el que Leaflet
+           usa por defecto— es lo que convierte los anillos siguientes al
+           primero en huecos, sin importar en qué sentido estén dibujados. */
+        const anillos = (forma.puntos ?? []).filter((anillo) => anillo?.length >= 3);
+        if (anillos.length) {
+          capas.push(
+            L.polygon([ANILLO_EXTERIOR, ...anillos], { className: clase, stroke: false, interactive: false }),
+          );
+        }
+      } else if (forma.tipo === 'punto') {
         if (forma.puntos) capas.push(L.circleMarker(forma.puntos, { radius: seleccion ? 11 : 8, className: clase }));
       } else {
         const grosor = forma.grosor ?? (seleccion ? 9 : 6);
