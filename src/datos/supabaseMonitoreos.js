@@ -198,6 +198,22 @@ export async function finalizarMonitoreo(id) {
   return monitoreoLocal(data);
 }
 
+/**
+ * Baja lógica de un monitoreo, para el que se abrió y quedó sin cargar.
+ *
+ * Es `activo = false` y no `cerrado = true` a propósito: cerrarlo lo deja
+ * contando como cobertura —«esta secretaría fue monitoreada el 12»— cuando en
+ * realidad no se monitoreó nada. Eso ensucia la cadencia y el panel de
+ * cobertura, que existen justamente para detectar áreas sin seguimiento.
+ * Dado de baja, es como si no hubiera pasado; la fila queda en la base y el
+ * trigger de auditoría guarda quién lo dio de baja y cuándo.
+ */
+export async function bajaMonitoreo(id) {
+  const { data, error } = await supabase.from('monitoreos').update({ activo: false }).eq('id', id).select(CAMPOS).single();
+  if (error) throw error;
+  return monitoreoLocal(data);
+}
+
 export async function vincularCompromiso(idTema, idCompromiso) {
   const { data, error } = await supabase.from('temas_monitoreo').update({ compromiso_id: idCompromiso }).eq('id', idTema).select('id, monitoreo_id, proyecto_id, categoria_id, descripcion, criticidad, requiere_accion, responsable, fecha_limite, resuelto, activo, created_at, compromiso_id, categoria:categorias_tema(nombre), proyecto:proyectos(id_legible)').single();
   if (error) throw error;

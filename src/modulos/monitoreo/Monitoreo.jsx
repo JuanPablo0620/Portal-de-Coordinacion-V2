@@ -1,12 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, BarChart3, Building2, ListChecks, Play, Plus, Radar } from 'lucide-react';
+import { AlertTriangle, BarChart3, Building2, ListChecks, Play, Plus, Radar, Trash2 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
-import { Boton, Chip, Criticidad, Metrica, Pestanias, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
+import { Aviso, Boton, Chip, Criticidad, Metrica, Pestanias, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { Alternadores, GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../../componentes/Filtros.jsx';
 import { GraficoBarras } from '../../componentes/Graficos.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { CampoSelect } from '../../componentes/Campo.jsx';
+import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { identidadArea } from '../../componentes/identidadArea.jsx';
 import { CargarMonitoreo } from './CargarMonitoreo.jsx';
 import { PanelAlertas } from './PanelAlertas.jsx';
@@ -14,7 +15,7 @@ import { TableroSecretarias } from './TableroSecretarias.jsx';
 import { calcularAlertas } from '../../datos/alertas.js';
 import { hoyISO, monitoreos as selMonitoreos, monitoreosPorArea, monitoreosPorSemana } from '../../datos/selectores.js';
 import { fecha as fFecha, nombreMes } from '../../utilidades/formato.js';
-import { useBD } from '../../estado/tienda.js';
+import { acciones, useBD } from '../../estado/tienda.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 import { SelectorPeriodo, resolverPeriodo } from './periodo.jsx';
@@ -113,6 +114,23 @@ export default function Monitoreo() {
 /* ── Últimos monitoreos ─────────────────────────────────────────────── */
 
 function PanelUltimos({ bd, filtros, setFiltros, rango, hoy }) {
+  const [aDarDeBaja, setADarDeBaja] = useState(null);
+  const [errorBaja, setErrorBaja] = useState(null);
+
+  /*
+   * ModalConfirmacion llama al handler sin esperarlo y cierra, asi que el
+   * error se atiende aca o se pierde — el mismo patron que ya barrimos del
+   * resto del front.
+   */
+  async function darDeBaja() {
+    setErrorBaja(null);
+    try {
+      await acciones.bajaMonitoreo(aDarDeBaja.id);
+    } catch (e) {
+      setErrorBaja(e?.message ?? 'No se pudo dar de baja el monitoreo.');
+    }
+  }
+
   const navegar = useNavigate();
   const opcionesArea = useOpciones('areas');
   const filas = useMemo(() => {
@@ -127,6 +145,8 @@ function PanelUltimos({ bd, filtros, setFiltros, rango, hoy }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {errorBaja && <Aviso tono="error">{errorBaja}</Aviso>}
+
       <TarjetaFiltros
         filtros={filtros}
         defaults={DEFAULTS}
@@ -196,6 +216,30 @@ function PanelUltimos({ bd, filtros, setFiltros, rango, hoy }) {
                 ),
             },
             {
+              /* Solo para el monitoreo que se abrio y quedo sin cargar. No se
+                 ofrece en uno cerrado: eso ya es historia del area. */
+              clave: 'baja',
+              titulo: '',
+              ancho: 44,
+              sinOrdenar: true,
+              sinExportar: true,
+              render: (f) =>
+                f.cerrado ? null : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setADarDeBaja(f);
+                    }}
+                    aria-label={'Dar de baja el monitoreo de ' + f.area + ' del ' + fFecha(f.fecha)}
+                    title="Dar de baja"
+                    className="rounded p-1 text-tenue transition hover:bg-vencido-suave hover:text-vencido-texto"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                ),
+            },
+            {
               clave: 'registrado',
               titulo: 'Registrado',
               ancho: 250,
@@ -239,6 +283,19 @@ function PanelUltimos({ bd, filtros, setFiltros, rango, hoy }) {
         />
       </Tarjeta>
 
+      <ModalConfirmacion
+        abierto={Boolean(aDarDeBaja)}
+        alCerrar={() => setADarDeBaja(null)}
+        alConfirmar={darDeBaja}
+        titulo="Dar de baja el monitoreo"
+        mensaje={
+          aDarDeBaja
+            ? `El monitoreo de ${aDarDeBaja.area} del ${fFecha(aDarDeBaja.fecha)} deja de contar como cobertura del área y sale de los listados. No se borra de la base: la bitácora guarda quién lo dio de baja y cuándo.`
+            : ''
+        }
+        textoConfirmar="Dar de baja"
+        variante="peligro"
+      />
     </div>
   );
 }

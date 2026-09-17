@@ -24,7 +24,9 @@ import {
   historialArea,
   historialProyecto,
   proyectoPorId,
+  monitoreos as selMonitoreos,
   proyectos as selProyectos,
+  resumenSecretarias,
   resumenRequerimientos,
   seguimientos as selSeguimientos,
   serieAvance,
@@ -925,4 +927,36 @@ test('un lote que falla a mitad conserva lo que alcanzó a entrar', async () => 
   assert.equal(resultado.importados, 2);
   const bd = await repo.obtenerBD();
   assert.equal(bd.proyectos.length, 2, 'lo importado tiene que quedar persistido igual');
+});
+
+/* ── Dar de baja un monitoreo abierto ───────────────────────────────── */
+
+/**
+ * El monitoreo que se abrió y quedó sin cargar no se cierra: se da de baja.
+ *
+ * Cerrarlo lo dejaría contando como cobertura —«esta secretaría tuvo su
+ * reunión el 12»— cuando no se monitoreó nada, y la cobertura es justamente
+ * lo que este módulo mide. Estas pruebas fijan esa diferencia.
+ */
+test('dar de baja un monitoreo lo saca de los listados', async () => {
+  await limpio();
+  const m = await repo.crearMonitoreo({ fecha: HOY, area: 'Secretaría de Salud' });
+
+  await repo.bajaMonitoreo(m.id);
+
+  const bd = await repo.obtenerBD();
+  const guardado = bd.monitoreos.find((x) => x.id === m.id);
+  assert.equal(guardado.activo, false, 'la fila queda en la base, marcada');
+  assert.equal(selMonitoreos(bd, {}).length, 0, 'pero no se lista');
+});
+
+test('dar de baja no es lo mismo que finalizar: no cuenta como cobertura', async () => {
+  await limpio();
+  const abierto = await repo.crearMonitoreo({ fecha: HOY, area: 'Secretaría de Salud' });
+  await repo.bajaMonitoreo(abierto.id);
+
+  const bd = await repo.obtenerBD();
+  const [resumen] = resumenSecretarias(bd, {}, HOY).filter((r) => r.area === 'Secretaría de Salud');
+  assert.equal(resumen.monitoreos, 0);
+  assert.equal(resumen.ultimo_monitoreo, null, 'un monitoreo dado de baja no es un monitoreo hecho');
 });

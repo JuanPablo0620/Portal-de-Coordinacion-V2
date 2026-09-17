@@ -1231,6 +1231,22 @@ export async function finalizarMonitoreo(id) {
   return actualizar('monitoreos', id, { cerrado: true });
 }
 
+/**
+ * Da de baja un monitoreo abierto que no se va a completar.
+ *
+ * No lo cierra: lo saca. Un monitoreo cerrado y vacío sigue diciendo que el
+ * área tuvo su reunión esa semana, y la cobertura es lo que este módulo mide.
+ */
+export async function bajaMonitoreo(id) {
+  const bd = await obtenerBD();
+  if (!monitoreosRemotos.activo()) return actualizar('monitoreos', id, { activo: false });
+  return escribirRemoto('monitoreos', () => monitoreosRemotos.bajaMonitoreo(id), {
+    accion: 'baja',
+    id,
+    previo: bd.monitoreos.find((m) => m.id === id),
+  });
+}
+
 /* ── Mesas ──────────────────────────────────────────────────────────── */
 
 export async function crearMesa(datos) {
