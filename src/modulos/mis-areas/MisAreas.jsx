@@ -8,10 +8,9 @@
  * mismo semáforo, mismas alertas — solo que acotadas a las áreas que la
  * persona eligió, para no tener que mirar las siete cada vez.
  *
- * No hay login real en el sistema (ver `Configuración → Usuario actual`), así
- * que la identidad es el nombre libre de `config.usuario`. Cambiar ese nombre
- * cambia qué asignación se ve acá — es la misma convención que ya usa todo
- * el sistema para «quién carga esto», no una decisión nueva de este módulo.
+ * La cuenta del login identifica las áreas seleccionadas y los compromisos
+ * asignados. Las dos condiciones se unen sin duplicar registros: recibir un
+ * compromiso de otra área no exige seleccionarla como área de monitoreo.
  * ─────────────────────────────────────────────────────────────────────
  */
 import { useMemo, useState } from 'react';
@@ -19,7 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Download, Save, UserCheck } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import { Aviso, Boton, Chip, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
-import { CampoCheck } from '../../componentes/Campo.jsx';
+import { CampoCheck, CampoSelect } from '../../componentes/Campo.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { ListaAlertas } from '../../componentes/ListaAlertas.jsx';
 import { identidadArea } from '../../componentes/identidadArea.jsx';
@@ -35,6 +34,8 @@ import {
 import { fecha as fFecha } from '../../utilidades/formato.js';
 import { useItems } from '../../utilidades/catalogos.js';
 import { acciones, useBD, useUsuario } from '../../estado/tienda.js';
+import { usePerfil } from '../../estado/sesion.js';
+import { filtrarMiSeguimiento, nombreResponsable } from '../../datos/equipo.js';
 
 /**
  * Columnas de "Compromisos vencidos". A propósito NO son las de
@@ -56,6 +57,7 @@ const COLUMNAS_VENCIDOS = [
     ),
   },
   { clave: 'area', titulo: 'Área', ancho: 190 },
+  { clave: 'responsable', titulo: 'Responsable en Coordinación' },
   {
     clave: 'fecha_limite',
     titulo: 'Vence',
@@ -87,6 +89,7 @@ const COLUMNAS_VENCIDOS = [
 const COLUMNAS_PENDIENTES = [
   { clave: 'descripcion', titulo: 'Compromiso' },
   { clave: 'area', titulo: 'Área' },
+  { clave: 'responsable', titulo: 'Responsable en Coordinación' },
   { clave: 'fecha_limite', titulo: 'Vence', formatoCSV: fFecha },
   { clave: 'estado_efectivo', titulo: 'Estado' },
   { clave: 'origen_tipo', titulo: 'Origen' },
@@ -96,10 +99,16 @@ export default function MisAreas() {
   const bd = useBD();
   const hoy = hoyISO();
   const usuario = useUsuario();
+  const perfil = usePerfil();
+  const [vista, setVista] = useState('todos');
+  const [verCumplidos, setVerCumplidos] = useState(false);
   const navegar = useNavigate();
   const areasCatalogo = useItems('areas');
 
-  const asignadas = useMemo(() => (bd ? areasAsignadas(bd, usuario) : []), [bd, usuario]);
+  const asignadas = useMemo(() => (bd ? areasAsignadas(bd, usuario, perfil?.id) : []), [bd, usuario, perfil?.id]);
+  const personales = useMemo(() => bd ? filtrarMiSeguimiento(
+    selCompromisos(bd, {}, hoy), perfil?.id, asignadas, vista,
+  ).map((c) => ({ ...c, responsable: nombreResponsable(bd, c.id_responsable) })) : [], [bd, perfil?.id, asignadas, vista, hoy]);
 
   const alertas = useMemo(() => (bd ? calcularAlertas(bd, hoy) : []), [bd, hoy]);
   const alertasPropias = useMemo(
@@ -111,8 +120,8 @@ export default function MisAreas() {
   // secciones, solo cambia qué filas entran en cada una.
   const compromisosVencidos = useMemo(
     () =>
-      bd ? selCompromisos(bd, { area: asignadas }, hoy).filter((c) => c.estado_efectivo === 'vencido') : [],
-    [bd, asignadas, hoy],
+      personales.filter((c) => c.estado_efectivo === 'alerta'),
+    [personales],
   );
 
   // Alertas críticas que no son un compromiso (ej. un cierre de posicionamiento
@@ -128,12 +137,8 @@ export default function MisAreas() {
   // (pendiente/en_curso) o se cumplió.
   const compromisosPropios = useMemo(
     () =>
-      bd
-        ? selCompromisos(bd, { area: asignadas, solo_vigentes: true }, hoy).filter(
-            (c) => c.estado_efectivo !== 'vencido',
-          )
-        : [],
-    [bd, asignadas, hoy],
+      personales.filter((c) => c.estado_efectivo !== 'alerta' && (verCumplidos || c.estado !== 'cumplido')),
+    [personales, verCumplidos],
   );
 
   const resumenes = useMemo(() => (bd ? resumenSecretarias(bd, {}, hoy) : []), [bd, hoy]);
@@ -147,13 +152,22 @@ export default function MisAreas() {
   return (
     <>
       <EncabezadoPagina
-        titulo="Mis áreas"
-        descripcion={`Secretarías que ${usuario} monitorea de cerca — alertas, compromisos pendientes y estado, sin tener que mirar las siete.`}
+        titulo="Mi seguimiento"
+        descripcion={`Compromisos a cargo de ${usuario} y de las áreas que sigue.`}
       />
       <Pagina className="flex flex-col gap-4">
         <SelectorAreas usuario={usuario} areasCatalogo={areasCatalogo} asignadas={asignadas} />
+        <Tarjeta>
+          <div className="flex flex-wrap items-end gap-4">
+            <CampoSelect etiqueta="Ver compromisos" value={vista} placeholder={null}
+              opciones={[{ valor: 'todos', titulo: 'Todos los míos' }, { valor: 'asignados', titulo: 'Asignados a mí' }, { valor: 'areas', titulo: 'De mis áreas' }]}
+              onChange={(e) => setVista(e.target.value)} />
+            <CampoCheck etiqueta="Incluir cumplidos" checked={verCumplidos} onChange={(e) => setVerCumplidos(e.target.checked)} />
+            <p className="text-xs text-gris">Los asignados a vos aparecen aunque no hayas elegido su área.</p>
+          </div>
+        </Tarjeta>
 
-        {asignadas.length === 0 ? (
+        {asignadas.length === 0 && personales.length === 0 ? (
           <Tarjeta>
             <Vacio
               icono={UserCheck}
@@ -169,7 +183,7 @@ export default function MisAreas() {
                 más saturado, para que se note el recuadro. */}
             {compromisosVencidos.length > 0 && (
               <Tarjeta
-                titulo="Alerta: Compromisos vencidos de tus áreas"
+                titulo="Alerta: Compromisos vencidos de tu seguimiento"
                 descripcion="Un clic en la fila abre el compromiso en Seguimiento."
                 sinPadding
                 style={{ background: 'var(--color-vencido-suave)', borderColor: '#f0c7cb' }}
@@ -313,6 +327,7 @@ function PendientesPorVencimiento({ compromisos, areasCatalogo, alAbrir }) {
                     {identidad.sigla}
                   </Chip>
                   <span className="min-w-0 flex-1 text-[13px] leading-snug text-tinta">{c.descripcion}</span>
+                  <span className="text-xs text-gris">{c.responsable}</span>
                   <span className="shrink-0 text-[11px] text-tenue">{c.origen_tipo}</span>
                 </button>
               );
@@ -387,7 +402,7 @@ function SelectorAreas({ usuario, areasCatalogo, asignadas }) {
   return (
     <Tarjeta
       titulo="Tus áreas"
-      descripcion={`Elegí qué secretarías monitoreás como ${usuario}. Se guarda para este nombre de usuario — si otra persona usa esta computadora con su propio nombre, va a ver su propia selección.`}
+      descripcion={`Elegí qué secretarías seguís como ${usuario}. La selección se guarda para tu cuenta.`}
       acciones={
         <>
           {guardado && <Chip tono="enregla">Guardado</Chip>}

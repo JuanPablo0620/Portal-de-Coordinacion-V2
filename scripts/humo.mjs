@@ -26,6 +26,9 @@ const SALIDA = 'node_modules/.humo';
 
 /** `[ruta, texto que debe aparecer]` con los datos de demostración cargados. */
 const CON_DEMO = [
+  ['/mi-seguimiento', 'Mi seguimiento'],
+  ['/reuniones?tipo=secretaria', 'Sin reuniones registradas'],
+  ['/reuniones?tipo=direccion', 'Agendar un encuentro'],
   ['/', 'Próximos vencimientos importantes'],
   ['/', 'Proyectos activos'],
   ['/mis-areas', 'Tus áreas'],

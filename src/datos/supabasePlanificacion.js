@@ -256,6 +256,7 @@ export async function cargarAsignaciones() {
   // mano en `config.usuario`. La política de la base ya se encarga de que solo
   // vengan las propias.
   return data.map((a) => ({
+    perfil_id: a.perfil_id,
     usuario: a.perfil?.nombre ?? '',
     area: a.area?.nombre_formal ?? a.area?.nombre ?? '',
   }));

@@ -19,13 +19,31 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 15/09/2026 · Codex, por pedido de JP
+**Última actualización:** 18/09/2026 · Codex, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
 ---
 
 ## 1. Dónde está parado el portal
+
+### Rama en desarrollo: responsables y reuniones
+
+`feat/compromisos-equipo-reunion-lunes` contiene la primera implementación de
+responsables por cuenta, Mi seguimiento y reuniones de Secretaría / Dirección.
+**No está desplegada y no se aplicó `0037` a producción.** Reglas y activación:
+`docs/decisiones/2026-09-18-equipo-y-reuniones.md`.
+
+Validación: 408 pruebas de lógica aprobadas y prueba de la migración en PostgreSQL
+temporal aprobada. Build intermedio aprobado; falta repetir verificación completa
+sobre la versión final y ejecutar `scripts/verificar-equipo.mjs` para revisar
+interacciones y aspecto. La ejecución en Chrome se bloqueó por límite de uso del
+servicio de revisión automática. No dar por terminada la validación visual.
+
+El cambio previo de `scripts/supabase_toolkit.py` y `scripts/__pycache__/` pertenece
+a otro trabajo: se conservó y no forma parte de esta implementación.
+
+### Estado de producción documentado al 15/09
 
 **La persistencia está cerrada.** No queda nada de gestión viviendo en el
 navegador. Verificado el 14/09 recorriendo el repo y consultando la base, no de

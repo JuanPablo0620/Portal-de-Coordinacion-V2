@@ -23,6 +23,7 @@ import { Check, Plus, Trash2 } from 'lucide-react';
 import { Aviso, Boton, Chip, Semaforo, Tarjeta } from '../../componentes/Basicos.jsx';
 import { CampoFecha, CampoHora, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorUnidad } from '../../componentes/SelectorUnidad.jsx';
+import { SelectorResponsable } from '../../componentes/ResponsableCompromiso.jsx';
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarMinuta } from '../../datos/minutas/separarMinuta.js';
 import { hoyISO, proyectos as selProyectos } from '../../datos/selectores.js';
@@ -104,6 +105,7 @@ export function CargarSeguimiento({ alTerminar }) {
     // Validación §8.6: las fechas límite no pueden ser anteriores a la carga.
     for (const c of compromisos) {
       if (!c.descripcion.trim()) continue;
+      if (!c.id_responsable) return 'Elegí el responsable de cada compromiso.';
       // Obligatoria: sin fecha límite el compromiso no puede pasar nunca a
       // `alerta` y queda pendiente para siempre. Es el agujero por el que se
       // colaron los compromisos arrastrados de los `_db`.
@@ -177,6 +179,7 @@ export function CargarSeguimiento({ alTerminar }) {
             id_subsecretaria: c.id_subsecretaria || null,
             id_direccion: c.id_direccion || null,
             descripcion: c.descripcion.trim(),
+            id_responsable: c.id_responsable,
             fecha_limite: c.fecha_limite || null,
           }));
         if (aCrear.length) await acciones.crearCompromisos(aCrear);
@@ -372,6 +375,7 @@ function BloqueCompromisos({ filas, setFilas, hoy, area, fechaSeguimiento }) {
                 <Trash2 size={15} />
               </button>
             </div>
+            <SelectorResponsable valor={fila.id_responsable} alCambiar={(id) => actualizar(fila.clave, 'id_responsable', id)} />
             <SelectorUnidad
               area={area}
               idSubsecretaria={fila.id_subsecretaria}

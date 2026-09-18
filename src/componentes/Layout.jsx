@@ -23,7 +23,8 @@ import {
 
 const MODULOS = [
   { ruta: '/', titulo: 'Inicio', icono: LayoutDashboard, exacta: true },
-  { ruta: '/mis-areas', titulo: 'Mis áreas', icono: UserCheck },
+  { ruta: '/mi-seguimiento', titulo: 'Mi seguimiento', icono: UserCheck },
+  { ruta: '/reuniones', titulo: 'Reuniones', icono: Users },
   { ruta: '/obras', titulo: 'Obras', icono: HardHat },
   { ruta: '/seguimiento', titulo: 'Seguimiento', icono: CalendarCheck },
   { ruta: '/monitoreo', titulo: 'Monitoreo', icono: Radar },

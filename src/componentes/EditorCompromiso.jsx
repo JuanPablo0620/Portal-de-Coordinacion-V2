@@ -3,6 +3,7 @@ import { Check, ChevronDown, History, MessageSquareText } from 'lucide-react';
 import { Boton } from './Basicos.jsx';
 import { CampoArea, CampoFecha, CampoRadios } from './Campo.jsx';
 import { SelectorUnidad } from './SelectorUnidad.jsx';
+import { AsignarResponsable } from './ResponsableCompromiso.jsx';
 import { ESTADOS_COMPROMISO } from '../datos/catalogos.js';
 import { historialCompromiso } from '../datos/repositorio.js';
 import { fecha as fFecha } from '../utilidades/formato.js';
@@ -56,6 +57,7 @@ export function EditorCompromiso({
 
   return (
     <div className="border-t border-dashed border-borde-fuerte/40 p-2.5">
+      <AsignarResponsable key={compromiso.id} compromiso={compromiso} />
       <CampoRadios
         etiqueta="Nuevo estado"
         opciones={OPCIONES_ESTADO}
@@ -130,6 +132,7 @@ function EditorPanelOperativo({
 
         <section className="border-t border-borde bg-paper/55 p-4 lg:border-l lg:border-t-0" aria-label="Registrar novedad">
           <h3 className="text-sm font-semibold text-tinta">Registrar novedad</h3>
+          <AsignarResponsable key={compromiso.id} compromiso={compromiso} />
           <p className="mt-1 text-xs leading-relaxed text-gris">
             El cambio de estado y el comentario se guardan juntos como un nuevo movimiento.
           </p>

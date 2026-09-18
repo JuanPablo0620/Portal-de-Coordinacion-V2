@@ -28,6 +28,7 @@ import { CampoArea, CampoCheck, CampoFecha, CampoNumero, CampoRadios, CampoSelec
 import { EditorCompromiso } from '../../componentes/EditorCompromiso.jsx';
 import { SelectorProyecto } from '../../componentes/SelectorProyecto.jsx';
 import { SelectorUnidad } from '../../componentes/SelectorUnidad.jsx';
+import { SelectorResponsable } from '../../componentes/ResponsableCompromiso.jsx';
 import { Transferencia } from '../../componentes/Transferencia.jsx';
 import { separarTemas } from '../../datos/minutas/separarTemas.js';
 import { CRITICIDADES, ESTADOS_COMPROMISO, ESTADOS_PROYECTO } from '../../datos/catalogos.js';
@@ -117,6 +118,7 @@ const aPersistir = (tema) => ({
   criticidad: tema.criticidad,
   requiere_accion: tema.requiere_accion,
   descripcion_compromiso: tema.requiere_accion ? tema.descripcion_compromiso.trim() : '',
+  id_responsable: tema.id_responsable,
   id_proyecto: tema.id_proyecto || null,
   id_compromiso: tema.id_compromiso || null,
   compromiso_existente: Boolean(tema.id_compromiso),
@@ -685,6 +687,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alRegistrarActualizacion 
         id_subsecretaria: nuevoCompromiso.id_subsecretaria || null,
         id_direccion: nuevoCompromiso.id_direccion || null,
         descripcion: nuevoCompromiso.descripcion.trim(),
+        id_responsable: nuevoCompromiso.id_responsable,
         fecha_limite: nuevoCompromiso.fecha_limite || null,
       });
       alRegistrarActualizacion?.();
@@ -720,6 +723,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alRegistrarActualizacion 
         id_subsecretaria: nuevoSuelto.id_subsecretaria || null,
         id_direccion: nuevoSuelto.id_direccion || null,
         descripcion: nuevoSuelto.descripcion.trim(),
+        id_responsable: nuevoSuelto.id_responsable,
         fecha_limite: nuevoSuelto.fecha_limite || null,
       });
       setCreandoSuelto(false);
@@ -808,6 +812,7 @@ export function PanelVentana({ area, monitoreoId, hoy, alRegistrarActualizacion 
               onChange={(e) => setNuevoSuelto((n) => ({ ...n, fecha_limite: e.target.value }))}
               className="mt-2.5"
             />
+            <SelectorResponsable valor={nuevoSuelto?.id_responsable} alCambiar={(id) => setNuevoSuelto((n) => ({ ...n, id_responsable: id }))} />
             <SelectorUnidad
               area={area}
               idSubsecretaria={nuevoSuelto?.id_subsecretaria ?? ''}
@@ -1067,6 +1072,7 @@ function TarjetaProyectoVentana({
                 onChange={(e) => alCambiarNuevoCompromiso({ fecha_limite: e.target.value })}
                 className="mt-2.5"
               />
+              <SelectorResponsable valor={nuevoCompromiso?.id_responsable} alCambiar={(id) => alCambiarNuevoCompromiso({ id_responsable: id })} />
               <SelectorUnidad
                 area={proyecto.area}
                 idSubsecretaria={nuevoCompromiso?.id_subsecretaria ?? ''}
@@ -1297,6 +1303,7 @@ export function FormularioTema({ tema, alCambiar, opcionesCategoria, hoy }) {
         />
         {tema.requiere_accion && (
           <>
+            <SelectorResponsable valor={tema.id_responsable} alCambiar={(id) => alCambiar({ id_responsable: id })} />
             <CampoFecha
               etiqueta="Fecha límite"
               min={hoy}

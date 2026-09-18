@@ -357,6 +357,7 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
     seguimiento: (f) => `/seguimiento?tab=calendario&seguimiento=${f.id_origen}`,
     monitoreo: (f) => `/monitoreo?tab=ultimos&monitoreo=${f.id_origen}`,
     mesa: (f) => `/mesas?mesa=${f.id_origen}`,
+    equipo: (f) => `/reuniones?reunion=${f.id_origen}`,
   };
 
   /** Clic en una fila: la abre si estaba cerrada, la cierra si era la abierta. */
@@ -436,7 +437,7 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
             { clave: 'descripcion', titulo: 'Compromiso' },
             ...COLUMNAS_COMPROMISO.filter((c) => c.clave === 'area'),
             { clave: 'id_proyecto', titulo: 'Proyecto' },
-            ...COLUMNAS_COMPROMISO.filter((c) => c.clave === 'fecha_limite' || c.clave === 'estado_efectivo'),
+            ...COLUMNAS_COMPROMISO.filter((c) => c.clave === 'fecha_limite' || c.clave === 'estado_efectivo' || c.clave === 'responsable_coordinacion'),
           ]}
           columnas={[
             {
@@ -455,7 +456,7 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
                 </div>
               ),
             },
-            ...COLUMNAS_COMPROMISO.filter((c) => c.clave === 'fecha_limite' || c.clave === 'estado_efectivo'),
+            ...COLUMNAS_COMPROMISO.filter((c) => c.clave === 'fecha_limite' || c.clave === 'estado_efectivo' || c.clave === 'responsable_coordinacion'),
           ]}
           agruparPor={agrupar ? (f) => f.area ?? '' : undefined}
           renderGrupo={({ clave, total }) => {

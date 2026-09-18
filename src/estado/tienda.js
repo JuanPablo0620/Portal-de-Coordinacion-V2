@@ -66,7 +66,10 @@ export async function sincronizarUsuario(nombreReal) {
   const anterior = bd.config?.usuario;
   if (anterior === nombreReal) return;
 
-  if (anterior) {
+  // Las asignaciones remotas ya pertenecen a una cuenta. El migrador viejo
+  // borraba las áreas propias al cambiar de usuario porque ambas escrituras
+  // remotas operan sobre auth.uid(), no sobre el nombre pasado por parámetro.
+  if (anterior && !(bd.asignaciones_monitoreo ?? []).some((a) => a.perfil_id)) {
     const areas = areasAsignadas(bd, anterior);
     if (areas.length) {
       await repo.guardarAsignacionesMonitoreo(nombreReal, areas);

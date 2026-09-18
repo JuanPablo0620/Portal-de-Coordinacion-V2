@@ -14,6 +14,7 @@ import {
 } from './catalogos.js';
 import { masRecientePrimero, redactarAsiento } from './bitacora.js';
 import { hoyISO } from './tiempo.js';
+import { nombreResponsable } from './equipo.js';
 
 const MS_DIA = 86_400_000;
 
@@ -351,6 +352,7 @@ export function compromisos(bd, filtros = {}, hoy = hoyISO()) {
       return {
         ...c,
         estado_efectivo,
+        responsable_coordinacion: nombreResponsable(bd, c.id_responsable),
         dias_restantes: dias,
         dias_atraso: estado_efectivo === 'alerta' ? Math.abs(dias) : 0,
         ultima_actualizacion:
@@ -624,9 +626,9 @@ export function nombresAreas(bd) {
 }
 
 /** Áreas que `usuario` eligió monitorear, en Configuración → «Mis áreas». */
-export function areasAsignadas(bd, usuario) {
+export function areasAsignadas(bd, usuario, perfilId = null) {
   return (bd.asignaciones_monitoreo ?? [])
-    .filter((a) => a.usuario === usuario)
+    .filter((a) => perfilId ? a.perfil_id === perfilId : a.usuario === usuario)
     .map((a) => a.area);
 }
 

@@ -27,6 +27,7 @@ import {
 } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoFecha, CampoTexto } from '../../componentes/Campo.jsx';
 import { EditorCompromiso } from '../../componentes/EditorCompromiso.jsx';
+import { SelectorResponsable } from '../../componentes/ResponsableCompromiso.jsx';
 import { Modal, ModalConfirmacion } from '../../componentes/Modal.jsx';
 import {
   compromisos as selCompromisos,
@@ -253,6 +254,7 @@ function PanelCompromisos({ compromisos, marcado, proyecto }) {
   const [nuevo, setNuevo] = useState(null);
   const [nuevaDescripcion, setNuevaDescripcion] = useState('');
   const [nuevaFecha, setNuevaFecha] = useState('');
+  const [nuevoResponsable, setNuevoResponsable] = useState('');
   const [errorNuevo, setErrorNuevo] = useState(null);
   const [guardandoNuevo, setGuardandoNuevo] = useState(false);
 
@@ -270,12 +272,14 @@ function PanelCompromisos({ compromisos, marcado, proyecto }) {
         id_proyecto: proyecto.id_proyecto,
         area: proyecto.area,
         descripcion: nuevaDescripcion.trim(),
+        id_responsable: nuevoResponsable,
         fecha_limite: nuevaFecha || null,
         estado: 'pendiente',
       });
       setNuevo(false);
       setNuevaDescripcion('');
       setNuevaFecha('');
+      setNuevoResponsable('');
     } catch (e) {
       setErrorNuevo(e?.message ?? 'No se pudo crear el compromiso.');
     } finally {
@@ -342,6 +346,7 @@ function PanelCompromisos({ compromisos, marcado, proyecto }) {
             onChange={(e) => setNuevaFecha(e.target.value)}
           />
           {errorNuevo && <Aviso tono="error">{errorNuevo}</Aviso>}
+          <SelectorResponsable valor={nuevoResponsable} alCambiar={setNuevoResponsable} />
           <div className="flex justify-end gap-2">
             <Boton
               tamanio="sm"

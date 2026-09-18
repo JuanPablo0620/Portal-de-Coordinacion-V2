@@ -37,6 +37,7 @@ export const COLUMNAS_COMPROMISO = [
     ),
   },
   { clave: 'area', titulo: 'Área', ancho: 170 },
+  { clave: 'responsable_coordinacion', titulo: 'Responsable en Coordinación', ancho: 160 },
   {
     clave: 'fecha_limite',
     titulo: 'Vence',

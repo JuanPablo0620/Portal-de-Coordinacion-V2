@@ -8,6 +8,7 @@ import Login from './modulos/acceso/Login.jsx';
 import CambiarPassword from './modulos/acceso/CambiarPassword.jsx';
 import Dashboard from './modulos/dashboard/Dashboard.jsx';
 import MisAreas from './modulos/mis-areas/MisAreas.jsx';
+import ReunionesEquipo from './modulos/reuniones/ReunionesEquipo.jsx';
 import FichaEstrategico from './modulos/estrategicos/FichaEstrategico.jsx';
 import Proyectos from './modulos/proyectos/Proyectos.jsx';
 import FichaProyecto from './modulos/proyectos/FichaProyecto.jsx';
@@ -104,6 +105,8 @@ function Portal() {
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="mis-areas" element={<MisAreas />} />
+        <Route path="mi-seguimiento" element={<MisAreas />} />
+        <Route path="reuniones" element={<ReunionesEquipo />} />
         <Route path="proyectos" element={<Proyectos />} />
         <Route path="proyectos/:id" element={<FichaProyecto />} />
         <Route path="obras" element={<Obras />} />
