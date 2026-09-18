@@ -36,11 +36,13 @@ imprimible. Si un tema de la plantilla no existe todavía como proyecto, el
 informe lo declara como pendiente de cargar; no se inventa ni se omite en
 silencio.
 
-Falta definir el programa de los proyectos nuevos (Los Rusos, Intervención en
-puntos estratégicos, Suministro de cartelería, CAPS 10, SISU, Bunker Libertador
-y Movilización de suelo), y el origen de Legales y Senado de la Nación. No se
-crearon esas fichas hasta contar con ese dato. Validación local: 409 pruebas,
-build y humo/accesibilidad (132 renderizados, 29 rutas) aprobados.
+Los Rusos, Intervención en puntos estratégicos, Suministro de cartelería, CAPS
+10, SISU, Bunker Libertador y Movilización de suelo quedan disponibles en sus
+áreas confirmadas bajo el programa explícito «Sin programa», hasta que se
+clasifiquen. El cargador conserva el área al resolver programas homónimos y
+normaliza tildes para no duplicar proyectos entre fuentes. Falta definir el
+origen de Legales y Senado de la Nación. Validación local: 410 pruebas, build y
+humo/accesibilidad (132 renderizados, 29 rutas) aprobados.
 
 ### Rama en desarrollo: responsables y reuniones
 
