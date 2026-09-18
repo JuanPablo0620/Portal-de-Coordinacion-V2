@@ -9,6 +9,7 @@ import { armarReporte, describirFiltros, resolverRango } from '../src/datos/repo
 import { generarDemo } from '../src/datos/demo.js';
 import { compromisos } from '../src/datos/selectores.js';
 import { SECRETARIAS_INFORME_SECRETARIA } from '../src/datos/proyectos-informe-secretaria.js';
+import { PROYECTOS_POSICIONAMIENTO_REAL } from '../src/datos/posicionamiento-real.js';
 
 const HOY = '2026-08-08';
 const bd = generarDemo(HOY);
@@ -129,6 +130,32 @@ test('la plantilla de Secretaría toma solamente sus proyectos y conserva su ord
   assert.deepEqual(r.proyectos.map((p) => p.proyecto), ['Túnel Hornos', 'RIL']);
   assert.ok(r.proyectosAusentes.includes('Los Rusos'));
   assert.ok(!r.proyectos.some((p) => p.proyecto === 'Proyecto fuera del informe'));
+});
+
+test('Legales se trata como compromiso de Coordinación, no como proyecto', () => {
+  const conPlantilla = structuredClone(bd);
+  const base = conPlantilla.compromisos[0];
+  conPlantilla.proyectos = [
+    { ...conPlantilla.proyectos[0], id_proyecto: 'E-1', proyecto: 'RIL', estrategico: true },
+  ];
+  conPlantilla.compromisos = [
+    { ...base, id: 'C-1', descripcion: 'Legales', area: 'Coordinación', id_proyecto: null },
+    { ...base, id: 'C-2', descripcion: 'Compromiso que no va al informe', area: 'Coordinación', id_proyecto: null },
+  ];
+
+  const r = armarReporte(conPlantilla, { plantilla: 'informe-secretaria' }, HOY);
+  assert.ok(r.compromisos.some((c) => c.descripcion === 'Legales'));
+  assert.ok(!r.compromisos.some((c) => c.descripcion === 'Compromiso que no va al informe'));
+  assert.ok(!r.proyectosAusentes.includes('Legales'));
+  assert.deepEqual(r.compromisosAusentes, []);
+});
+
+test('Senado de la Nación queda registrado como proyecto de Posicionamiento sin estado inventado', () => {
+  const senado = PROYECTOS_POSICIONAMIENTO_REAL.find((proyecto) => proyecto.nombre === 'Senado de la Nación');
+  assert.ok(senado);
+  assert.equal(senado.estadoReal, '');
+  assert.equal(senado.fechaActualizacion, '');
+  assert.equal(senado.comentario, '');
 });
 
 test('las altas pendientes del Informe de Secretaría conservan el área y no inventan programa', () => {

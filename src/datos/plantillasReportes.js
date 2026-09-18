@@ -21,7 +21,6 @@ const secretaria = [
   ['SISU', ['SISU']],
   ['Bunker Libertador', ['Bunker Libertador']],
   ['CAPS 10', ['CAPS 10']],
-  ['Legales', ['Legales']],
   ['Bajadas territoriales', ['Bajadas Territoriales']],
   ['RIL', ['RIL']],
   ['Bloomberg WWC', ['Bloomberg WWC']],
@@ -46,6 +45,10 @@ export const PLANTILLAS_REPORTES = [
       monitoreos: true, mesas: true, eventos: true,
     },
     proyectos: secretaria.map(([titulo, nombres]) => ({ titulo, nombres })),
+    // Legales no es un proyecto: es un compromiso que surge del seguimiento
+    // de Coordinación. Va separado para que no se mezcle con la tabla de
+    // proyectos ni se atribuya a otra secretaría.
+    compromisos: [{ titulo: 'Legales', descripciones: ['Legales'] }],
   },
 ];
 
@@ -73,4 +76,25 @@ export function proyectosDePlantilla(proyectos, idPlantilla) {
     else ausentes.push(item.titulo);
   }
   return { proyectos: encontrados, ausentes };
+}
+
+/** Indica si un compromiso es uno de los temas explícitos de la plantilla. */
+export function esCompromisoDePlantilla(compromiso, idPlantilla) {
+  const plantilla = plantillaReporte(idPlantilla);
+  if (!plantilla) return false;
+  const descripcion = normalizar(compromiso?.descripcion);
+  return (plantilla.compromisos ?? []).some((item) =>
+    item.descripciones.some((texto) => normalizar(texto) === descripcion),
+  );
+}
+
+/** Compromisos de la plantilla que todavía no tienen un registro cargado. */
+export function compromisosAusentesDePlantilla(compromisos, idPlantilla) {
+  const plantilla = plantillaReporte(idPlantilla);
+  if (!plantilla) return [];
+  return (plantilla.compromisos ?? [])
+    .filter((item) => !compromisos.some((compromiso) =>
+      item.descripciones.some((texto) => normalizar(texto) === normalizar(compromiso.descripcion)),
+    ))
+    .map((item) => item.titulo);
 }

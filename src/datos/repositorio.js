@@ -499,6 +499,12 @@ export async function cargarProyectosPosicionamientoReales() {
   let creados = 0;
   for (const real of PROYECTOS_POSICIONAMIENTO_REAL) {
     if (yaCargados.has(real.nombre)) continue;
+    // Un alta pedida sin estado todavía entra como planificada para que tenga
+    // un estado válido del catálogo. No afirma que haya comenzado: queda sin
+    // actualización hasta que Coordinación cargue información verificable.
+    const estado = real.estadoReal === 'pendiente'
+      ? 'planificado'
+      : real.estadoReal || 'planificado';
     await crearProyecto({
       proyecto: real.nombre,
       area: area.nombre,
@@ -511,7 +517,7 @@ export async function cargarProyectosPosicionamientoReales() {
       // "pendiente" no es un estado del catálogo (ESTADOS_ACTIVOS no lo
       // reconoce): se mapea a "planificado" para que cuente como activo en
       // los agregados. La palabra real queda intacta en observaciones.
-      estado: real.estadoReal === 'pendiente' ? 'planificado' : real.estadoReal,
+      estado,
       observaciones:
         real.comentario +
         (real.sinMaestro ? ' [Sin fila en "Estado de proyectos": a confirmar.]' : ''),
