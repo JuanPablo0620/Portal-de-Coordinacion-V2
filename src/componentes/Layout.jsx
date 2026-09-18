@@ -6,6 +6,7 @@ import { acciones } from '../estado/tienda.js';
 import {
   CalendarCheck,
   FileBarChart,
+  FolderKanban,
   Gem,
   Globe2,
   HardHat,
@@ -24,6 +25,7 @@ import {
 const MODULOS = [
   { ruta: '/', titulo: 'Inicio', icono: LayoutDashboard, exacta: true },
   { ruta: '/mis-areas', titulo: 'Mis áreas', icono: UserCheck },
+  { ruta: '/proyectos', titulo: 'Proyectos y Puntuales', icono: FolderKanban },
   { ruta: '/obras', titulo: 'Obras', icono: HardHat },
   { ruta: '/seguimiento', titulo: 'Seguimiento', icono: CalendarCheck },
   { ruta: '/monitoreo', titulo: 'Monitoreo', icono: Radar },
