@@ -27,6 +27,19 @@ que el otro no puede deducir leyendo el repo.
 
 ## 1. Dónde está parado el portal
 
+### Reportes: plantilla «Informe de Secretaría»
+
+Reportes ofrece la plantilla fija **Informe de Secretaría**, que conserva el
+orden acordado de temas, incluye proyectos comunes y estratégicos, y agrega
+Monitoreos como bloque imprimible. Si un tema de la plantilla no existe todavía
+como proyecto, el informe lo declara como pendiente de cargar; no se inventa ni
+se omite en silencio.
+
+Falta definir el programa de los proyectos nuevos (Los Rusos, Intervención en
+puntos estratégicos, Suministro de cartelería, CAPS 10, SISU, Bunker Libertador
+y Movilización de suelo), y el origen de Legales y Senado de la Nación. No se
+crearon esas fichas hasta contar con ese dato.
+
 ### Apariencia: modo BlueNight (21/09)
 
 La barra lateral incorpora un switch **BlueNight**. Activa un tema oscuro azul

@@ -28,7 +28,7 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <EncabezadoImpresion hoy={hoy} />
+      <EncabezadoImpresion hoy={hoy} titulo={reporte.plantilla?.nombre} />
 
       {nada ? (
         <Tarjeta>
@@ -55,7 +55,8 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
           {bloques.minutas && (
             <BloqueObservaciones seguimientos={reporte.seguimientos} compromisos={reporte.compromisos} />
           )}
-          {bloques.proyectos && <BloqueProyectos filas={reporte.proyectos} />}
+          {bloques.monitoreos && <BloqueMonitoreos filas={reporte.monitoreos} />}
+          {bloques.proyectos && <BloqueProyectos filas={reporte.proyectos} ausentes={reporte.proyectosAusentes} />}
           {bloques.eventos && <BloqueEventos filas={reporte.eventos} />}
         </>
       )}
@@ -67,13 +68,14 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
 
 /* ── Encabezado y pie institucionales ───────────────────────────────── */
 
-function EncabezadoImpresion({ hoy }) {
+function EncabezadoImpresion({ hoy, titulo }) {
+  const subtitulo = titulo ?? 'Reporte de seguimiento de proyectos';
   return (
     <>
       {/* Sólo al imprimir */}
       <header className="solo-impresion encabezado-impresion">
         <p style={{ fontSize: '14pt', fontWeight: 700, margin: 0 }}>Municipio de Tres de Febrero</p>
-        <p style={{ fontSize: '10pt', margin: '2pt 0 0' }}>Área de Coordinación · Reporte de seguimiento de proyectos</p>
+        <p style={{ fontSize: '10pt', margin: '2pt 0 0' }}>Área de Coordinación · {subtitulo}</p>
         <p style={{ fontSize: '9pt', color: '#5b6672', margin: '2pt 0 0' }}>
           Emitido el {fechaLarga(hoy)}
         </p>
@@ -87,7 +89,7 @@ function EncabezadoImpresion({ hoy }) {
         <div>
           <p className="text-sm font-semibold text-tinta">Municipio de Tres de Febrero</p>
           <p className="text-xs text-gris">
-            Área de Coordinación · Reporte emitido el {fechaLarga(hoy)}
+            Área de Coordinación · {subtitulo} · emitido el {fechaLarga(hoy)}
           </p>
         </div>
         <span className="ml-auto text-[11px] text-tenue">Vista previa — así se imprime</span>
@@ -233,9 +235,14 @@ function BloqueResumen({ resumen }) {
 }
 
 
-function BloqueProyectos({ filas }) {
+function BloqueProyectos({ filas, ausentes = [] }) {
   return (
     <Tarjeta titulo={`Proyectos (${filas.length})`} sinPadding>
+      {ausentes.length > 0 && (
+        <p className="border-b border-borde bg-paper px-4 py-2 text-xs text-gris">
+          Pendientes de cargar: {ausentes.join(' · ')}
+        </p>
+      )}
       <Tabla
         sinTope
         nombreExport="reporte-proyectos"
@@ -251,6 +258,30 @@ function BloqueProyectos({ filas }) {
           COLUMNA_ANOTACIONES,
         ]}
         vacio={<Vacio compacto titulo="Ningún proyecto cumple los filtros aplicados" />}
+      />
+    </Tarjeta>
+  );
+}
+
+function BloqueMonitoreos({ filas }) {
+  return (
+    <Tarjeta titulo={`Monitoreos (${filas.length})`} sinPadding>
+      <Tabla
+        sinTope
+        nombreExport="reporte-monitoreos"
+        filas={filas}
+        claveFila={(f) => f.id}
+        conBusqueda={false}
+        columnas={[
+          { clave: 'fecha', titulo: 'Fecha', ancho: 120, render: (f) => fFecha(f.fecha) },
+          { clave: 'area', titulo: 'Área', ancho: 190 },
+          { clave: 'cantidad_avances', titulo: 'Avances', ancho: 100, render: (f) => numero(f.cantidad_avances) },
+          { clave: 'cantidad_compromisos', titulo: 'Compromisos', ancho: 125, render: (f) => numero(f.cantidad_compromisos) },
+          { clave: 'cantidad_temas', titulo: 'Temas', ancho: 90, render: (f) => numero(f.cantidad_temas) },
+          { clave: 'cerrado', titulo: 'Estado', ancho: 110, render: (f) => <Chip tono={f.cerrado ? 'enregla' : 'proximo'}>{f.cerrado ? 'Cerrado' : 'Abierto'}</Chip> },
+          COLUMNA_ANOTACIONES,
+        ]}
+        vacio={<Vacio compacto titulo="Ningún monitoreo cumple los filtros aplicados" />}
       />
     </Tarjeta>
   );

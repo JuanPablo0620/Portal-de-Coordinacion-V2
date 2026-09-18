@@ -115,6 +115,21 @@ test('armarReporte sin base no rompe', () => {
   assert.deepEqual(r.proyectos, []);
 });
 
+test('la plantilla de Secretaría toma solamente sus proyectos y conserva su orden', () => {
+  const conPlantilla = structuredClone(bd);
+  conPlantilla.proyectos = [
+    { ...conPlantilla.proyectos[0], id_proyecto: 'E-1', proyecto: 'RIL', estrategico: true },
+    { ...conPlantilla.proyectos[1], id_proyecto: 'E-2', proyecto: 'Túnel Hornos', estrategico: true },
+    { ...conPlantilla.proyectos[2], id_proyecto: 'E-3', proyecto: 'Proyecto fuera del informe' },
+  ];
+
+  const r = armarReporte(conPlantilla, { plantilla: 'informe-secretaria' }, HOY);
+  assert.equal(r.plantilla?.nombre, 'Informe de Secretaría');
+  assert.deepEqual(r.proyectos.map((p) => p.proyecto), ['Túnel Hornos', 'RIL']);
+  assert.ok(r.proyectosAusentes.includes('Los Rusos'));
+  assert.ok(!r.proyectos.some((p) => p.proyecto === 'Proyecto fuera del informe'));
+});
+
 /* ── Lo que salió a la luz con la base a escala real ──────────────── */
 
 /**
