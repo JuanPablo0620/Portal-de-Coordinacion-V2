@@ -2,16 +2,18 @@
  * Carga de un seguimiento realizado.
  *
  * El orden de la pantalla sigue el orden real del trabajo: primero de qué
- * reunión se trata, después el texto crudo, después la transferencia a campos
- * revisables. La transferencia PRECARGA los tres bloques; no persiste nada. El
- * usuario corrige y recién al confirmar se escriben seguimiento y compromisos.
+ * reunión se trata y después los campos (compromisos, avances, problemas). Nada se
+ * persiste hasta confirmar: recién ahí se escriben seguimiento y compromisos.
+ * El paso «Lo conversado» (texto crudo + transferencia) se sacó del front el
+ * 18/09/2026; `separarMinuta` y `Transferencia` siguen existiendo por si se
+ * los reincorpora.
  *
  * A qué proyecto pertenece cada cosa es una decisión de CADA FILA —compromiso,
  * avance o problema—, no del seguimiento entero (20/08/2026, a pedido de JP):
  * "hablar con Sistemas porque un CAPS no tiene internet" no es de ningún
  * proyecto, y "hablar con Legales por el suministro" sí es del túnel Hornos.
  * Por eso no hay un selector de "proyectos tratados" en la sección 1: cada
- * fila de las tres listas de la sección 3 tiene su propio selector opcional de
+ * fila de las tres listas de la sección 2 tiene su propio selector opcional de
  * proyecto (24/08/2026), acotado a los proyectos del ÁREA elegida en la
  * sección 1 —no tiene sentido ofrecer un proyecto de Salud en un seguimiento
  * de Trabajo y Producción—. `seguimientos_proyectos` —para que el historial
@@ -23,8 +25,6 @@ import { Check, Plus, Trash2 } from 'lucide-react';
 import { Aviso, Boton, Chip, Semaforo, Tarjeta } from '../../componentes/Basicos.jsx';
 import { CampoFecha, CampoHora, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorUnidad } from '../../componentes/SelectorUnidad.jsx';
-import { Transferencia } from '../../componentes/Transferencia.jsx';
-import { separarMinuta } from '../../datos/minutas/separarMinuta.js';
 import { hoyISO, proyectos as selProyectos } from '../../datos/selectores.js';
 import { numero } from '../../utilidades/formato.js';
 import { sumarDias } from '../../datos/tiempo.js';
@@ -58,10 +58,6 @@ const filaCompromisoVacia = (fechaSeguimiento) => ({
 // independiente de la nota de texto. En "Problemas / trabas" queda sin uso.
 const filaTextoVacia = () => ({ clave: nuevaClave(), descripcion: '', id_proyecto: '', avance: '' });
 
-const EJEMPLO =
-  'Ej.: Se ejecutaron 200 metros de cordón cuneta en el sector norte. Falta la conformidad ' +
-  'del área técnica para avanzar. Ferreyra va a presentar el informe actualizado antes del 15/09.';
-
 export function CargarSeguimiento({ alTerminar }) {
   const hoy = hoyISO();
   const opcionesArea = useOpciones('areas');
@@ -70,33 +66,14 @@ export function CargarSeguimiento({ alTerminar }) {
   const [fecha, setFecha] = useState(hoy);
   const [hora, setHora] = useState('');
   const [participantes, setParticipantes] = useState('');
-  const [texto, setTexto] = useState('');
 
   const [compromisos, setCompromisos] = useState([]);
   const [avances, setAvances] = useState([]);
   const [problemas, setProblemas] = useState([]);
-  const [transferido, setTransferido] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
   const hayCampos = compromisos.length + avances.length + problemas.length > 0;
-
-  function transferir() {
-    const r = separarMinuta(texto, hoy);
-    setCompromisos(
-      r.compromisos.map((c) => ({
-        ...c,
-        // La minuta casi nunca trae fecha límite explícita. Si no la trae, va
-        // la del próximo seguimiento, igual que en el alta a mano.
-        fecha_limite: c.fecha_limite || sumarDias(fecha, UMBRALES.DIAS_ENTRE_SEGUIMIENTOS),
-        id_proyecto: '',
-        clave: nuevaClave(),
-      })),
-    );
-    setAvances(r.avances.map((descripcion) => ({ clave: nuevaClave(), descripcion, id_proyecto: '', avance: '' })));
-    setProblemas(r.problemas.map((descripcion) => ({ clave: nuevaClave(), descripcion, id_proyecto: '' })));
-    setTransferido(true);
-  }
 
   function validar() {
     if (!area) return 'Elegí el área.';
@@ -161,7 +138,7 @@ export function CargarSeguimiento({ alTerminar }) {
           tipo: 'realizado',
           participantes,
           temas: '',
-          texto_crudo: texto,
+          texto_crudo: '',
           resumen: avancesAGuardar[0]?.descripcion ?? '',
           avances: avancesAGuardar,
           problemas: problemasAGuardar,
@@ -211,38 +188,18 @@ export function CargarSeguimiento({ alTerminar }) {
         />
       </Tarjeta>
 
-      {/* 2 · Texto crudo → transferencia */}
-      <Transferencia
-        titulo="2 · Lo conversado"
-        descripcion="Volcá la minuta tal como salió de la reunión y transferila a campos."
-        etiquetaCampo="Texto de la minuta"
-        placeholder={EJEMPLO}
-        ayuda="Al transferir, el texto se reparte en compromisos, avances y problemas. Nada se guarda todavía."
-        texto={texto}
-        alCambiarTexto={setTexto}
-        alTransferir={transferir}
-        transferido={transferido}
-        resumen={
-          `Se transfirieron ${compromisos.length} compromiso(s), ${avances.length} avance(s) ` +
-          `y ${problemas.length} problema(s). Corregilos abajo.`
-        }
-      />
-
-      {/* 3 · Campos transferidos, editables */}
+      {/* 2 · Campos, editables */}
       <Tarjeta
-        titulo="3 · Campos transferidos"
+        titulo="2 · Compromisos, avances y problemas"
         descripcion={
           area
-            ? 'Todos editables. El selector de proyecto de cada fila muestra solo los de esta área.'
-            : 'Todos editables. Elegí el área en la sección 1 para poder vincular cada fila a un proyecto.'
+            ? 'Cargalos con los botones «Agregar». El selector de proyecto de cada fila muestra solo los de esta área.'
+            : 'Cargalos con los botones «Agregar». Elegí el área en la sección 1 para poder vincular cada fila a un proyecto.'
         }
       >
-        {!transferido && !hayCampos && (
+        {!hayCampos && (
           <div className="mb-3">
-            <Aviso tono="info">
-              Todavía no transferiste nada. Pegá el texto arriba y apretá <strong>«Transferir»</strong>,
-              o cargá los campos a mano con los botones «Agregar».
-            </Aviso>
+            <Aviso tono="info">Todavía no cargaste nada. Usá los botones «Agregar» de cada bloque.</Aviso>
           </div>
         )}
 
@@ -268,7 +225,7 @@ export function CargarSeguimiento({ alTerminar }) {
         </div>
       </Tarjeta>
 
-      {/* 4 · Confirmación */}
+      {/* 3 · Confirmación */}
       <Tarjeta>
         {error && (
           <div className="mb-3">
