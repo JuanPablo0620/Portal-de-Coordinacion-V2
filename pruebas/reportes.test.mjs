@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { armarReporte, describirFiltros, resolverRango } from '../src/datos/reportes.js';
 import { generarDemo } from '../src/datos/demo.js';
 import { compromisos } from '../src/datos/selectores.js';
+import { SECRETARIAS_INFORME_SECRETARIA } from '../src/datos/proyectos-informe-secretaria.js';
 
 const HOY = '2026-08-08';
 const bd = generarDemo(HOY);
@@ -128,6 +129,25 @@ test('la plantilla de Secretaría toma solamente sus proyectos y conserva su ord
   assert.deepEqual(r.proyectos.map((p) => p.proyecto), ['Túnel Hornos', 'RIL']);
   assert.ok(r.proyectosAusentes.includes('Los Rusos'));
   assert.ok(!r.proyectos.some((p) => p.proyecto === 'Proyecto fuera del informe'));
+});
+
+test('las altas pendientes del Informe de Secretaría conservan el área y no inventan programa', () => {
+  const altas = SECRETARIAS_INFORME_SECRETARIA.flatMap((secretaria) =>
+    secretaria.datos.map((dato) => ({ area: secretaria.area.nombre, ...dato })),
+  );
+  assert.deepEqual(
+    altas.map(({ area, proyecto }) => [area, proyecto]),
+    [
+      ['Secretaría de Obras', 'Intervención en puntos estratégicos'],
+      ['Secretaría de Obras', 'Los Rusos'],
+      ['Secretaría de Obras', 'Movilización de suelo'],
+      ['Coordinación', 'Suministro de cartelería'],
+      ['Secretaría de Salud', 'CAPS 10'],
+      ['Secretaría de Capital Humano', 'SISU'],
+      ['Secretaría de Capital Humano', 'Bunker Libertador'],
+    ],
+  );
+  assert.ok(altas.every((p) => p.programa === ''));
 });
 
 /* ── Lo que salió a la luz con la base a escala real ──────────────── */
