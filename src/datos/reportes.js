@@ -19,6 +19,7 @@ import {
   trimestreDe,
   unidadDe,
 } from './selectores.js';
+import { plantillaReporte, proyectosDePlantilla } from './plantillasReportes.js';
 import { calcularAlertas, filtrarAlertas, proyectosConAlerta } from './alertas.js';
 
 /* ── Rangos temporales ──────────────────────────────────────────────── */
@@ -109,6 +110,7 @@ export const BLOQUES = [
   // La clave sigue siendo `minutas` aunque el rótulo cambie: las
   // configuraciones guardadas la tienen adentro, y renombrarla las rompería.
   { clave: 'minutas', titulo: 'Observaciones de Seguimiento', descripcion: 'Avances, problemas y compromisos asumidos' },
+  { clave: 'monitoreos', titulo: 'Monitoreos', descripcion: 'Reuniones de monitoreo y lo registrado en ellas' },
   { clave: 'mesas', titulo: 'Mesas de trabajo', descripcion: 'Con reuniones y periodicidad' },
   { clave: 'eventos', titulo: 'Eventos', descripcion: 'Con estado de requerimientos' },
 ];
@@ -171,6 +173,8 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
   let proyectosFiltrados = selProyectos(bd, filtroProyecto);
   if (filtros.solo_con_alertas) proyectosFiltrados = proyectosFiltrados.filter((p) => conAlerta.has(p.id_proyecto));
   proyectosFiltrados = proyectosFiltrados.filter((p) => vigenteEnPeriodo(p, desde, hasta));
+  const seleccionPlantilla = proyectosDePlantilla(proyectosFiltrados, filtros.plantilla);
+  proyectosFiltrados = seleccionPlantilla.proyectos;
 
   // El recorte por proyecto se aplica igual aunque el reporte sea de otro
   // módulo: es lo que ata las entidades vinculadas al mismo universo.
@@ -179,7 +183,7 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
   // limitan a esos proyectos; si no, sólo se filtran por área y fecha.
   const hayRecorteProyecto = Boolean(
     filtros.area || filtros.programa || filtros.eje || filtros.tipo || filtros.estado ||
-      filtros.prioridad || filtros.id_proyecto ||
+      filtros.prioridad || filtros.id_proyecto || filtros.plantilla ||
       filtros.solo_obras || filtros.solo_prioritarios || filtros.solo_con_alertas,
   );
 
@@ -228,7 +232,11 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
       )
     : [];
 
-  const monitoreos = enModulo('monitoreos') ? selMonitoreos(bd, { area: filtros.area, desde, hasta }) : [];
+  const monitoreos = enModulo('monitoreos')
+    ? selMonitoreos(bd, { area: filtros.area, desde, hasta }).filter(
+      (m) => !hayRecorteProyecto || (m.avances ?? []).some((a) => idsProyecto.has(a.id_proyecto)),
+    )
+    : [];
 
   /**
    * Las mesas también respetan el período: se quedan las que sesionaron dentro
@@ -320,6 +328,8 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     mesas,
     eventos,
     alertas,
+    proyectosAusentes: seleccionPlantilla.ausentes,
+    plantilla: plantillaReporte(filtros.plantilla),
     resumen,
     rango: { desde, hasta },
     resumenFiltros: describirFiltros(filtros, { desde, hasta }),
@@ -330,6 +340,7 @@ function vacio() {
   return {
     proyectos: [], compromisos: [], seguimientos: [], monitoreos: [],
     mesas: [], eventos: [], alertas: [], resumen: {},
+    proyectosAusentes: [], plantilla: null,
     rango: { desde: '', hasta: '' }, resumenFiltros: [],
   };
 }
@@ -350,6 +361,7 @@ export function describirFiltros(filtros, rango) {
   agregar('Estado de la mesa', filtros.estado_mesa);
   agregar('Estado del evento', filtros.estado_evento);
   agregar('Módulo de origen', MODULOS_ORIGEN.find((m) => m.valor === filtros.modulo)?.titulo);
+  agregar('Plantilla', plantillaReporte(filtros.plantilla)?.nombre);
 
   if (filtros.rango) {
     const titulo = RANGOS.find((r) => r.valor === filtros.rango)?.titulo ?? filtros.rango;

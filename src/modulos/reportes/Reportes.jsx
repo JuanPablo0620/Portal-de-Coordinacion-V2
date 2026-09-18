@@ -7,6 +7,7 @@ import { CampoCheck, CampoFecha, CampoSelect, CampoTexto } from '../../component
 import { Modal } from '../../componentes/Modal.jsx';
 import { VistaPrevia } from './VistaPrevia.jsx';
 import { BLOQUES, MODULOS_ORIGEN, RANGOS, armarReporte } from '../../datos/reportes.js';
+import { PLANTILLAS_REPORTES } from '../../datos/plantillasReportes.js';
 import { activos, hoyISO } from '../../datos/selectores.js';
 import { acciones, useBD } from '../../estado/tienda.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
@@ -18,12 +19,13 @@ const DEFAULTS = {
   // «Estado» ofrecía los del proyecto y no recortaba nada de lo demás.
   estado_compromiso: '', estado_mesa: '', estado_evento: '',
   id_proyecto: '', modulo: '', rango: '', desde: '', hasta: '',
+  plantilla: '',
   solo_obras: false, solo_prioritarios: false, solo_con_alertas: false,
 };
 
 const BLOQUES_INICIALES = {
   resumen: true, proyectos: true, compromisos: true,
-  minutas: false, mesas: false, eventos: false,
+  minutas: false, monitoreos: false, mesas: false, eventos: false,
 };
 
 export default function Reportes() {
@@ -42,6 +44,11 @@ export default function Reportes() {
   function aplicarGuardado(r) {
     reemplazarFiltros(r.filtros ?? {});
     if (r.bloques) setBloques({ ...BLOQUES_INICIALES, ...r.bloques });
+  }
+
+  function aplicarPlantilla(plantilla) {
+    reemplazarFiltros(plantilla.filtros);
+    setBloques({ ...BLOQUES_INICIALES, ...plantilla.bloques });
   }
 
   return (
@@ -63,6 +70,7 @@ export default function Reportes() {
 
       <Pagina className="flex flex-col gap-4">
         <div className="no-imprimir flex flex-col gap-4">
+          <PlantillasReportes plantillas={PLANTILLAS_REPORTES} alAplicar={aplicarPlantilla} />
           <PanelFiltros
             filtros={filtros}
             setFiltros={setFiltros}
@@ -163,7 +171,8 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
       filtros={filtros}
       defaults={DEFAULTS}
       alLimpiar={limpiar}
-      descripcion="Todos combinables entre sí. Se reflejan en la dirección: esta configuración se comparte pegando el enlace."
+      descripcion="Los filtros son opcionales y se reflejan en la dirección. Usá una plantilla para abrir un informe ya preparado."
+      desplegable
     >
       <GrillaFiltros columnas={4}>
         <CampoSelect
@@ -244,6 +253,7 @@ function SelectorBloques({ bloques, setBloques, reporte }) {
     proyectos: reporte.proyectos.length,
     compromisos: reporte.compromisos.length,
     minutas: reporte.seguimientos.filter((s) => s.texto_crudo).length,
+    monitoreos: reporte.monitoreos.length,
     mesas: reporte.mesas.length,
     eventos: reporte.eventos.length,
   };
@@ -268,6 +278,28 @@ function SelectorBloques({ bloques, setBloques, reporte }) {
         ))}
       </div>
       <TamanioDelDocumento bloques={bloques} cantidad={CANTIDAD} />
+    </Tarjeta>
+  );
+}
+
+function PlantillasReportes({ plantillas, alAplicar }) {
+  return (
+    <Tarjeta titulo="Plantillas de informe" descripcion="Elegí una plantilla y revisá la vista previa antes de imprimir.">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {plantillas.map((plantilla) => (
+          <article key={plantilla.id} className="flex flex-col gap-2 rounded-chip border border-borde p-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-semibold text-tinta">{plantilla.nombre}</h2>
+              <p className="mt-0.5 text-xs leading-relaxed text-gris">{plantilla.descripcion}</p>
+            </div>
+            <div>
+              <Boton tamanio="sm" variante="primario" onClick={() => alAplicar(plantilla)}>
+                Usar plantilla
+              </Boton>
+            </div>
+          </article>
+        ))}
+      </div>
     </Tarjeta>
   );
 }

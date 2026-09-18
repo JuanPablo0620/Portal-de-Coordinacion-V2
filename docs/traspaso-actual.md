@@ -27,6 +27,21 @@ que el otro no puede deducir leyendo el repo.
 
 ## 1. Dónde está parado el portal
 
+### Rama en desarrollo: plantillas de Reportes
+
+Reportes abre con el panel de filtros plegado y ofrece la plantilla fija
+**Informe de Secretaría**. La plantilla conserva el orden acordado de temas,
+incluye proyectos comunes y estratégicos, y agrega Monitoreos como bloque
+imprimible. Si un tema de la plantilla no existe todavía como proyecto, el
+informe lo declara como pendiente de cargar; no se inventa ni se omite en
+silencio.
+
+Falta definir el programa de los proyectos nuevos (Los Rusos, Intervención en
+puntos estratégicos, Suministro de cartelería, CAPS 10, SISU, Bunker Libertador
+y Movilización de suelo), y el origen de Legales y Senado de la Nación. No se
+crearon esas fichas hasta contar con ese dato. Validación local: 409 pruebas,
+build y humo/accesibilidad (132 renderizados, 29 rutas) aprobados.
+
 ### Rama en desarrollo: responsables y reuniones
 
 **Preferencia vigente de JP:** seguir trabajando sólo en la rama local. No
