@@ -29,6 +29,15 @@ que el otro no puede deducir leyendo el repo.
 
 ### Rama en desarrollo: responsables y reuniones
 
+**Preferencia vigente de JP:** seguir trabajando sólo en la rama local. No
+pushear, fusionar con `main` ni publicar en Vercel mientras se revisan los cambios.
+
+Vista privada: `node scripts/vista-equipo.mjs`, en
+`http://127.0.0.1:5191/mi-seguimiento`. Usa cuentas y datos ficticios con el cliente
+Supabase reemplazado; cada recarga reinicia la demo. Se comprobó en Chrome que
+Mi seguimiento carga con sus compromisos. Esto no reemplaza la prueba completa
+de interacciones pendiente.
+
 `feat/compromisos-equipo-reunion-lunes` contiene la primera implementación de
 responsables por cuenta, Mi seguimiento y reuniones de Secretaría / Dirección.
 **No está desplegada y no se aplicó `0037` a producción.** Reglas y activación:
