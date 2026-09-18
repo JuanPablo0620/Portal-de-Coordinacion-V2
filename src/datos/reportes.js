@@ -19,7 +19,12 @@ import {
   trimestreDe,
   unidadDe,
 } from './selectores.js';
-import { plantillaReporte, proyectosDePlantilla } from './plantillasReportes.js';
+import {
+  compromisosAusentesDePlantilla,
+  esCompromisoDePlantilla,
+  plantillaReporte,
+  proyectosDePlantilla,
+} from './plantillasReportes.js';
 import { calcularAlertas, filtrarAlertas, proyectosConAlerta } from './alertas.js';
 
 /* ── Rangos temporales ──────────────────────────────────────────────── */
@@ -219,7 +224,16 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
   const compromisos = enModulo('compromisos')
     ? selCompromisos(bd, { area: filtros.area }, hoy)
         .filter((c) => dentroDelPeriodo(c.fecha_limite) || c.estado_efectivo === 'alerta')
-        .filter((c) => !hayRecorteProyecto || !c.id_proyecto || idsProyecto.has(c.id_proyecto))
+        .filter((c) => {
+          if (!hayRecorteProyecto) return true;
+          // La plantilla puede traer compromisos independientes de un
+          // proyecto, como Legales de Coordinación. Los demás compromisos
+          // siguen atados a los proyectos seleccionados.
+          if (filtros.plantilla) {
+            return idsProyecto.has(c.id_proyecto) || esCompromisoDePlantilla(c, filtros.plantilla);
+          }
+          return !c.id_proyecto || idsProyecto.has(c.id_proyecto);
+        })
         // Su propio estado, no el del proyecto: son vocabularios distintos
         // —pendiente, en curso, cumplido— y hasta ahora no había forma de
         // pedir «los compromisos pendientes de Capital Humano».
@@ -329,6 +343,7 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     eventos,
     alertas,
     proyectosAusentes: seleccionPlantilla.ausentes,
+    compromisosAusentes: compromisosAusentesDePlantilla(compromisos, filtros.plantilla),
     plantilla: plantillaReporte(filtros.plantilla),
     resumen,
     rango: { desde, hasta },
@@ -340,7 +355,7 @@ function vacio() {
   return {
     proyectos: [], compromisos: [], seguimientos: [], monitoreos: [],
     mesas: [], eventos: [], alertas: [], resumen: {},
-    proyectosAusentes: [], plantilla: null,
+    proyectosAusentes: [], compromisosAusentes: [], plantilla: null,
     rango: { desde: '', hasta: '' }, resumenFiltros: [],
   };
 }

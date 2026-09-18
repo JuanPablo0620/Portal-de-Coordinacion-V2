@@ -50,7 +50,9 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
           {bloques.resumen && (bloques.compromisos || bloques.proyectos) && (
             <BloqueLeyenda conCompromisos={bloques.compromisos} conProyectos={bloques.proyectos} />
           )}
-          {bloques.compromisos && <BloqueCompromisos filas={reporte.compromisos} />}
+          {bloques.compromisos && (
+            <BloqueCompromisos filas={reporte.compromisos} ausentes={reporte.compromisosAusentes} />
+          )}
           {bloques.mesas && <BloqueMesas filas={reporte.mesas} />}
           {bloques.minutas && (
             <BloqueObservaciones seguimientos={reporte.seguimientos} compromisos={reporte.compromisos} />
@@ -301,10 +303,13 @@ function BloqueMonitoreos({ filas }) {
  * Legales»: lo primero es una fecha, lo segundo es de lo que hay que hablar en
  * la reunión.
  */
-function BloqueCompromisos({ filas }) {
+function BloqueCompromisos({ filas, ausentes = [] }) {
   if (filas.length === 0) {
     return (
       <Tarjeta titulo="Compromisos (0)">
+        {ausentes.length > 0 && (
+          <p className="mb-3 text-xs text-gris">Pendientes de cargar: {ausentes.join(' · ')}</p>
+        )}
         <Vacio compacto titulo="Ningún compromiso cumple los filtros aplicados" />
       </Tarjeta>
     );
@@ -312,6 +317,11 @@ function BloqueCompromisos({ filas }) {
 
   return (
     <>
+      {ausentes.length > 0 && (
+        <p className="rounded-card border border-borde bg-paper px-4 py-2 text-xs text-gris">
+          Pendientes de cargar: {ausentes.join(' · ')}
+        </p>
+      )}
       {agruparParaInforme(filas).map(([area, deLArea]) => (
         <Tarjeta key={area} titulo={`Compromisos · ${area} (${deLArea.length})`}>
           <ol className="flex flex-col">

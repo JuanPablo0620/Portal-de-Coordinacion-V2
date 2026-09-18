@@ -35,6 +35,12 @@ Monitoreos como bloque imprimible. Si un tema de la plantilla no existe todavía
 como proyecto, el informe lo declara como pendiente de cargar; no se inventa ni
 se omite en silencio.
 
+**Legales** queda fuera de la tabla de proyectos: es un compromiso del
+seguimiento de Coordinación. La plantilla lo reserva en el bloque de
+compromisos y lo señala como pendiente hasta que se cargue el seguimiento de
+origen con su fecha. **Senado de la Nación** se registra en Posicionamiento,
+sin estado ni novedad agregados por inferencia.
+
 Los Rusos, Intervención en puntos estratégicos, Suministro de cartelería, CAPS
 10, SISU, Bunker Libertador y Movilización de suelo quedan disponibles en sus
 áreas confirmadas bajo el programa explícito «Sin programa», hasta que se
