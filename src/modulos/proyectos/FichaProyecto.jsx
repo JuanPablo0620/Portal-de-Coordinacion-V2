@@ -215,15 +215,10 @@ function PanelDatos({ proyecto, serie, temas }) {
     ['Tipo', proyecto.tipo],
     ['Unidad de medida', proyecto.unidad],
     ['Cantidad del período', numero(proyecto.cantidad)],
-    ['Objetivo', `${numero(proyecto.objetivo)} ${proyecto.unidad ?? ''}`],
-    ['Avance acumulado', `${numero(proyecto.avance)} ${proyecto.unidad ?? ''}`],
     ['Fecha de carga', fFecha(proyecto.fecha_carga)],
     ['Fecha de inicio', fFecha(proyecto.fecha_inicio)],
     ['Fin previsto', fFecha(proyecto.fecha_fin_prevista)],
-    ['Monto planificado', moneda(proyecto.monto_planificado)],
-    ['Monto ejecutado', moneda(proyecto.monto_ejecutado)],
     ['Última actualización', proyecto.ultima_actualizacion ? `${fFecha(proyecto.ultima_actualizacion)} · ${haceCuanto(proyecto.ultima_actualizacion)}` : 'Sin novedades'],
-    ['Cargado por', proyecto.creado_por],
   ];
 
   return (
