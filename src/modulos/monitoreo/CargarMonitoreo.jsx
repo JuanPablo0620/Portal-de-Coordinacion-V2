@@ -145,6 +145,9 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
     fecha: monitoreoInicial?.fecha ?? hoy,
     area: monitoreoInicial?.area ?? areaInicial,
   });
+  // `iniciado` es sólo pantalla: pasar del paso 1 al 2. El monitoreo (la fila
+  // en la base) no existe hasta que `asegurarMonitoreo` lo crea.
+  const [iniciado, setIniciado] = useState(Boolean(monitoreoInicial));
   const [monitoreo, setMonitoreo] = useState(monitoreoInicial);
   const [temasCargados, setTemasCargados] = useState([]);
   const [huboActualizacion, setHuboActualizacion] = useState(false);
@@ -152,12 +155,17 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
   // Las actualizaciones de compromisos no se guardan al editarlas sino al
   // finalizar el monitoreo (ver `finalizar`): así un compromiso se puede
   // volver a tocar durante la reunión sin duplicar su actualización.
+  //
+  // Sin monitoreo todavía, los borradores van bajo una clave provisional por
+  // área y fecha; al crearse el monitoreo se pasan a su id (ver
+  // `asegurarMonitoreo`) y la clave provisional se borra.
   const bd = useBD();
+  const claveProvisoria = iniciado ? `nuevo|${cabecera.area}|${cabecera.fecha}` : null;
   const {
     borradores: borradoresCompromisos,
     editar: editarBorradorCompromiso,
     descartar: descartarBorrador,
-  } = useBorradoresCompromisos(monitoreo?.id ?? null);
+  } = useBorradoresCompromisos(monitoreo?.id ?? claveProvisoria);
   const aplicables = useMemo(
     () => (bd ? borradoresAplicables(borradoresCompromisos, bd.compromisos) : []),
     [bd, borradoresCompromisos],
@@ -176,23 +184,54 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
 
   const marcar = (clave, mensaje) => setErrores((e) => ({ ...e, [clave]: mensaje }));
 
-  async function iniciar() {
+  /**
+   * «Iniciar monitoreo» ya no escribe nada en la base.
+   *
+   * Antes insertaba la fila al apretarlo, así que abrir la pantalla para
+   * mirarla —o para probar un cambio de diseño— y cerrarla dejaba un monitoreo
+   * abierto y vacío. Esos vacíos contaban como cobertura y falseaban la
+   * cadencia (Capital Humano llegó a mostrar dos monitoreos el mismo día, con
+   * «0 d»), y había que darlos de baja a mano. Ahora la fila nace cuando hay
+   * algo que registrar: ver `asegurarMonitoreo`.
+   */
+  function iniciar() {
     if (!cabecera.area || !cabecera.fecha) {
       marcar('cabecera', 'Indicá la fecha y el área del monitoreo.');
       return;
     }
     marcar('cabecera', '');
-    setTrabajando(true);
-    try {
-      setMonitoreo(await acciones.crearMonitoreo(cabecera));
-    } catch (err) {
-      // Sin esto el boton no hacia nada: la promesa se rechazaba y nadie la
-      // atendia. Es el mismo error que ya tenia el alta de temas, dos
-      // funciones mas abajo, y que ahi si estaba resuelto.
-      marcar('cabecera', 'No se pudo iniciar el monitoreo: ' + err.message);
-    } finally {
-      setTrabajando(false);
+    setIniciado(true);
+  }
+
+  /**
+   * Devuelve el id del monitoreo, creándolo la primera vez que hace falta: al
+   * guardar algo que se vincula a él (una actualización de proyecto, un
+   * compromiso nuevo) o al finalizar. Sin ninguna de esas dos cosas, no existe.
+   *
+   * Se guarda la promesa en un ref y no sólo el resultado: dos guardados casi
+   * simultáneos crearían dos monitoreos, porque el segundo todavía no ve el
+   * `setMonitoreo` del primero.
+   */
+  const creandoMonitoreo = useRef(null);
+  async function asegurarMonitoreo() {
+    if (monitoreo) return monitoreo.id;
+    if (!creandoMonitoreo.current) {
+      creandoMonitoreo.current = acciones
+        .crearMonitoreo(cabecera)
+        .then((creado) => {
+          // Los borradores cargados hasta acá pasan del nombre provisorio al id
+          // real, antes de cambiar la clave, para que el hook los encuentre.
+          acciones.guardarBorradoresCompromisos(creado.id, borradoresCompromisos);
+          acciones.guardarBorradoresCompromisos(claveProvisoria, null);
+          setMonitoreo(creado);
+          return creado;
+        })
+        .catch((err) => {
+          creandoMonitoreo.current = null;
+          throw err;
+        });
     }
+    return (await creandoMonitoreo.current).id;
   }
 
   function transferir() {
@@ -208,7 +247,7 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
   /** Persiste un tema y lo mueve a la lista de confirmados. */
   async function persistir(datos) {
     const { tema: creado, compromiso } = await acciones.enLote(async () => {
-      const resultado = await acciones.agregarTema(monitoreo.id, aPersistir(datos));
+      const resultado = await acciones.agregarTema(await asegurarMonitoreo(), aPersistir(datos));
       await aplicarActualizarCompromiso(datos);
       return resultado;
     });
@@ -319,16 +358,22 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
     }
     setTrabajando(true);
     try {
-      // Recién acá se escriben las actualizaciones de compromisos: una por
-      // compromiso, con la versión final del borrador. Cada una se descarta al
-      // aplicarse para que, si algo falla a mitad de camino, reintentar no
-      // duplique las que ya salieron.
+      // Recién acá se registra el monitoreo si todavía no existía, y se
+      // escriben las actualizaciones de compromisos: una por compromiso, con la
+      // versión final del borrador. Cada una se descarta al aplicarse para que,
+      // si algo falla a mitad de camino, reintentar no duplique las que ya
+      // salieron.
+      const idMonitoreo = await asegurarMonitoreo();
       for (const [id, borrador] of aplicables) {
         await acciones.actualizarEstadoCompromiso(id, borrador);
         descartarBorrador(id);
       }
-      await acciones.finalizarMonitoreo(monitoreo.id);
-      acciones.guardarBorradoresCompromisos(monitoreo.id, null);
+      // Si lo que sigue falla, los borradores ya se aplicaron y `aplicables`
+      // queda vacío: sin esto el botón se deshabilitaría y no habría cómo
+      // reintentar el cierre.
+      setHuboActualizacion(true);
+      await acciones.finalizarMonitoreo(idMonitoreo);
+      acciones.guardarBorradoresCompromisos(idMonitoreo, null);
       alTerminar?.();
     } catch (e) {
       marcar('cierre', e.message);
@@ -337,9 +382,9 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
     }
   }
 
-  /* ── Paso 1: crear el monitoreo ─────────────────────────────────── */
+  /* ── Paso 1: elegir fecha y área ────────────────────────────────── */
 
-  if (!monitoreo) {
+  if (!iniciado) {
     return (
       <Tarjeta titulo="Nuevo monitoreo" descripcion="Fecha y área. Después se cargan los temas, transferidos o a mano.">
         <GrillaCampos columnas={2} className="max-w-2xl">
@@ -363,7 +408,7 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
           </div>
         )}
         <div className="mt-4">
-          <Boton variante="primario" icono={Radar} onClick={iniciar} disabled={trabajando}>
+          <Boton variante="primario" icono={Radar} onClick={iniciar}>
             Iniciar monitoreo
           </Boton>
         </div>
@@ -377,8 +422,8 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
     <div className="flex flex-col gap-4">
       <Tarjeta>
         <div className="flex flex-wrap items-center gap-3">
-          <Chip tono="acento">{fFecha(monitoreo.fecha)}</Chip>
-          <span className="text-sm font-medium text-tinta">{monitoreo.area}</span>
+          <Chip tono="acento">{fFecha(cabecera.fecha)}</Chip>
+          <span className="text-sm font-medium text-tinta">{cabecera.area}</span>
           <span className="text-xs text-gris">
             {aplicables.length > 0
               ? `${aplicables.length} compromiso${aplicables.length === 1 ? '' : 's'} con actualización sin guardar`
@@ -573,8 +618,9 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
           aparte de la transferencia de texto de arriba: repasar y
           actualizar proyectos y compromisos sin escribir un tema. */}
       <PanelVentana
-        area={monitoreo.area}
-        monitoreoId={monitoreo.id}
+        area={cabecera.area}
+        monitoreoId={monitoreo?.id}
+        alObtenerMonitoreoId={asegurarMonitoreo}
         hoy={hoy}
         alRegistrarActualizacion={() => setHuboActualizacion(true)}
         borradoresCompromisos={borradoresCompromisos}
@@ -605,6 +651,11 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
 export function PanelVentana({
   area,
   monitoreoId,
+  // Devuelve el id del monitoreo, creándolo si todavía no existe (ver
+  // `asegurarMonitoreo`). Se pide al momento de guardar y no antes: mirar la
+  // ventana no debe registrar un monitoreo. Sin esta prop (prueba de humo) se
+  // usa `monitoreoId` tal cual.
+  alObtenerMonitoreoId = async () => monitoreoId,
   hoy,
   alRegistrarActualizacion,
   // Borradores de compromisos por id, que administra CargarMonitoreo porque es
@@ -667,7 +718,7 @@ export function PanelVentana({
         { ...borradorProyecto, avance: Number(borradorProyecto.avance) || 0 },
         // Deja registrado que este avance se informo en ESTA reunion, que es lo
         // que despues muestra la pestania de ultimos monitoreos.
-        { monitoreoId: monitoreoId },
+        { monitoreoId: await alObtenerMonitoreoId() },
       );
       alRegistrarActualizacion?.();
       setAbiertoProyecto(null);
@@ -701,7 +752,7 @@ export function PanelVentana({
     setGuardando(true);
     try {
       await acciones.crearCompromisoDirecto({
-        id_origen: monitoreoId,
+        id_origen: await alObtenerMonitoreoId(),
         id_proyecto: p.id_proyecto,
         area: p.area,
         id_subsecretaria: nuevoCompromiso.id_subsecretaria || null,
@@ -736,7 +787,7 @@ export function PanelVentana({
     setGuardando(true);
     try {
       await acciones.crearCompromisoDirecto({
-        id_origen: monitoreoId,
+        id_origen: await alObtenerMonitoreoId(),
         id_proyecto: null,
         area,
         id_subsecretaria: nuevoSuelto.id_subsecretaria || null,
