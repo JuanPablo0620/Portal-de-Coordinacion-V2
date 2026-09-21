@@ -11,6 +11,7 @@
  */
 
 const CLAVE = 'coord3f_bd_v1';
+const CLAVE_TEMA = 'coord3f_tema_v1';
 
 /**
  * Hay entornos sin almacenamiento: Node (tests y prueba de humo) y los modos
@@ -93,6 +94,34 @@ export function escribirBorradoresMonitoreo(idMonitoreo, borradores) {
     return true;
   } catch (error) {
     console.error('No se pudieron persistir los borradores del monitoreo', error);
+    return false;
+  }
+}
+
+/**
+ * La apariencia es una preferencia local y no un dato de gestión: cada
+ * persona puede elegir BlueNight sin cambiarle la vista a sus compañeros. Se
+ * guarda en una clave separada para que una limpieza o migración de la base no
+ * borre una elección de interfaz.
+ */
+export function leerTema() {
+  if (!disponible) return 'claro';
+  try {
+    return localStorage.getItem(CLAVE_TEMA) === 'bluenight' ? 'bluenight' : 'claro';
+  } catch (error) {
+    console.error('No se pudo leer la preferencia visual', error);
+    return 'claro';
+  }
+}
+
+/** Persiste la preferencia visual sin afectar la base de datos del portal. */
+export function escribirTema(tema) {
+  if (!disponible) return false;
+  try {
+    localStorage.setItem(CLAVE_TEMA, tema === 'bluenight' ? 'bluenight' : 'claro');
+    return true;
+  } catch (error) {
+    console.error('No se pudo guardar la preferencia visual', error);
     return false;
   }
 }

@@ -120,6 +120,88 @@
   --shadow-flotante: 0 8px 28px rgb(27 36 48 / 0.14);
 }
 
+/* BlueNight conserva la identidad azul del Municipio, pero reduce el brillo
+   del lienzo para trabajar cómodo en ambientes de poca luz. Se redefinen los
+   mismos tokens semánticos (en vez de estilos por componente): tablas,
+   gráficos, formularios y tarjetas cambian juntos y el semáforo mantiene su
+   significado y contraste. */
+:root[data-tema='bluenight'] {
+  --color-paper: #081426;
+  --color-card: #10233d;
+  --color-borde: #264362;
+  --color-borde-fuerte: #7895b5;
+  --color-tinta: #f2f7ff;
+  --color-gris: #c0ccdc;
+  --color-tenue: #9aaec4;
+
+  --color-acento: #5aa7f5;
+  --color-acento-suave: #173c67;
+  --color-acento-medio: #2c608f;
+  --color-acento-fuerte: #c5e2ff;
+  --color-limite-mapa: #78bbff;
+
+  --color-vencido: #ffc1c7;
+  --color-vencido-texto: #ffabb3;
+  --color-vencido-suave: #4d1c2a;
+  --color-proximo: #ffd4ab;
+  --color-proximo-texto: #ffcb99;
+  --color-proximo-suave: #4a2c15;
+  --color-atencion: #ffeba5;
+  --color-atencion-texto: #f8e28f;
+  --color-atencion-suave: #4b4114;
+  --color-enregla: #c8f7d9;
+  --color-enregla-texto: #a1edbd;
+  --color-enregla-suave: #15422e;
+  --color-sindato: #e1e7ed;
+  --color-sindato-texto: #c0ccdc;
+  --color-sindato-suave: #25384f;
+
+  --color-area-amb: #67adff;
+  --color-area-amb-texto: #8dc4ff;
+  --color-area-amb-suave: #173a64;
+  --color-area-cah: #ff9b72;
+  --color-area-cah-texto: #ffb293;
+  --color-area-cah-suave: #4c271f;
+  --color-area-obr: #62d9aa;
+  --color-area-obr-texto: #8eeac4;
+  --color-area-obr-suave: #164536;
+  --color-area-sal: #ffd166;
+  --color-area-sal-texto: #ffe097;
+  --color-area-sal-suave: #4c3d14;
+  --color-area-seg: #ff9abb;
+  --color-area-seg-texto: #ffb6cf;
+  --color-area-seg-suave: #51223a;
+  --color-area-typ: #86db84;
+  --color-area-typ-texto: #aaeca6;
+  --color-area-typ-suave: #1f4723;
+  --color-area-cor: #b5a8ff;
+  --color-area-cor-texto: #cec5ff;
+  --color-area-cor-suave: #302760;
+  --color-area-sgr: #b6c8d8;
+  --color-area-sgr-texto: #d2e0eb;
+  --color-area-sgr-suave: #26394a;
+
+  --color-capa-seguimiento: #70b5ff;
+  --color-capa-evento: #c1a8ff;
+  --color-capa-mesa: #75d8a0;
+  --color-capa-vencimiento: #ff8490;
+  --color-capa-monitoreo: #ffbd7c;
+  --color-capa-hito: #e6d37c;
+  --color-capa-cambio: #b6c8d8;
+
+  --color-serie-1: #70b5ff;
+  --color-serie-2: #75d8a0;
+  --color-serie-3: #ffbd7c;
+  --color-serie-4: #c1a8ff;
+  --color-serie-5: #ff8490;
+  --color-serie-6: #70d0dd;
+  --color-serie-7: #e6d37c;
+  --color-serie-8: #b6c8d8;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.24), 0 6px 18px rgb(0 0 0 / 0.16);
+  --shadow-flotante: 0 12px 32px rgb(0 0 0 / 0.38);
+}
+
 /* ── Base ─────────────────────────────────────────────────────────── */
 /* `overflow: hidden` es a propósito: todo el scroll de la app pasa por
    #contenido (`overflow-y-auto`, ver Layout.jsx). Sin esto, si algún
@@ -189,6 +271,39 @@ body {
    anillo es blanco. */
 .barra-lateral :where(a, button):focus-visible {
   outline-color: #ffffff;
+}
+
+/* El indicador no comunica el estado por color solamente: el desplazamiento
+   de la perilla y el atributo `aria-checked` del botón lo exponen de forma
+   consistente para vista, teclado y lectores de pantalla. */
+.interruptor-tema-pista {
+  display: flex;
+  width: 2.25rem;
+  height: 1.25rem;
+  align-items: center;
+  padding: 0.125rem;
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: 999px;
+  background: var(--color-sindato-suave);
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.interruptor-tema-perilla {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 999px;
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
+  transition: transform 160ms ease;
+}
+
+.interruptor-tema[aria-checked='true'] .interruptor-tema-pista {
+  border-color: var(--color-acento);
+  background: var(--color-acento);
+}
+
+.interruptor-tema[aria-checked='true'] .interruptor-tema-perilla {
+  transform: translateX(1rem);
 }
 
 /* ─────────────────────────────────────────────────────────────────────

@@ -19,13 +19,28 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 15/09/2026 · Codex, por pedido de JP
+**Última actualización:** 21/09/2026 · Codex, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
 ---
 
 ## 1. Dónde está parado el portal
+
+### Apariencia: modo BlueNight (21/09)
+
+La barra lateral incorpora un switch **BlueNight**. Activa un tema oscuro azul
+aplicado mediante los mismos tokens semánticos del portal, por lo que alcanza
+superficies, tablas, formularios, gráficos y estados sin estilos particulares
+por pantalla. La preferencia queda guardada por navegador y no se sincroniza
+con Supabase ni afecta a los demás usuarios.
+
+- El control es alcanzable por teclado, anuncia su estado como switch y tiene
+  objetivo táctil de 44 px.
+- Validación: 402 pruebas y build aprobados. El chequeo de contraste lee
+  también la paleta BlueNight. `npm run verificar` llega a humo y encuentra
+  cuatro expectativas antiguas de `/mesas` (textos previos al rediseño), sin
+  relación con este cambio.
 
 ### Monitoreo: las actualizaciones de compromisos se guardan al finalizar (21/09)
 

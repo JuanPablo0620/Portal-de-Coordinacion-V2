@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import logo3f from '../assets/logo-3f.png';
 import { usePerfil, useSesion } from '../estado/sesion.js';
+import { useTema } from '../estado/tema.js';
 import { acciones } from '../estado/tienda.js';
 import {
   CalendarCheck,
@@ -14,8 +15,10 @@ import {
   LogOut,
   Menu,
   MapPinned,
+  Moon,
   Radar,
   Settings,
+  Sun,
   Target,
   UserCheck,
   Users,
@@ -57,6 +60,7 @@ function Navegacion({ alNavegar }) {
         </NavLink>
       ))}
       <div className="mt-auto pt-2">
+        <SelectorTema />
         <NavLink to="/configuracion" className={clase} onClick={alNavegar}>
           <Settings size={17} className="shrink-0" />
           Configuración
@@ -64,6 +68,30 @@ function Navegacion({ alNavegar }) {
         <UsuarioSesion />
       </div>
     </nav>
+  );
+}
+
+/** Control de apariencia personal; BlueNight no se comparte con otras cuentas. */
+function SelectorTema() {
+  const tema = useTema((estado) => estado.tema);
+  const cambiarTema = useTema((estado) => estado.cambiarTema);
+  const activo = tema === 'bluenight';
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={activo}
+      aria-label={activo ? 'Desactivar modo BlueNight' : 'Activar modo BlueNight'}
+      onClick={() => cambiarTema(activo ? 'claro' : 'bluenight')}
+      className="interruptor-tema mb-1 flex min-h-[44px] w-full items-center gap-2.5 rounded-chip px-3 text-sm font-medium text-gris transition hover:bg-paper hover:text-tinta"
+    >
+      {activo ? <Moon size={17} className="shrink-0" aria-hidden="true" /> : <Sun size={17} className="shrink-0" aria-hidden="true" />}
+      <span className="flex-1 text-left">BlueNight</span>
+      <span className="interruptor-tema-pista" aria-hidden="true">
+        <span className="interruptor-tema-perilla" />
+      </span>
+    </button>
   );
 }
 
@@ -127,6 +155,11 @@ export function Layout() {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const { pathname } = useLocation();
   const ultimo = useRef(0);
+  const iniciarTema = useTema((estado) => estado.iniciarTema);
+
+  useEffect(() => {
+    iniciarTema();
+  }, [iniciarTema]);
 
   /*
    * Traer lo fresco al entrar a una pantalla ERA la estrategia declarada de
