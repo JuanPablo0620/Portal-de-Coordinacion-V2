@@ -63,7 +63,7 @@ export function EditorCompromiso({
         valor={borrador?.estado ?? compromiso.estado}
         alCambiar={(v) => alCambiarBorrador({ estado: v })}
       />
-      <p className="mt-2.5 whitespace-pre-line rounded-chip bg-paper p-2 text-xs text-gris">{compromiso.descripcion}</p>
+      <p className="mt-2.5 whitespace-pre-line rounded-chip border border-borde bg-card p-2 text-xs text-gris">{compromiso.descripcion}</p>
       <Historial compromisoId={compromiso.id} />
       <CampoArea
         etiqueta="Agregar actualización"
@@ -242,7 +242,7 @@ function Historial({ compromisoId }) {
       <p className="text-[11px] font-semibold uppercase tracking-wide text-tenue">Actualizaciones</p>
       <ol className="mt-1 flex flex-col gap-1">
         {utiles.map((f) => (
-          <li key={f.id} className="rounded-chip border border-borde px-2 py-1.5 text-xs text-gris">
+          <li key={f.id} className="rounded-chip border border-borde bg-card px-2 py-1.5 text-xs text-gris">
             <span className="text-tenue">{fFecha(f.fecha_actualizacion)}</span>
             {f.estado_anterior && f.estado_anterior !== f.estado && (
               <span className="ml-1.5 text-tenue">

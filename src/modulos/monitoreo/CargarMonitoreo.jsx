@@ -628,6 +628,7 @@ export function PanelVentana({
     [bd, area, ventana, hoy],
   );
 
+  const [verProyectos, setVerProyectos] = useState(false);
   const [abiertoProyecto, setAbiertoProyecto] = useState(null);
   const [borradorProyecto, setBorradorProyecto] = useState(null);
   const [abiertoCompromiso, setAbiertoCompromiso] = useState(null);
@@ -784,34 +785,17 @@ export function PanelVentana({
           <p className="text-[11px] text-tenue">Ninguno vigente en esta ventana.</p>
         )}
         <div className="flex flex-col gap-1.5">
-          {compromisosSueltos.map((c) => {
-            const cAbierto = abiertoCompromiso === c.id;
-            const nivel = c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes);
-            return (
-              <div key={c.id} className={`rounded-chip border ${cAbierto ? 'border-acento' : 'border-borde'}`}>
-                <button
-                  type="button"
-                  onClick={() => alternarCompromiso(c)}
-                  className="flex w-full items-center gap-2 p-2.5 text-left"
-                >
-                  <Semaforo nivel={nivel} soloPunto texto={c.estado_efectivo} />
-                  <span className="text-sm text-tinta">{c.descripcion}</span>
-                  {!esBorradorVacio(borradoresCompromisos[c.id], c) && <Chip tono="proximo">Borrador</Chip>}
-                  <span className="ml-auto text-[11px] text-tenue">{fFecha(c.fecha_limite)}</span>
-                  <ChevronDown size={14} className={`shrink-0 text-tenue transition-transform ${cAbierto ? 'rotate-180' : ''}`} />
-                </button>
-                {cAbierto && (
-                  <EditorCompromiso
-                    compromiso={c}
-                    borrador={borradoresCompromisos[c.id]}
-                    alCambiarBorrador={(parcial) => alEditarBorradorCompromiso(c.id, parcial)}
-                    alGuardar={cerrarCompromiso}
-                    etiquetaGuardar="Guardar borrador"
-                  />
-                )}
-              </div>
-            );
-          })}
+          {compromisosSueltos.map((c) => (
+            <FilaCompromiso
+              key={c.id}
+              compromiso={c}
+              abierto={abiertoCompromiso === c.id}
+              alAlternar={() => alternarCompromiso(c)}
+              borrador={borradoresCompromisos[c.id]}
+              alCambiarBorrador={(parcial) => alEditarBorradorCompromiso(c.id, parcial)}
+              alCerrar={cerrarCompromiso}
+            />
+          ))}
         </div>
 
         {creandoSuelto ? (
@@ -870,6 +854,24 @@ export function PanelVentana({
         )}
       </div>
 
+      {/* La lista de proyectos arranca plegada: al iniciar el monitoreo lo que se
+          repasa son los compromisos, y los proyectos (cada uno con su formulario
+          y sus compromisos adentro) empujaban todo lo demás fuera de pantalla.
+          No se saca del todo porque los compromisos que cuelgan de un proyecto
+          sólo se ven dentro de su tarjeta. */}
+      <button
+        type="button"
+        onClick={() => setVerProyectos((v) => !v)}
+        aria-expanded={verProyectos}
+        className="flex w-full items-center gap-2 rounded-chip border border-borde bg-card p-2.5 text-left text-sm font-medium text-tinta transition-colors hover:bg-paper"
+      >
+        <Calendar size={15} className="shrink-0 text-acento" />
+        Proyectos del área ({proyectosArea.length})
+        <ChevronDown size={14} className={`ml-auto shrink-0 text-tenue transition-transform ${verProyectos ? 'rotate-180' : ''}`} />
+      </button>
+
+      {verProyectos && (
+        <div className="mt-2.5">
       {proyectosArea.length === 0 ? (
         <Vacio
           icono={Calendar}
@@ -911,7 +913,56 @@ export function PanelVentana({
           ))}
         </div>
       )}
+        </div>
+      )}
     </Tarjeta>
+  );
+}
+
+/**
+ * Una fila-acordeón de compromiso. Es una sola para los compromisos sueltos y
+ * los de cada proyecto, para que "abierto" se vea igual en los dos.
+ *
+ * Abierta, la fila se separa de las cerradas en tres capas: cabecera teñida de
+ * acento con el texto en negrita (dónde estoy), cuerpo sobre fondo gris (los
+ * campos blancos resaltan sobre él, y se distingue de la lista de arriba y de
+ * abajo) y borde de acento. Antes las tres cosas eran blancas, con el mismo
+ * tamaño y peso, y con varios compromisos cargados no se veía dónde terminaba
+ * uno y empezaba el otro.
+ */
+function FilaCompromiso({ compromiso: c, abierto, alAlternar, borrador, alCambiarBorrador, alCerrar, refFila }) {
+  const nivel = c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes);
+  return (
+    <div
+      ref={refFila}
+      className={`rounded-chip border transition-colors ${abierto ? 'border-acento shadow-card' : 'border-borde bg-card'}`}
+    >
+      <button
+        type="button"
+        onClick={alAlternar}
+        aria-expanded={abierto}
+        className={`flex w-full items-center gap-2 p-2.5 text-left transition-colors ${
+          abierto ? 'rounded-t-chip bg-acento-suave' : 'rounded-chip hover:bg-paper'
+        }`}
+      >
+        <Semaforo nivel={nivel} soloPunto texto={c.estado_efectivo} />
+        <span className={`text-sm ${abierto ? 'font-semibold text-acento-fuerte' : 'text-tinta'}`}>{c.descripcion}</span>
+        {!esBorradorVacio(borrador, c) && <Chip tono="proximo">Borrador</Chip>}
+        <span className="ml-auto text-[11px] text-tenue">{fFecha(c.fecha_limite)}</span>
+        <ChevronDown size={14} className={`shrink-0 text-tenue transition-transform ${abierto ? 'rotate-180' : ''}`} />
+      </button>
+      {abierto && (
+        <div className="rounded-b-chip border-t border-acento-medio bg-paper">
+          <EditorCompromiso
+            compromiso={c}
+            borrador={borrador}
+            alCambiarBorrador={alCambiarBorrador}
+            alGuardar={alCerrar}
+            etiquetaGuardar="Guardar borrador"
+          />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1038,41 +1089,21 @@ function TarjetaProyectoVentana({
             <p className="text-[11px] text-tenue">Ningún compromiso vigente de este proyecto vence en esta ventana.</p>
           )}
           <div className="flex flex-col gap-1.5">
-            {compromisosVentana.map((c) => {
-              const cAbierto = abiertoCompromiso === c.id;
-              const nivel = c.estado_efectivo === 'cumplido' ? 'enregla' : nivelPorDias(c.dias_restantes);
-              return (
-                <div
-                  key={c.id}
-                  ref={(el) => {
-                    if (el) compromisoRefs.current.set(c.id, el);
-                    else compromisoRefs.current.delete(c.id);
-                  }}
-                  className={`rounded-chip border ${cAbierto ? 'border-acento' : 'border-borde'}`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => alAlternarCompromiso(c)}
-                    className="flex w-full items-center gap-2 p-2.5 text-left"
-                  >
-                    <Semaforo nivel={nivel} soloPunto texto={c.estado_efectivo} />
-                    <span className="text-sm text-tinta">{c.descripcion}</span>
-                    {!esBorradorVacio(borradoresCompromisos[c.id], c) && <Chip tono="proximo">Borrador</Chip>}
-                    <span className="ml-auto text-[11px] text-tenue">{fFecha(c.fecha_limite)}</span>
-                    <ChevronDown size={14} className={`shrink-0 text-tenue transition-transform ${cAbierto ? 'rotate-180' : ''}`} />
-                  </button>
-                  {cAbierto && (
-                    <EditorCompromiso
-                      compromiso={c}
-                      borrador={borradoresCompromisos[c.id]}
-                      alCambiarBorrador={(parcial) => alEditarBorradorCompromiso(c.id, parcial)}
-                      alGuardar={alCerrarCompromiso}
-                      etiquetaGuardar="Guardar borrador"
-                    />
-                  )}
-                </div>
-              );
-            })}
+            {compromisosVentana.map((c) => (
+              <FilaCompromiso
+                key={c.id}
+                compromiso={c}
+                abierto={abiertoCompromiso === c.id}
+                alAlternar={() => alAlternarCompromiso(c)}
+                borrador={borradoresCompromisos[c.id]}
+                alCambiarBorrador={(parcial) => alEditarBorradorCompromiso(c.id, parcial)}
+                alCerrar={alCerrarCompromiso}
+                refFila={(el) => {
+                  if (el) compromisoRefs.current.set(c.id, el);
+                  else compromisoRefs.current.delete(c.id);
+                }}
+              />
+            ))}
           </div>
 
           {creandoCompromiso ? (
