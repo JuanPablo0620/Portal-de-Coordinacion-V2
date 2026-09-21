@@ -64,8 +64,21 @@ export function FormularioCorte({ abierto, alCerrar, corte, seleccion, alVolverA
   const bd = useBD();
   const hoy = hoyISO();
   const esEdicion = Boolean(corte);
+  /**
+   * Las fechas del evento, para que el corte arranque alineado con él. Un
+   * evento de un solo día no tiene `fecha_hasta`: el corte dura ese día.
+   */
+  const fechasDeEvento = (idEvento) => {
+    const evento = (bd?.eventos ?? []).find((e) => e.id === idEvento);
+    const desde = String(evento?.fecha ?? '').slice(0, 10);
+    if (!desde) return {};
+    const hasta = String(evento.fecha_hasta || desde).slice(0, 10);
+    return { vigencia_desde: desde, vigencia_hasta: hasta };
+  };
   const [datos, setDatos] = useState(() =>
-    corte ? { ...vacio(hoy), ...corte } : { ...vacio(hoy), id_evento: eventoInicial },
+    corte
+      ? { ...vacio(hoy), ...corte }
+      : { ...vacio(hoy), id_evento: eventoInicial, ...fechasDeEvento(eventoInicial) },
   );
   // Los tramos se pueden podar acá (quitar una calle que sobró) sin volver al
   // mapa, que es la corrección más frecuente.
@@ -77,6 +90,13 @@ export function FormularioCorte({ abierto, alCerrar, corte, seleccion, alVolverA
 
   const opcionesArea = useOpciones('areas');
   const cambiar = (campo) => (e) => setDatos((d) => ({ ...d, [campo]: e.target.value }));
+  // Al elegir un evento las fechas del corte se copian de él; siguen siendo
+  // editables (un corte puede empezar antes, por el armado). Al desvincularlo
+  // no se tocan: no hay a qué volver.
+  const cambiarEvento = (e) => {
+    const id = e.target.value;
+    setDatos((d) => ({ ...d, id_evento: id, ...fechasDeEvento(id) }));
+  };
 
   /** Las cuadras que siguen en juego después de podar tramos. */
   const cuadras = useMemo(() => {
@@ -260,7 +280,7 @@ export function FormularioCorte({ abierto, alCerrar, corte, seleccion, alVolverA
                   ayuda="opcional"
                   opciones={eventos}
                   value={datos.id_evento ?? ''}
-                  onChange={cambiar('id_evento')}
+                  onChange={cambiarEvento}
                 />
               </GrillaCampos>
             </div>
