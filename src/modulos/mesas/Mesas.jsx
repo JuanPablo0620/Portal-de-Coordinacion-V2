@@ -28,7 +28,7 @@ import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
  * agrega a mano a la lista de pestañas y, al elegirlo, se renderiza el módulo
  * de Eventos completo en vez de la grilla de mesas.
  */
-const DEFAULTS = { tipo: 'temática', mesa: '' };
+const DEFAULTS = { tipo: 'eventos', mesa: '' };
 
 export default function Mesas() {
   const bd = useBD();
@@ -44,14 +44,9 @@ export default function Mesas() {
 
   const enEventos = filtros.tipo === 'eventos';
 
+  // Eventos va primero y es la pestaña por defecto: es la que tiene actividad
+  // diaria. Abrir en una categoría de mesas vacía mostraba solo un botón de alta.
   const pestanias = [
-    ...TIPOS_MESA.map((tipo) => ({
-      valor: tipo,
-      titulo: CONFIG_TIPO[tipo].titulo,
-      icono: CONFIG_TIPO[tipo].icono,
-      color: CONFIG_TIPO[tipo].color,
-      cantidad: todas.filter((m) => m.tipo === tipo).length,
-    })),
     {
       valor: 'eventos',
       titulo: 'Eventos',
@@ -59,6 +54,13 @@ export default function Mesas() {
       color: 'var(--color-serie-6)',
       cantidad: totalEventos,
     },
+    ...TIPOS_MESA.map((tipo) => ({
+      valor: tipo,
+      titulo: CONFIG_TIPO[tipo].titulo,
+      icono: CONFIG_TIPO[tipo].icono,
+      color: CONFIG_TIPO[tipo].color,
+      cantidad: todas.filter((m) => m.tipo === tipo).length,
+    })),
   ];
 
   const delTipo = todas.filter((m) => m.tipo === filtros.tipo);
