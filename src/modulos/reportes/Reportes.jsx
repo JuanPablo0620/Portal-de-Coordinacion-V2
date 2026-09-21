@@ -163,6 +163,7 @@ function PanelFiltros({ filtros, setFiltros, limpiar, bd }) {
       filtros={filtros}
       defaults={DEFAULTS}
       alLimpiar={limpiar}
+      desplegable
       descripcion="Todos combinables entre sí. Se reflejan en la dirección: esta configuración se comparte pegando el enlace."
     >
       <GrillaFiltros columnas={4}>
