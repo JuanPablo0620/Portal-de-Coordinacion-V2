@@ -27,6 +27,26 @@ que el otro no puede deducir leyendo el repo.
 
 ## 1. Dónde está parado el portal
 
+### Monitoreo: las actualizaciones de compromisos se guardan al finalizar (21/09, sin commitear)
+
+Pasaba que una actualización de compromiso se escribía al apretar «Guardar
+cambios», y volver sobre el mismo compromiso 15 minutos después dejaba dos
+actualizaciones en el mismo monitoreo (Trabajo y Producción). Ahora, con el
+monitoreo abierto, lo que se edita queda como **borrador en localStorage**
+(clave aparte, por id de monitoreo, vía `repositorio.js`) y recién
+«Finalizar monitoreo» lo aplica: una actualización por compromiso.
+
+- Borrador **vacío** (sin texto, sin cambio de estado, fecha ni unidad) = no hay
+  actualización. Criterio en `src/datos/borradoresCompromisos.js`, con test.
+- **Decidir:** un cambio de estado *sin texto* hoy SÍ cuenta como actualización
+  (así se comportaba antes). Si JP quiere que sin texto no cuente, es un cambio
+  de una línea en `esBorradorVacio`.
+- Alcance: solo compromisos existentes. Guardar el **proyecto** y **crear** un
+  compromiso nuevo siguen escribiendo al instante.
+- Limitación conocida: los borradores viven en el navegador donde se cargaron;
+  no se retoman desde otra compu.
+- Sin definir: reabrir un monitoreo ya finalizado para corregir. Queda cerrado.
+
 ### Rama en desarrollo: plantillas de Reportes
 
 Reportes abre con el panel de filtros plegado y ofrece la plantilla fija

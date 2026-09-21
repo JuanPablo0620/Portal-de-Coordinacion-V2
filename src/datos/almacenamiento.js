@@ -58,6 +58,45 @@ export function escribirBD(bd) {
   }
 }
 
+const CLAVE_BORRADORES = 'coord3f_borradores_monitoreo_v1';
+
+/**
+ * Borradores de un monitoreo en curso, por id de monitoreo.
+ *
+ * Viven en una clave APARTE de la base: son trabajo a medio hacer de una
+ * reunión, no datos del sistema. Si estuvieran dentro de `coord3f_bd_v1`, un
+ * `limpiar()` de la base o una migración de esquema se los llevaría puestos, y
+ * un borrador que sobrevive a un cierre de pestaña es justamente el motivo de
+ * que existan. Se guardan por navegador: retomar el monitoreo desde otra
+ * computadora no los trae.
+ */
+export function leerBorradoresMonitoreo(idMonitoreo) {
+  if (!disponible) return null;
+  try {
+    const crudo = localStorage.getItem(CLAVE_BORRADORES);
+    return (crudo ? JSON.parse(crudo) : {})[idMonitoreo] ?? null;
+  } catch (error) {
+    console.error('No se pudieron leer los borradores del monitoreo', error);
+    return null;
+  }
+}
+
+/** Guarda los borradores de un monitoreo; con `null` (o vacío) borra su entrada. */
+export function escribirBorradoresMonitoreo(idMonitoreo, borradores) {
+  if (!disponible) return false;
+  try {
+    const crudo = localStorage.getItem(CLAVE_BORRADORES);
+    const todos = crudo ? JSON.parse(crudo) : {};
+    if (borradores && Object.keys(borradores).length) todos[idMonitoreo] = borradores;
+    else delete todos[idMonitoreo];
+    localStorage.setItem(CLAVE_BORRADORES, JSON.stringify(todos));
+    return true;
+  } catch (error) {
+    console.error('No se pudieron persistir los borradores del monitoreo', error);
+    return false;
+  }
+}
+
 /** Borra la base persistida. */
 export function limpiar() {
   if (!disponible) return;

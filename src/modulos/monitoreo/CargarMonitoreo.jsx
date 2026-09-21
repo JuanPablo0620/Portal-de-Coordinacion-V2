@@ -43,6 +43,8 @@ import {
 import { fecha as fFecha, numero } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 import { acciones, useBD } from '../../estado/tienda.js';
+import { borradoresAplicables, esBorradorVacio } from '../../datos/borradoresCompromisos.js';
+import { useBorradoresCompromisos } from './useBorradoresCompromisos.js';
 
 const TEMA_VACIO = {
   categoria: '',
@@ -148,6 +150,20 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
   const [monitoreo, setMonitoreo] = useState(monitoreoInicial);
   const [temasCargados, setTemasCargados] = useState([]);
   const [huboActualizacion, setHuboActualizacion] = useState(false);
+
+  // Las actualizaciones de compromisos no se guardan al editarlas sino al
+  // finalizar el monitoreo (ver `finalizar`): así un compromiso se puede
+  // volver a tocar durante la reunión sin duplicar su actualización.
+  const bd = useBD();
+  const {
+    borradores: borradoresCompromisos,
+    editar: editarBorradorCompromiso,
+    descartar: descartarBorrador,
+  } = useBorradoresCompromisos(monitoreo?.id ?? null);
+  const aplicables = useMemo(
+    () => (bd ? borradoresAplicables(borradoresCompromisos, bd.compromisos) : []),
+    [bd, borradoresCompromisos],
+  );
 
   const [texto, setTexto] = useState('');
   const [transferido, setTransferido] = useState(false);
@@ -299,13 +315,22 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
    * exigir un proyecto contradecia el modelo.
    */
   async function finalizar() {
-    if (!huboActualizacion) {
-      marcar('cierre', 'Guardá al menos una actualización de proyecto o de compromiso antes de finalizar.');
+    if (!huboActualizacion && aplicables.length === 0) {
+      marcar('cierre', 'Cargá al menos una actualización de proyecto o de compromiso antes de finalizar.');
       return;
     }
     setTrabajando(true);
     try {
+      // Recién acá se escriben las actualizaciones de compromisos: una por
+      // compromiso, con la versión final del borrador. Cada una se descarta al
+      // aplicarse para que, si algo falla a mitad de camino, reintentar no
+      // duplique las que ya salieron.
+      for (const [id, borrador] of aplicables) {
+        await acciones.actualizarEstadoCompromiso(id, borrador);
+        descartarBorrador(id);
+      }
       await acciones.finalizarMonitoreo(monitoreo.id);
+      acciones.guardarBorradoresCompromisos(monitoreo.id, null);
       alTerminar?.();
     } catch (e) {
       marcar('cierre', e.message);
@@ -357,20 +382,30 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
           <Chip tono="acento">{fFecha(monitoreo.fecha)}</Chip>
           <span className="text-sm font-medium text-tinta">{monitoreo.area}</span>
           <span className="text-xs text-gris">
-            {huboActualizacion ? 'Actualización registrada' : 'Sin actualizaciones todavía'}
+            {aplicables.length > 0
+              ? `${aplicables.length} compromiso${aplicables.length === 1 ? '' : 's'} con actualización sin guardar`
+              : huboActualizacion
+                ? 'Actualización registrada'
+                : 'Sin actualizaciones todavía'}
           </span>
           <Boton
             variante="primario"
             icono={ClipboardCheck}
             onClick={finalizar}
-            disabled={trabajando || !huboActualizacion}
+            disabled={trabajando || (!huboActualizacion && aplicables.length === 0)}
             className="ml-auto"
           >
             Finalizar monitoreo
           </Boton>
         </div>
-        {!huboActualizacion && (
-          <p className="mt-2 text-xs text-tenue">Guardá al menos una actualización de proyecto o de compromiso para poder finalizar.</p>
+        {aplicables.length > 0 && (
+          <p className="mt-2 text-xs text-tenue">
+            Las actualizaciones de compromisos se guardan recién al finalizar el monitoreo. Hasta entonces las podés
+            seguir editando.
+          </p>
+        )}
+        {!huboActualizacion && aplicables.length === 0 && (
+          <p className="mt-2 text-xs text-tenue">Cargá al menos una actualización de proyecto o de compromiso para poder finalizar.</p>
         )}
         {errores.cierre && (
           <div className="mt-3">
@@ -544,6 +579,8 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
         monitoreoId={monitoreo.id}
         hoy={hoy}
         alRegistrarActualizacion={() => setHuboActualizacion(true)}
+        borradoresCompromisos={borradoresCompromisos}
+        alEditarBorradorCompromiso={editarBorradorCompromiso}
       />
     </div>
   );
@@ -567,7 +604,17 @@ export function CargarMonitoreo({ alTerminar, areaInicial = '', monitoreoInicial
  * estado local de "monitoreo iniciado", así que ninguna URL lo alcanza y sin
  * esto no entraría en el render de control (ver `pruebas/humo/entrada.jsx`).
  */
-export function PanelVentana({ area, monitoreoId, hoy, alRegistrarActualizacion }) {
+export function PanelVentana({
+  area,
+  monitoreoId,
+  hoy,
+  alRegistrarActualizacion,
+  // Borradores de compromisos por id, que administra CargarMonitoreo porque es
+  // quien los aplica al finalizar. Sin ellos (prueba de humo) el panel se
+  // dibuja igual, sólo que lo que se edite no se conserva.
+  borradoresCompromisos = {},
+  alEditarBorradorCompromiso = () => {},
+}) {
   const bd = useBD();
 
   const ventana = useMemo(
@@ -586,7 +633,6 @@ export function PanelVentana({ area, monitoreoId, hoy, alRegistrarActualizacion 
   const [abiertoProyecto, setAbiertoProyecto] = useState(null);
   const [borradorProyecto, setBorradorProyecto] = useState(null);
   const [abiertoCompromiso, setAbiertoCompromiso] = useState(null);
-  const [borradorCompromiso, setBorradorCompromiso] = useState(null);
   const [creandoCompromiso, setCreandoCompromiso] = useState(false);
   const [nuevoCompromiso, setNuevoCompromiso] = useState(null);
   /**
@@ -609,7 +655,6 @@ export function PanelVentana({ area, monitoreoId, hoy, alRegistrarActualizacion 
       setBorradorProyecto({ estado: p.estado, observaciones: p.observaciones ?? '', avance: p.avance ?? 0 });
     }
     setAbiertoCompromiso(null);
-    setBorradorCompromiso(null);
     setCreandoCompromiso(false);
     setNuevoCompromiso(null);
   }
@@ -635,41 +680,17 @@ export function PanelVentana({ area, monitoreoId, hoy, alRegistrarActualizacion 
     }
   }
 
-  function alternarCompromiso(c) {
-    if (abiertoCompromiso === c.id) {
-      setAbiertoCompromiso(null);
-      setBorradorCompromiso(null);
-    } else {
-      setAbiertoCompromiso(c.id);
-      setBorradorCompromiso({ estado: c.estado, fecha_limite: c.fecha_limite ?? '' });
-    }
-  }
+  const alternarCompromiso = (c) => setAbiertoCompromiso((actual) => (actual === c.id ? null : c.id));
 
   /**
-   * Guardar los cambios de un compromiso ya cargado.
-   *
-   * Sin el try/catch el boton no hacia NADA cuando fallaba: la promesa se
-   * rompia en silencio, no se cerraba el formulario y no aparecia ningun
-   * mensaje. Es el mismo agujero que tenian los formularios de eventos antes de
-   * que los datos vivieran en Supabase, donde guardar no fallaba nunca.
+   * «Guardar» un compromiso durante el monitoreo sólo cierra el formulario: lo
+   * cargado ya quedó en el borrador (se guarda en cada cambio) y se escribe en
+   * la base al finalizar el monitoreo. Antes cada «Guardar cambios» escribía
+   * una actualización, y volver sobre un compromiso 15 minutos después dejaba
+   * dos actualizaciones en el mismo monitoreo (Trabajo y Producción,
+   * septiembre 2026).
    */
-  async function guardarCompromiso(c, p) {
-    setErrorAccion(null);
-    setGuardando(true);
-    try {
-      await acciones.actualizarEstadoCompromiso(c.id, borradorCompromiso);
-      alRegistrarActualizacion?.();
-      setAbiertoCompromiso(null);
-      setBorradorCompromiso(null);
-    } catch (error) {
-      setErrorAccion({
-        idProyecto: p?.id_proyecto ?? null,
-        mensaje: `No se pudo guardar el compromiso: ${error.message}`,
-      });
-    } finally {
-      setGuardando(false);
-    }
-  }
+  const cerrarCompromiso = () => setAbiertoCompromiso(null);
 
   function abrirNuevoCompromiso() {
     setCreandoCompromiso(true);
@@ -779,15 +800,17 @@ export function PanelVentana({ area, monitoreoId, hoy, alRegistrarActualizacion 
                 >
                   <Semaforo nivel={nivel} soloPunto texto={c.estado_efectivo} />
                   <span className="text-sm text-tinta">{c.descripcion}</span>
+                  {!esBorradorVacio(borradoresCompromisos[c.id], c) && <Chip tono="proximo">Borrador</Chip>}
                   <span className="ml-auto text-[11px] text-tenue">{fFecha(c.fecha_limite)}</span>
                   <ChevronDown size={14} className={`shrink-0 text-tenue transition-transform ${cAbierto ? 'rotate-180' : ''}`} />
                 </button>
                 {cAbierto && (
                   <EditorCompromiso
                     compromiso={c}
-                    borrador={borradorCompromiso}
-                    alCambiarBorrador={(parcial) => setBorradorCompromiso((b) => ({ ...b, ...parcial }))}
-                    alGuardar={() => guardarCompromiso(c, null)}
+                    borrador={borradoresCompromisos[c.id]}
+                    alCambiarBorrador={(parcial) => alEditarBorradorCompromiso(c.id, parcial)}
+                    alGuardar={cerrarCompromiso}
+                    etiquetaGuardar="Guardar borrador"
                   />
                 )}
               </div>
@@ -875,9 +898,9 @@ export function PanelVentana({ area, monitoreoId, hoy, alRegistrarActualizacion 
               alGuardar={() => guardarProyecto(p)}
               abiertoCompromiso={abiertoCompromiso}
               alAlternarCompromiso={alternarCompromiso}
-              borradorCompromiso={borradorCompromiso}
-              alCambiarBorradorCompromiso={(parcial) => setBorradorCompromiso((b) => ({ ...b, ...parcial }))}
-              alGuardarCompromiso={(c) => guardarCompromiso(c, p)}
+              borradoresCompromisos={borradoresCompromisos}
+              alEditarBorradorCompromiso={alEditarBorradorCompromiso}
+              alCerrarCompromiso={cerrarCompromiso}
               creandoCompromiso={creandoCompromiso}
               alAbrirNuevoCompromiso={abrirNuevoCompromiso}
               alCerrarNuevoCompromiso={() => {
@@ -910,9 +933,9 @@ function TarjetaProyectoVentana({
   alGuardar,
   abiertoCompromiso,
   alAlternarCompromiso,
-  borradorCompromiso,
-  alCambiarBorradorCompromiso,
-  alGuardarCompromiso,
+  borradoresCompromisos,
+  alEditarBorradorCompromiso,
+  alCerrarCompromiso,
   creandoCompromiso,
   alAbrirNuevoCompromiso,
   alCerrarNuevoCompromiso,
@@ -1039,15 +1062,17 @@ function TarjetaProyectoVentana({
                   >
                     <Semaforo nivel={nivel} soloPunto texto={c.estado_efectivo} />
                     <span className="text-sm text-tinta">{c.descripcion}</span>
+                    {!esBorradorVacio(borradoresCompromisos[c.id], c) && <Chip tono="proximo">Borrador</Chip>}
                     <span className="ml-auto text-[11px] text-tenue">{fFecha(c.fecha_limite)}</span>
                     <ChevronDown size={14} className={`shrink-0 text-tenue transition-transform ${cAbierto ? 'rotate-180' : ''}`} />
                   </button>
                   {cAbierto && (
                     <EditorCompromiso
                       compromiso={c}
-                      borrador={borradorCompromiso}
-                      alCambiarBorrador={alCambiarBorradorCompromiso}
-                      alGuardar={() => alGuardarCompromiso(c)}
+                      borrador={borradoresCompromisos[c.id]}
+                      alCambiarBorrador={(parcial) => alEditarBorradorCompromiso(c.id, parcial)}
+                      alGuardar={alCerrarCompromiso}
+                      etiquetaGuardar="Guardar borrador"
                     />
                   )}
                 </div>
