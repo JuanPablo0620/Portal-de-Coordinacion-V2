@@ -35,6 +35,10 @@ superficies, tablas, formularios, gráficos y estados sin estilos particulares
 por pantalla. La preferencia queda guardada por navegador y no se sincroniza
 con Supabase ni afecta a los demás usuarios.
 
+La variante elegida es **Grafito frío**: fondo `#101419`, tarjetas `#1A2027`
+y barra lateral `#151A20`. El azul queda reservado para acciones, selección y
+series de datos, en vez de teñir todas las superficies.
+
 - El control es alcanzable por teclado, anuncia su estado como switch y tiene
   objetivo táctil de 44 px.
 - Validación: 402 pruebas y build aprobados. El chequeo de contraste lee

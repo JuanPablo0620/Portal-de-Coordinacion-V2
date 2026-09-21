@@ -191,7 +191,7 @@ export function Layout() {
       </a>
 
       {/* Barra lateral fija — escritorio */}
-      <aside className="barra-lateral no-imprimir hidden w-60 shrink-0 flex-col border-r border-borde bg-card lg:flex">
+      <aside className="barra-lateral no-imprimir hidden w-60 shrink-0 flex-col border-r border-borde bg-barra lg:flex">
         <Marca />
         <Navegacion />
       </aside>
@@ -205,7 +205,7 @@ export function Layout() {
             onClick={() => setMenuAbierto(false)}
             aria-label="Cerrar menú"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-60 flex-col border-r border-borde bg-card shadow-flotante">
+          <aside className="absolute inset-y-0 left-0 flex w-60 flex-col border-r border-borde bg-barra shadow-flotante">
             <Marca />
             <Navegacion alNavegar={() => setMenuAbierto(false)} />
           </aside>

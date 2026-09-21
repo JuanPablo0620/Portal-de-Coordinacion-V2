@@ -9,6 +9,7 @@
   /* Superficies */
   --color-paper: #f4f6f9;
   --color-card: #ffffff;
+  --color-barra: #ffffff;
   /* `borde` separa; `borde-fuerte` DELIMITA un control. Por eso el segundo
      llega a 3:1 contra el fondo —lo pide la pauta 1.4.11 para el contorno de un
      campo o un botón— y el primero, que es decoración, se queda suave. */
@@ -126,19 +127,21 @@
    gráficos, formularios y tarjetas cambian juntos y el semáforo mantiene su
    significado y contraste. */
 :root[data-tema='bluenight'] {
-  --color-paper: #081426;
-  --color-card: #10233d;
-  --color-borde: #264362;
-  --color-borde-fuerte: #7895b5;
-  --color-tinta: #f2f7ff;
-  --color-gris: #c0ccdc;
-  --color-tenue: #9aaec4;
+  color-scheme: dark;
+  --color-paper: #101419;
+  --color-card: #1a2027;
+  --color-barra: #151a20;
+  --color-borde: #35404b;
+  --color-borde-fuerte: #858f9a;
+  --color-tinta: #f4f7fa;
+  --color-gris: #b9c2cc;
+  --color-tenue: #9ca7b2;
 
-  --color-acento: #5aa7f5;
-  --color-acento-suave: #173c67;
-  --color-acento-medio: #2c608f;
-  --color-acento-fuerte: #c5e2ff;
-  --color-limite-mapa: #78bbff;
+  --color-acento: #6ea6d6;
+  --color-acento-suave: #20384e;
+  --color-acento-medio: #3c6385;
+  --color-acento-fuerte: #c7e3fa;
+  --color-limite-mapa: #6ea6d6;
 
   --color-vencido: #ffc1c7;
   --color-vencido-texto: #ffabb3;
@@ -153,8 +156,8 @@
   --color-enregla-texto: #a1edbd;
   --color-enregla-suave: #15422e;
   --color-sindato: #e1e7ed;
-  --color-sindato-texto: #c0ccdc;
-  --color-sindato-suave: #25384f;
+  --color-sindato-texto: #c5ccd3;
+  --color-sindato-suave: #2a3037;
 
   --color-area-amb: #67adff;
   --color-area-amb-texto: #8dc4ff;
