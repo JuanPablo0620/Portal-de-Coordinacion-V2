@@ -38,6 +38,7 @@ export function EditorCompromiso({
   conFechaLimite = true,
   diseno = 'normal',
   pie,
+  etiquetaGuardar = 'Guardar cambios',
 }) {
   if (diseno === 'panel-operativo') {
     return (
@@ -96,7 +97,7 @@ export function EditorCompromiso({
           </Boton>
         )}
         <Boton variante="primario" tamanio="sm" icono={Check} onClick={alGuardar} disabled={guardando}>
-          {guardando ? 'Guardando…' : 'Guardar cambios'}
+          {guardando ? 'Guardando…' : etiquetaGuardar}
         </Boton>
       </div>
     </div>

@@ -8,7 +8,7 @@
  * el cuerpo de cada función por un `fetch` sin tocar un solo componente.
  * ─────────────────────────────────────────────────────────────────────
  */
-import { leerBD, escribirBD, limpiar } from './almacenamiento.js';
+import { leerBD, escribirBD, limpiar, leerBorradoresMonitoreo, escribirBorradoresMonitoreo } from './almacenamiento.js';
 import { bdVacia, normalizarBD, claveDe } from './esquema.js';
 import { crearAsiento, diffCampos } from './bitacora.js';
 import { nuevoId, generarIdProyecto } from './ids.js';
@@ -1222,6 +1222,18 @@ export async function actualizarTema(id, cambios) {
   });
 }
 
+/**
+ * Borradores de actualización de compromisos de un monitoreo abierto.
+ *
+ * Mientras el monitoreo está abierto, editar un compromiso NO escribe en la base:
+ * queda acá, y recién «Finalizar monitoreo» los aplica. Así un compromiso que se
+ * vuelve a tocar 15 minutos después (cuando ya van por el cuarto) se sigue
+ * editando, no genera una segunda actualización en el mismo monitoreo.
+ */
+export const leerBorradoresCompromisos = (idMonitoreo) => leerBorradoresMonitoreo(idMonitoreo) ?? {};
+export const guardarBorradoresCompromisos = (idMonitoreo, borradores) =>
+  escribirBorradoresMonitoreo(idMonitoreo, borradores);
+
 /** Validación §8.6: no se puede cerrar un monitoreo sin al menos un tema. */
 export async function finalizarMonitoreo(id) {
   const bd = await obtenerBD();
@@ -1239,6 +1251,8 @@ export async function finalizarMonitoreo(id) {
  */
 export async function bajaMonitoreo(id) {
   const bd = await obtenerBD();
+  // Un monitoreo dado de baja no se retoma: sus borradores serían basura.
+  escribirBorradoresMonitoreo(id, null);
   if (!monitoreosRemotos.activo()) return actualizar('monitoreos', id, { activo: false });
   return escribirRemoto('monitoreos', () => monitoreosRemotos.bajaMonitoreo(id), {
     accion: 'baja',
