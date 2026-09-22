@@ -7,7 +7,7 @@ import { useHaySesion, useSesion } from './estado/sesion.js';
 import Login from './modulos/acceso/Login.jsx';
 import CambiarPassword from './modulos/acceso/CambiarPassword.jsx';
 import Dashboard from './modulos/dashboard/Dashboard.jsx';
-import MisAreas from './modulos/mis-areas/MisAreas.jsx';
+import MiTrabajo from './modulos/mi-trabajo/MiTrabajo.jsx';
 import FichaEstrategico from './modulos/estrategicos/FichaEstrategico.jsx';
 import Proyectos from './modulos/proyectos/Proyectos.jsx';
 import FichaProyecto from './modulos/proyectos/FichaProyecto.jsx';
@@ -103,7 +103,10 @@ function Portal() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
-        <Route path="mis-areas" element={<MisAreas />} />
+        <Route path="mi-trabajo" element={<MiTrabajo />} />
+        {/* Sin esto, un favorito viejo cae en el comodín y termina en Inicio
+            sin decir por qué. Mismo criterio que `/eventos` arriba. */}
+        <Route path="mis-areas" element={<Navigate to="/mi-trabajo" replace />} />
         <Route path="proyectos" element={<Proyectos />} />
         <Route path="proyectos/:id" element={<FichaProyecto />} />
         <Route path="obras" element={<Obras />} />

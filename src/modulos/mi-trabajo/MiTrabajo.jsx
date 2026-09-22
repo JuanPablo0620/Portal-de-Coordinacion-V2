@@ -1,24 +1,35 @@
 /**
  * ─────────────────────────────────────────────────────────────────────
- * MIS ÁREAS — vista personal de monitoreo.
+ * MI TRABAJO — lo que tengo que empujar yo.
  *
- * Cada integrante de Coordinación sigue de cerca un subconjunto de
- * secretarías, no las siete. Esta pantalla es la versión recortada del
- * Tablero de secretarías (Monitoreo → Por secretaría): mismas tarjetas,
- * mismo semáforo, mismas alertas — solo que acotadas a las áreas que la
- * persona eligió, para no tener que mirar las siete cada vez.
+ * Antes se llamaba «Mis áreas» y sólo sabía de áreas: mostraba el tablero de
+ * secretarías recortado a las que cada uno eligió seguir. El problema es que
+ * un compromiso puede caer sobre una persona sin pasar por su área —sale de
+ * una mesa, de un seguimiento de otra secretaría, de una derivación— y no
+ * aparecía en ningún lado que fuera suyo.
  *
- * No hay login real en el sistema (ver `Configuración → Usuario actual`), así
- * que la identidad es el nombre libre de `config.usuario`. Cambiar ese nombre
- * cambia qué asignación se ve acá — es la misma convención que ya usa todo
- * el sistema para «quién carga esto», no una decisión nueva de este módulo.
+ * Ahora la pantalla une dos conjuntos, sin duplicados:
+ *
+ *   1. Los compromisos que están A MI NOMBRE, venga de donde venga.
+ *   2. Los de las ÁREAS que elegí seguir.
+ *
+ * La unión es por identidad de cuenta (`perfil.id`), no por el nombre libre
+ * de `config.usuario`: ese nombre se puede cambiar en Configuración, y atar
+ * la bandeja de alguien a un texto editable significa que renombrarse la
+ * vacía. El nombre queda para el selector de áreas, que sigue siendo una
+ * preferencia de quien usa esta computadora.
+ *
+ * La parte 1 funciona sin haber elegido ninguna área: quien no monitorea
+ * ninguna secretaría igual puede tener compromisos propios.
  * ─────────────────────────────────────────────────────────────────────
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Download, Save, UserCheck } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
-import { Aviso, Boton, Chip, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
+import {
+  Aviso, Boton, Chip, Conmutador, Semaforo, Tarjeta, Vacio, nivelPorDias,
+} from '../../componentes/Basicos.jsx';
 import { CampoCheck } from '../../componentes/Campo.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
 import { ListaAlertas } from '../../componentes/ListaAlertas.jsx';
@@ -26,6 +37,7 @@ import { identidadArea } from '../../componentes/identidadArea.jsx';
 import { TarjetaSecretaria } from '../monitoreo/TableroSecretarias.jsx';
 import { descargarCSV } from '../../datos/csv.js';
 import { calcularAlertas, TIPOS_ALERTA } from '../../datos/alertas.js';
+import { filtrarMiTrabajo } from '../../datos/equipo.js';
 import {
   areasAsignadas,
   compromisos as selCompromisos,
@@ -35,14 +47,19 @@ import {
 import { fecha as fFecha } from '../../utilidades/formato.js';
 import { useItems } from '../../utilidades/catalogos.js';
 import { acciones, useBD, useUsuario } from '../../estado/tienda.js';
+import { usePerfil } from '../../estado/sesion.js';
+
+const VISTAS = [
+  { valor: 'todos', titulo: 'Todo' },
+  { valor: 'asignados', titulo: 'A mi nombre' },
+  { valor: 'areas', titulo: 'De mis áreas' },
+];
 
 /**
- * Columnas de "Compromisos vencidos". A propósito NO son las de
- * `COLUMNAS_COMPROMISO` (columnasCompromiso.jsx) — esa versión también la
- * usan Seguimiento, la ficha de proyecto y la hoja de secretaría, y ahí no
- * se pidió este mismo recorte. Acá se saca Responsable, y el estado dice
- * sólo "N días" (sin la palabra "vencido" — ya está la tarjeta entera
- * tintada de rojo para eso).
+ * Columnas de «Vencidos». A propósito NO son las de `COLUMNAS_COMPROMISO`
+ * (columnasCompromiso.jsx) — esa versión también la usan Seguimiento, la
+ * ficha de proyecto y la hoja de secretaría, y ahí no se pidió este recorte.
+ * El estado dice sólo «N días»: la tarjeta ya está tintada de rojo.
  */
 const COLUMNAS_VENCIDOS = [
   {
@@ -55,7 +72,8 @@ const COLUMNAS_VENCIDOS = [
       </div>
     ),
   },
-  { clave: 'area', titulo: 'Área', ancho: 190 },
+  { clave: 'area', titulo: 'Área', ancho: 170 },
+  { clave: 'responsable_coordinacion', titulo: 'Responsable', ancho: 140 },
   {
     clave: 'fecha_limite',
     titulo: 'Vence',
@@ -66,74 +84,72 @@ const COLUMNAS_VENCIDOS = [
   {
     clave: 'estado_efectivo',
     titulo: 'Estado',
-    ancho: 130,
+    ancho: 120,
     render: (f) => <Semaforo nivel="vencido" texto={`${f.dias_atraso} días`} />,
   },
 ];
 
 /**
- * Columnas de "Compromisos pendientes" — hoy SÓLO para el CSV.
+ * Columnas de «pendientes» — hoy SÓLO para el CSV.
  *
- * La pantalla dejó de ser una tabla el 14/09/2026 (ver
- * `PendientesPorVencimiento` más abajo), pero la exportación sigue siendo
- * tabular: un CSV agrupado no se puede abrir en una planilla. Estas columnas
- * son las que tenía la tabla, así que el archivo que baja hoy es idéntico al
- * que bajaba antes — cambió cómo se lee en pantalla, no lo que se exporta.
- *
- * `aCSV` sólo mira `clave`, `titulo` y `formatoCSV`; los `render` quedaron
- * porque describen el valor de la columna y sirven si algún día vuelve a
- * usarse en una tabla.
+ * La pantalla dejó de ser una tabla el 14/09/2026 (ver `PorVencimiento`), pero
+ * la exportación sigue siendo tabular: un CSV agrupado no se abre en una
+ * planilla.
  */
 const COLUMNAS_PENDIENTES = [
   { clave: 'descripcion', titulo: 'Compromiso' },
   { clave: 'area', titulo: 'Área' },
+  { clave: 'responsable_coordinacion', titulo: 'Responsable' },
   { clave: 'fecha_limite', titulo: 'Vence', formatoCSV: fFecha },
   { clave: 'estado_efectivo', titulo: 'Estado' },
   { clave: 'origen_tipo', titulo: 'Origen' },
 ];
 
-export default function MisAreas() {
+export default function MiTrabajo() {
   const bd = useBD();
   const hoy = hoyISO();
   const usuario = useUsuario();
+  const perfil = usePerfil();
   const navegar = useNavigate();
   const areasCatalogo = useItems('areas');
+  const [vista, setVista] = useState('todos');
 
-  const asignadas = useMemo(() => (bd ? areasAsignadas(bd, usuario) : []), [bd, usuario]);
+  const asignadas = useMemo(
+    () => (bd ? areasAsignadas(bd, usuario, perfil?.id) : []),
+    [bd, usuario, perfil?.id],
+  );
+
+  // Se piden TODOS los compromisos y se filtran acá: el filtro `area` del
+  // selector devolvería sólo los de mis áreas, y lo que hace propia a esta
+  // pantalla es justamente lo que cae afuera de ellas.
+  const todos = useMemo(() => (bd ? selCompromisos(bd, {}, hoy) : []), [bd, hoy]);
+  const mios = useMemo(
+    () => filtrarMiTrabajo(todos, perfil?.id, asignadas, vista),
+    [todos, perfil?.id, asignadas, vista],
+  );
+
+  // `alerta` y no `vencido`: es lo que devuelve `estadoCompromiso()`. La
+  // pantalla vieja comparaba contra `vencido`, que el selector no emite
+  // nunca, así que esta tabla no se mostraba jamás y los vencidos se colaban
+  // entre los pendientes de abajo.
+  const vencidos = useMemo(() => mios.filter((c) => c.estado_efectivo === 'alerta'), [mios]);
+  const pendientes = useMemo(
+    () => mios.filter((c) => c.estado_efectivo !== 'alerta' && c.estado_efectivo !== 'cumplido'),
+    [mios],
+  );
 
   const alertas = useMemo(() => (bd ? calcularAlertas(bd, hoy) : []), [bd, hoy]);
   const alertasPropias = useMemo(
     () => alertas.filter((a) => asignadas.includes(a.area)),
     [alertas, asignadas],
   );
-  // Compromisos vencidos: misma fuente y misma tabla que "pendientes" de más
-  // abajo, filtrados al revés — así se ven exactamente igual en las dos
-  // secciones, solo cambia qué filas entran en cada una.
-  const compromisosVencidos = useMemo(
-    () =>
-      bd ? selCompromisos(bd, { area: asignadas }, hoy).filter((c) => c.estado_efectivo === 'vencido') : [],
-    [bd, asignadas, hoy],
-  );
-
   // Alertas críticas que no son un compromiso (ej. un cierre de posicionamiento
-  // ya vencido) — no tienen la forma de un compromiso, así que siguen con el
-  // formato compacto de alertas en vez de la tabla.
+  // vencido): no tienen forma de compromiso, así que van en formato compacto.
   const otrasAlertasVencidas = useMemo(
-    () =>
-      alertasPropias.filter((a) => a.severidad === 'critica' && a.tipo !== TIPOS_ALERTA.COMPROMISO_VENCIDO),
+    () => alertasPropias.filter(
+      (a) => a.severidad === 'critica' && a.tipo !== TIPOS_ALERTA.COMPROMISO_VENCIDO,
+    ),
     [alertasPropias],
-  );
-
-  // Los vencidos ya se muestran arriba — acá abajo sólo lo que sigue en curso
-  // (pendiente/en_curso) o se cumplió.
-  const compromisosPropios = useMemo(
-    () =>
-      bd
-        ? selCompromisos(bd, { area: asignadas, solo_vigentes: true }, hoy).filter(
-            (c) => c.estado_efectivo !== 'vencido',
-          )
-        : [],
-    [bd, asignadas, hoy],
   );
 
   const resumenes = useMemo(() => (bd ? resumenSecretarias(bd, {}, hoy) : []), [bd, hoy]);
@@ -144,48 +160,72 @@ export default function MisAreas() {
     return cuenta;
   }, [alertasPropias]);
 
+  const abrir = (c) => navegar(
+    `/seguimiento?tab=compromisos&area=${encodeURIComponent(c.area)}&compromiso=${c.id}`,
+  );
+
+  const aMiNombre = useMemo(
+    () => (perfil?.id ? todos.filter((c) => c.id_responsable === perfil.id).length : 0),
+    [todos, perfil?.id],
+  );
+  const sinNada = asignadas.length === 0 && aMiNombre === 0;
+
   return (
     <>
       <EncabezadoPagina
-        titulo="Mis áreas"
-        descripcion={`Secretarías que ${usuario} monitorea de cerca — alertas, compromisos pendientes y estado, sin tener que mirar las siete.`}
+        titulo="Mi trabajo"
+        descripcion="Los compromisos que están a tu nombre y los de las secretarías que seguís de cerca, en un solo lugar."
       />
       <Pagina className="flex flex-col gap-4">
-        <SelectorAreas usuario={usuario} areasCatalogo={areasCatalogo} asignadas={asignadas} />
-
-        {asignadas.length === 0 ? (
+        {sinNada ? (
           <Tarjeta>
             <Vacio
               icono={UserCheck}
-              titulo="Todavía no elegiste ninguna área"
-              descripcion="Marcá arriba las secretarías que seguís de cerca y guardá — el resto de esta pantalla se arma con lo que elijas."
+              titulo="Todavía no tenés nada acá"
+              descripcion="No hay compromisos a tu nombre ni elegiste secretarías para seguir. Marcá abajo las que monitoreás y guardá."
             />
           </Tarjeta>
         ) : (
           <>
-            {/* Fondo apenas tintado de rojo para que la tarjeta se distinga del resto
-                de un vistazo, sin ser disruptiva — mismo tono que ya usa la app para
-                sus chips de "vencido" (--color-vencido-suave). El borde va un poco
-                más saturado, para que se note el recuadro. */}
-            {compromisosVencidos.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Conmutador
+                etiqueta="Qué compromisos mostrar"
+                opciones={VISTAS}
+                valor={vista}
+                alCambiar={setVista}
+              />
+              <p className="text-xs text-gris">
+                {aMiNombre} a tu nombre · {asignadas.length} secretaría
+                {asignadas.length === 1 ? '' : 's'} que seguís
+              </p>
+            </div>
+
+            {/* Fondo apenas tintado de rojo para que se distinga de un vistazo
+                sin ser disruptivo — mismo tono que los chips de «vencido». */}
+            {vencidos.length > 0 && (
               <Tarjeta
-                titulo="Alerta: Compromisos vencidos de tus áreas"
-                descripcion="Un clic en la fila abre el compromiso en Seguimiento."
+                titulo="Vencidos"
+                descripcion="Pasó la fecha límite y siguen abiertos. Un clic en la fila abre el compromiso en Seguimiento."
                 sinPadding
                 style={{ background: 'var(--color-vencido-suave)', borderColor: '#f0c7cb' }}
               >
                 <Tabla
-                  nombreExport="mis-areas-compromisos-vencidos"
-                  filas={compromisosVencidos}
+                  nombreExport="mi-trabajo-vencidos"
+                  filas={vencidos}
                   conBusqueda={false}
                   columnas={COLUMNAS_VENCIDOS}
                   colorEncabezado="#f6d8dc"
-                  alHacerClicFila={(c) =>
-                    navegar(`/seguimiento?tab=compromisos&area=${encodeURIComponent(c.area)}&compromiso=${c.id}`)
-                  }
+                  alHacerClicFila={abrir}
                 />
               </Tarjeta>
             )}
+
+            <PorVencimiento
+              compromisos={pendientes}
+              areasCatalogo={areasCatalogo}
+              perfilId={perfil?.id}
+              alAbrir={abrir}
+            />
 
             {otrasAlertasVencidas.length > 0 && (
               <Tarjeta
@@ -197,66 +237,53 @@ export default function MisAreas() {
               </Tarjeta>
             )}
 
-            <PendientesPorVencimiento
-              compromisos={compromisosPropios}
-              areasCatalogo={areasCatalogo}
-              alAbrir={(c) =>
-                navegar(`/seguimiento?tab=compromisos&area=${encodeURIComponent(c.area)}&compromiso=${c.id}`)
-              }
-            />
-
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-tenue">
-                Estado de tus secretarías
-              </p>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {propios.map((r) => (
-                  <TarjetaSecretaria
-                    key={r.area}
-                    resumen={r}
-                    prefijo={areasCatalogo.find((a) => a.nombre === r.area)?.prefijo}
-                    alertas={porArea.get(r.area) ?? 0}
-                    alAbrir={() =>
-                      navegar(`/monitoreo?tab=secretarias&secretaria=${encodeURIComponent(r.area)}`)
-                    }
-                  />
-                ))}
+            {propios.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-tenue">
+                  Estado de tus secretarías
+                </p>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {propios.map((r) => (
+                    <TarjetaSecretaria
+                      key={r.area}
+                      resumen={r}
+                      prefijo={areasCatalogo.find((a) => a.nombre === r.area)?.prefijo}
+                      alertas={porArea.get(r.area) ?? 0}
+                      alAbrir={() => navegar(
+                        `/monitoreo?tab=secretarias&secretaria=${encodeURIComponent(r.area)}`,
+                      )}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
+
+        <SelectorAreas usuario={usuario} areasCatalogo={areasCatalogo} asignadas={asignadas} />
       </Pagina>
     </>
   );
 }
 
-/* ── Compromisos pendientes, agrupados por vencimiento ───────────────── */
+/* ── Compromisos agrupados por vencimiento ──────────────────────────── */
 
 /**
  * La fecha de vencimiento es un ENCABEZADO, no una celda repetida.
  *
- * La tabla anterior tenía cuatro columnas y tres de ellas escribían el mismo
- * valor en todas las filas: el área (cuando se sigue una sola secretaría, que
- * es el caso habitual de esta pantalla), la fecha y el estado. Con los seis
- * compromisos de Ambiente del 14/09/2026 eso era «Secretaría de Ambiente y
- * Servicios Públicos · 21/10/2026 · pendiente» seis veces — cerca del 45% del
- * ancho ocupado por texto que no distingue una fila de otra.
+ * La tabla anterior tenía cuatro columnas y tres escribían el mismo valor en
+ * todas las filas: el área, la fecha y el estado. Con los seis compromisos de
+ * Ambiente del 14/09/2026 eso era «Secretaría de Ambiente y Servicios
+ * Públicos · 21/10/2026 · pendiente» seis veces — cerca del 45% del ancho
+ * ocupado por texto que no distingue una fila de otra.
  *
- * Acá cada vencimiento se enuncia una sola vez, con los días que faltan
- * —que es el dato que decide si algo se trata hoy o la semana que viene, y que
- * la tabla no mostraba— y cuántos compromisos caen ahí. La fila queda en una
- * línea: sigla del área, texto, origen.
- *
- * El estado no se escribe: los cumplidos y los vencidos no llegan hasta acá
- * (los primeros los saca `solo_vigentes`, los segundos tienen su propia tabla
- * arriba), así que el chip «pendiente» repetido no informaba nada. Lo que sí
- * varía —cuán cerca está el vencimiento— lo dice el punto del semáforo, con
- * la misma escala de `nivelPorDias` que usa el resto del portal.
+ * Acá cada vencimiento se enuncia una sola vez, con los días que faltan —que
+ * es el dato que decide si algo se trata hoy o la semana que viene— y cuántos
+ * compromisos caen ahí. La fila queda en una línea.
  */
-function PendientesPorVencimiento({ compromisos, areasCatalogo, alAbrir }) {
+function PorVencimiento({ compromisos, areasCatalogo, perfilId, alAbrir }) {
   // `selCompromisos` ya devuelve ordenado por `fecha_limite` ascendente y con
-  // los sin fecha al final; agrupar con un Map conserva ese orden, así que no
-  // hay que volver a ordenar ni replicar el criterio.
+  // los sin fecha al final; agrupar con un Map conserva ese orden.
   const grupos = useMemo(() => {
     const porFecha = new Map();
     for (const c of compromisos) {
@@ -271,24 +298,22 @@ function PendientesPorVencimiento({ compromisos, areasCatalogo, alAbrir }) {
 
   return (
     <Tarjeta
-      titulo="Compromisos pendientes de tus áreas"
-      descripcion="Vigentes, no recortados por período: son estado, no historia. Los vencidos no se repiten acá — están arriba, en su propia tabla. Un clic en la fila abre el compromiso en Seguimiento."
+      titulo="Pendientes"
+      descripcion="Vigentes, no recortados por período: son estado, no historia. Los vencidos no se repiten acá — están arriba. Un clic en la fila abre el compromiso en Seguimiento."
       sinPadding
-      acciones={
-        compromisos.length > 0 && (
-          <Boton
-            tamanio="sm"
-            icono={Download}
-            onClick={() => descargarCSV('mis-areas-compromisos', compromisos, COLUMNAS_PENDIENTES)}
-            title="Exportar a CSV los compromisos de la lista"
-          >
-            CSV
-          </Boton>
-        )
-      }
+      acciones={compromisos.length > 0 && (
+        <Boton
+          tamanio="sm"
+          icono={Download}
+          onClick={() => descargarCSV('mi-trabajo-compromisos', compromisos, COLUMNAS_PENDIENTES)}
+          title="Exportar a CSV los compromisos de la lista"
+        >
+          CSV
+        </Boton>
+      )}
     >
       {grupos.length === 0 ? (
-        <Vacio compacto icono={ClipboardList} titulo="Sin compromisos pendientes en tus áreas" />
+        <Vacio compacto icono={ClipboardList} titulo="Sin compromisos pendientes" />
       ) : (
         grupos.map((grupo) => (
           <section key={grupo.fecha ?? 'sin-fecha'}>
@@ -302,6 +327,7 @@ function PendientesPorVencimiento({ compromisos, areasCatalogo, alAbrir }) {
             </header>
             {grupo.filas.map((c) => {
               const identidad = identidadArea(c.area, areasCatalogo);
+              const esMio = Boolean(perfilId) && c.id_responsable === perfilId;
               return (
                 <button
                   key={c.id}
@@ -313,6 +339,9 @@ function PendientesPorVencimiento({ compromisos, areasCatalogo, alAbrir }) {
                     {identidad.sigla}
                   </Chip>
                   <span className="min-w-0 flex-1 text-[13px] leading-snug text-tinta">{c.descripcion}</span>
+                  {/* Sólo se marca lo propio. Poner también el nombre ajeno
+                      llenaba la fila de texto que se repite en cada renglón. */}
+                  {esMio && <Chip tono="acento">A tu nombre</Chip>}
                   <span className="shrink-0 text-[11px] text-tenue">{c.origen_tipo}</span>
                 </button>
               );
@@ -338,7 +367,7 @@ function tituloVencimiento({ fecha, dias }) {
   return `Vence en ${dias} días`;
 }
 
-/* ── Selector de áreas asignadas ─────────────────────────────────────── */
+/* ── Selector de áreas asignadas ────────────────────────────────────── */
 
 function SelectorAreas({ usuario, areasCatalogo, asignadas }) {
   const [seleccion, setSeleccion] = useState(asignadas);
@@ -356,8 +385,9 @@ function SelectorAreas({ usuario, areasCatalogo, asignadas }) {
     setSeleccion(asignadas);
   }
 
-  const alternar = (nombre) =>
-    setSeleccion((s) => (s.includes(nombre) ? s.filter((n) => n !== nombre) : [...s, nombre]));
+  const alternar = (nombre) => setSeleccion(
+    (s) => (s.includes(nombre) ? s.filter((n) => n !== nombre) : [...s, nombre]),
+  );
 
   const nombresCatalogo = areasCatalogo.map((a) => a.nombre);
   const todasElegidas = nombresCatalogo.length > 0 && nombresCatalogo.every((n) => seleccion.includes(n));
@@ -386,9 +416,9 @@ function SelectorAreas({ usuario, areasCatalogo, asignadas }) {
 
   return (
     <Tarjeta
-      titulo="Tus áreas"
-      descripcion={`Elegí qué secretarías monitoreás como ${usuario}. Se guarda para este nombre de usuario — si otra persona usa esta computadora con su propio nombre, va a ver su propia selección.`}
-      acciones={
+      titulo="Secretarías que seguís"
+      descripcion="Sumá acá las secretarías que monitoreás. Los compromisos que están a tu nombre aparecen arriba aunque no elijas ninguna."
+      acciones={(
         <>
           {guardado && <Chip tono="enregla">Guardado</Chip>}
           {error && <Aviso tono="error">{error}</Aviso>}
@@ -396,7 +426,7 @@ function SelectorAreas({ usuario, areasCatalogo, asignadas }) {
             Guardar
           </Boton>
         </>
-      }
+      )}
     >
       {areasCatalogo.length === 0 ? (
         <Aviso tono="info">No hay áreas cargadas en el catálogo todavía.</Aviso>

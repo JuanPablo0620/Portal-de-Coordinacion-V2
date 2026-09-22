@@ -28,8 +28,8 @@ const SALIDA = 'node_modules/.humo';
 const CON_DEMO = [
   ['/', 'Próximos vencimientos importantes'],
   ['/', 'Proyectos activos'],
-  ['/mis-areas', 'Tus áreas'],
-  ['/mis-areas', 'Todavía no elegiste ninguna área'],
+  ['/mi-trabajo', 'Secretarías que seguís'],
+  ['/mi-trabajo', 'Todavía no tenés nada acá'],
   ['/proyectos', 'Base maestra de proyectos'],
   ['/proyectos?solo_activos=1&es_obra=1', 'Sólo obras'],
   ['/obras', 'Dónde están las obras'],
@@ -96,7 +96,7 @@ const CON_DEMO = [
 const CON_BASE_COMPLETA = [
   ['/', 'Próximos vencimientos importantes'],
   ['/', 'Proyectos activos'],
-  ['/mis-areas', 'Tus áreas'],
+  ['/mi-trabajo', 'Secretarías que seguís'],
   ['/proyectos', 'Base maestra de proyectos'],
   ['/proyectos?solo_activos=1&es_obra=1', 'Sólo obras'],
   ['/obras', 'Dónde están las obras'],
@@ -128,7 +128,7 @@ const CON_BASE_COMPLETA = [
 /** Con el sistema vacío: se espera el estado vacío, no un error ni una pantalla en blanco. */
 const CON_SISTEMA_VACIO = [
   ['/', 'El sistema está vacío'],
-  ['/mis-areas', 'Todavía no elegiste ninguna área'],
+  ['/mi-trabajo', 'Todavía no tenés nada acá'],
   ['/proyectos', 'La base maestra está vacía'],
   ['/obras', 'No hay ninguna obra cargada'],
   ['/seguimiento', 'Sin seguimientos agendados'],
