@@ -16,8 +16,6 @@ export const COLECCIONES = Object.freeze([
   // El padrón: las cuentas del equipo con su habilitación para recibir
   // compromisos. Espeja `perfiles`, y el portal sólo edita esa habilitación.
   'equipo',
-  'reuniones_direccion',
-  'temas_reunion_direccion',
   // Historial de cada compromiso: una fila por novedad o cambio de estado.
   // Es lo que evita que la novedad de hoy se pegue al nombre del compromiso,
   // que es como se guardaba antes (ver 0031). Contra Supabase la escribe un

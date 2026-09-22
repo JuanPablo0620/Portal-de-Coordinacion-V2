@@ -32,7 +32,7 @@ const CAMPOS = [
   'id, origen_tipo, id_seguimiento_origen, id_tema_origen, id_reunion_origen',
   'proyecto_id, area_id, subsecretaria_id, direccion_id, descripcion, fecha_limite, estado',
   'fecha_cumplimiento, activo, creado_por, created_at, updated_at',
-  'id_responsable, id_reunion_direccion_origen',
+  'id_responsable',
   'area:areas(nombre, nombre_formal), proyecto:proyectos(id_legible)',
 ].join(', ');
 
@@ -60,7 +60,6 @@ const origenColumna = {
   seguimiento: 'id_seguimiento_origen',
   monitoreo: 'id_tema_origen',
   mesa: 'id_reunion_origen',
-  direccion: 'id_reunion_direccion_origen',
 };
 
 function aFormaLocal(fila) {
@@ -69,7 +68,6 @@ function aFormaLocal(fila) {
     fila.id_tema_origen ??
     fila.id_reunion_origen ??
     fila.id_monitoreo_origen ??
-    fila.id_reunion_direccion_origen ??
     null;
   return {
     id: fila.id,

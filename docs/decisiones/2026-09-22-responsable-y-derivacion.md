@@ -12,17 +12,17 @@ tenerla en cuenta. Con ella se caen el temario seleccionado y ordenado por un
 organizador, la capacidad `organiza_secretaria` y la función
 `organiza_reunion_secretaria()`.
 
-**Sobrevive la reunión de Dirección**, que nunca tuvo temario propio: repasa
-todos los compromisos activos, incluidos los cumplidos y los que no tienen
-responsable. `revisado` es una marca del encuentro y no dice nada sobre el
-estado del compromiso.
+**La de Dirección también quedó afuera**, más tarde el mismo día. Se había
+portado su migración, su adaptador de Supabase y sus funciones del repositorio,
+pero nunca se construyó la pantalla: `crearReunionDireccion` y compañía no las
+llamaba nadie. Antes que dejar dos tablas vacías sin forma de usarlas, se sacó
+entera. Si alguna vez se retoma, está en
+`feat/compromisos-equipo-reunion-lunes`.
 
-La migración quedó como `0037_responsables_y_reunion_direccion.sql`. Se escribió
-de cero sobre main en vez de portar la `0037_equipo_y_reuniones.sql` de la rama
-vieja, por dos motivos: nunca se aplicó en ninguna base, así que no hacía falta
-una migración que deshiciera nada; y la `0036` de main ya había sacado
-`id_monitoreo_origen` de `compromisos_origen_unico`, que la versión vieja volvía
-a meter.
+Del trabajo original sobrevive entonces **una sola cosa: el responsable del
+compromiso y su derivación**, que es lo que tiene interfaz completa.
+
+La migración quedó como `0037_responsable_de_compromiso.sql`.
 
 ## Las reglas que quedan
 
@@ -103,22 +103,21 @@ repositorio, en un solo lugar, y los formularios sólo aportan el campo.
    sin compromisos en ninguna pantalla, no con un aviso de error.
 2. Correrla desde el editor SQL de Supabase, en el navegador: desde la red del
    municipio los puertos de Postgres están bloqueados y PostgREST no ejecuta
-   DDL.
+   DDL. El editor corre todo en una transacción, así que si falla no deja nada
+   a medias — se comprobó.
 3. Publicar el frontend.
 4. **Recién entonces, habilitar cuentas en Configuración → Equipo.** Ese es el
    interruptor: hasta ahí todo sigue funcionando como antes.
-5. Verificar con dos sesiones, y revisar Mi trabajo y la reunión de Dirección
-   en escritorio y móvil.
+5. Verificar con dos sesiones y revisar Mi trabajo en escritorio y móvil.
 
 ## Lo que todavía no se hizo
 
 - **Nunca se abrió en el navegador con sesión real.** Lo que está verificado es
   `npm run test` (402), `npm run build` y el render SSR de la prueba de humo.
 - **La migración no está aplicada**, confirmado el 22/09 contra la base real
-  por REST: no existen `compromisos.id_responsable`,
-  `compromisos.id_reunion_direccion_origen` ni la tabla `reuniones_direccion`.
-  (El MCP de Supabase responde `Unauthorized`; la comprobación se hizo pidiendo
-  cada columna y leyendo el `42703`.)
+  por REST: `compromisos.id_responsable` y `perfiles.recibe_compromisos` no
+  existen. (El MCP de Supabase responde `Unauthorized`; la comprobación se hizo
+  pidiendo cada columna y leyendo el `42703`.)
 - `scripts/humo.mjs` no cubre la lista de compromisos de Mi trabajo con datos:
   en la demo no hay áreas asignadas ni perfil, así que la ruta cae en el estado
   vacío. Para cubrirla haría falta un escenario con perfil.
@@ -138,3 +137,29 @@ Y en `tienda.js`, `sincronizarUsuario` borraba las áreas propias al cambiar de
 nombre: contra Supabase las dos escrituras operan sobre `auth.uid()` y no sobre
 el nombre que se les pasa, así que la segunda pisaba lo que había escrito la
 primera.
+
+## La 0037 no depende de 0032–0036
+
+Primer intento de aplicarla, 22/09: falló con
+`42703: column "id_reunion_evento_origen" does not exist`.
+
+Esa columna la crea `0036_compromisos_de_evento.sql`, que está escrita en el
+repo pero **no aplicada en la base**. La 0037 la mencionaba porque reescribía
+`compromisos_origen_unico` copiando la lista de 0036, asumiendo que estaba
+corrida.
+
+Estado real del esquema, medido por REST el 22/09:
+
+| Migración | En el repo | En la base |
+|---|---|---|
+| 0001–0031 | sí | aplicadas |
+| 0033 (notas de proyecto) | sí | aplicada |
+| 0036 (compromisos de evento) | sí | **no aplicada** |
+
+Corregido sacando esa reescritura: la 0037 ya no toca
+`compromisos_origen_unico` y sólo agrega columnas, policies y un trigger. Se
+puede aplicar sobre la base tal como está.
+
+**Para la próxima:** que una migración esté en el repo no quiere decir que esté
+corrida. Antes de escribir una que dependa de otra, medir contra la base, no
+contra el directorio. El traspaso lo decía y no se leyó a tiempo.

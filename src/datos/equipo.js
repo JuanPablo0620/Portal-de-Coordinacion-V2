@@ -80,29 +80,3 @@ export function validarResponsable(bd, id, { requerido = false } = {}) {
 export function responsableEsObligatorio(bd) {
   return responsablesEquipo(bd).length > 0;
 }
-
-/**
- * Dirección no arma un temario: revisa todo lo vigente. Los compromisos que
- * todavía no tienen fila propia se devuelven como temas en borrador (sin
- * `id`), y se materializan al cerrar el encuentro.
- */
-export function temasDeReunionDireccion(bd, reunion) {
-  const temas = (bd.temas_reunion_direccion ?? []).filter((t) => t.reunion_id === reunion.id);
-  if (reunion.cerrada) return temas.slice().sort((a, b) => a.orden - b.orden);
-
-  const porCompromiso = new Map(temas.filter((t) => t.compromiso_id).map((t) => [t.compromiso_id, t]));
-  const compromisos = (bd.compromisos ?? []).filter((c) => c.activo !== false);
-  const ids = new Set(compromisos.map((c) => c.id));
-  return [
-    ...compromisos.map((c) => porCompromiso.get(c.id) ?? {
-      reunion_id: reunion.id,
-      compromiso_id: c.id,
-      titulo: c.descripcion,
-      revisado: false,
-      acuerdo: '',
-      nota: '',
-      orden: 0,
-    }),
-    ...temas.filter((t) => !t.compromiso_id || !ids.has(t.compromiso_id)),
-  ];
-}

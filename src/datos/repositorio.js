@@ -27,12 +27,7 @@ import * as catalogosRemotos from './supabaseCatalogos.js';
 import * as notasRemotas from './supabaseNotas.js';
 import * as organigramaRemoto from './supabaseOrganigrama.js';
 import * as equipoRemoto from './supabaseEquipo.js';
-import * as reunionesDireccionRemotas from './supabaseReunionesDireccion.js';
-import {
-  responsableEsObligatorio,
-  temasDeReunionDireccion,
-  validarResponsable,
-} from './equipo.js';
+import { responsableEsObligatorio, validarResponsable } from './equipo.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -127,9 +122,6 @@ const CARGAS_REMOTAS = [
   // cuando en realidad todavia no llego la lista.
   ['el equipo', equipoRemoto, async () => {
     bdActual.equipo = await equipoRemoto.cargar();
-  }],
-  ['las reuniones de Dirección', reunionesDireccionRemotas, async () => {
-    Object.assign(bdActual, await reunionesDireccionRemotas.cargar());
   }],
   // Van primeros: son el vocabulario compartido del que cuelgan los
   // desplegables y los filtros de todas las demas pantallas.
@@ -1134,78 +1126,6 @@ export async function configurarIntegrante(id, cambios) {
     return escribirRemoto('equipo', () => equipoRemoto.configurar(id, cambios), { id });
   }
   return actualizar('equipo', id, cambios);
-}
-
-/* ── Reunión de Dirección ───────────────────────────────────────────── */
-
-export async function crearReunionDireccion(datos) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(datos.fecha ?? '')) {
-    throw new Error('Elegí la fecha de la reunión.');
-  }
-  if (reunionesDireccionRemotas.activo()) {
-    return escribirRemoto('reuniones_direccion', () => reunionesDireccionRemotas.crear(datos));
-  }
-  return crear('reuniones_direccion', { ...datos, cerrada: false });
-}
-
-export async function guardarTemaReunionDireccion(datos) {
-  const bd = await obtenerBD();
-  const reunion = bd.reuniones_direccion.find((r) => r.id === datos.reunion_id);
-  if (!reunion) throw new Error('No existe la reunión.');
-  if (!datos.titulo?.trim()) throw new Error('Escribí el tema que se va a tratar.');
-  if (datos.compromiso_id && !bd.compromisos.some((c) => c.id === datos.compromiso_id)) {
-    throw new Error('No existe el compromiso.');
-  }
-  const previo = bd.temas_reunion_direccion.find((t) => t.id === datos.id
-    || (datos.compromiso_id && t.reunion_id === datos.reunion_id && t.compromiso_id === datos.compromiso_id));
-  const fila = { nota: '', acuerdo: '', orden: 0, revisado: false, ...previo, ...datos };
-  // Una reunión cerrada sigue aceptando marcar `revisado` y escribir el
-  // acuerdo: lo que queda congelado es la lista de temas, no el acta.
-  if (reunion.cerrada
-    && (!previo || ['titulo', 'nota', 'orden', 'compromiso_id'].some((k) => fila[k] !== previo[k]))) {
-    throw new Error('El temario de la reunión está cerrado.');
-  }
-  if (reunionesDireccionRemotas.activo()) {
-    return escribirRemoto(
-      'temas_reunion_direccion',
-      () => reunionesDireccionRemotas.guardarTema(fila),
-      { id: previo?.id },
-    );
-  }
-  return previo
-    ? actualizar('temas_reunion_direccion', previo.id, fila)
-    : crear('temas_reunion_direccion', fila);
-}
-
-export async function quitarTemaReunionDireccion(id) {
-  const bd = await obtenerBD();
-  const tema = bd.temas_reunion_direccion.find((t) => t.id === id);
-  if (!tema) return;
-  if (bd.reuniones_direccion.find((r) => r.id === tema.reunion_id)?.cerrada) {
-    throw new Error('El temario está cerrado.');
-  }
-  if (reunionesDireccionRemotas.activo()) await reunionesDireccionRemotas.quitarTema(id);
-  bd.temas_reunion_direccion = bd.temas_reunion_direccion.filter((t) => t.id !== id);
-  await persistir();
-}
-
-export async function cerrarReunionDireccion(id) {
-  const bd = await obtenerBD();
-  const reunion = bd.reuniones_direccion.find((r) => r.id === id);
-  if (!reunion) throw new Error('No existe la reunión.');
-  if (reunionesDireccionRemotas.activo()) {
-    Object.assign(bd, await reunionesDireccionRemotas.cerrar(id));
-    await persistir();
-    return;
-  }
-  // Sin Supabase no hay transacción, así que se agrupa en un lote para que
-  // la lista y el cierre se persistan juntos.
-  return enLote(async () => {
-    for (const tema of temasDeReunionDireccion(bd, reunion)) {
-      if (!tema.id) await guardarTemaReunionDireccion(tema);
-    }
-    await actualizar('reuniones_direccion', id, { cerrada: true });
-  });
 }
 
 /* ── Monitoreos ─────────────────────────────────────────────────────── */
