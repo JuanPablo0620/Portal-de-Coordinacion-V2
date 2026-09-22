@@ -498,6 +498,12 @@ export async function cargarProyectosPosicionamientoReales() {
   let creados = 0;
   for (const real of PROYECTOS_POSICIONAMIENTO_REAL) {
     if (yaCargados.has(real.nombre)) continue;
+    // Un alta pedida sin estado todavía entra como planificada para que tenga
+    // un estado válido del catálogo. No afirma que haya comenzado: queda sin
+    // actualización hasta que Coordinación cargue información verificable.
+    const estado = real.estadoReal === 'pendiente'
+      ? 'planificado'
+      : real.estadoReal || 'planificado';
     await crearProyecto({
       proyecto: real.nombre,
       area: area.nombre,
@@ -510,7 +516,7 @@ export async function cargarProyectosPosicionamientoReales() {
       // "pendiente" no es un estado del catálogo (ESTADOS_ACTIVOS no lo
       // reconoce): se mapea a "planificado" para que cuente como activo en
       // los agregados. La palabra real queda intacta en observaciones.
-      estado: real.estadoReal === 'pendiente' ? 'planificado' : real.estadoReal,
+      estado,
       observaciones:
         real.comentario +
         (real.sinMaestro ? ' [Sin fila en "Estado de proyectos": a confirmar.]' : ''),
@@ -608,7 +614,10 @@ export async function cargarProyectosEjesEstrategicosReales() {
 async function asegurarCatalogo(nombreCatalogo, item) {
   const bd = await obtenerBD();
   const items = bd.catalogos?.[nombreCatalogo] ?? [];
-  const existente = items.find((i) => i.nombre === item.nombre);
+  const existente = items.find((i) => i.id === item.id)
+    ?? items.find((i) => i.nombre === item.nombre && (
+      nombreCatalogo !== 'programas' || !item.area || i.area === item.area
+    ));
   if (existente) return existente;
   await guardarCatalogo(nombreCatalogo, [...items, item]);
   return item;
@@ -688,20 +697,31 @@ async function cargarListaDeSecretarias(secretarias, ejePorDefecto) {
       const yaCargados = new Set(
         (bd.proyectos ?? [])
           .filter((p) => p.activo !== false && p.area === area.nombre)
-          .map((p) => `${p.programa}||${p.proyecto}`),
+          // El mismo programa llega de fuentes distintas con o sin tilde
+          // («Túnel América» / «Túnel America»). La identidad normalizada
+          // evita duplicar el proyecto y perder el eje más preciso.
+          .map((p) => `${idDesdeNombre('pr', p.programa)}||${p.proyecto}`),
       );
 
       let creados = 0;
       for (const real of secretaria.datos) {
-        const clave = `${real.programa}||${real.proyecto}`;
+        // La tabla exige programa, pero un tema confirmado puede no tenerlo
+        // clasificado aún. «Sin programa» conserva esa verdad y permite
+        // completar la ficha sin inventar una categoría institucional.
+        const nombrePrograma = real.programa?.trim() || 'Sin programa';
+        const clave = `${idDesdeNombre('pr', nombrePrograma)}||${real.proyecto}`;
         if (yaCargados.has(clave)) continue;
         // Sin esto, dos filas iguales dentro de la MISMA lista entrarían las
         // dos: `yaCargados` se arma una sola vez, antes del bucle.
         yaCargados.add(clave);
 
         const programa = await asegurarCatalogo('programas', {
-          id: idDesdeNombre('pr', real.programa),
-          nombre: real.programa,
+          // «Sin programa» puede existir una vez por área. El id y el área
+          // evitan que una ficha de Salud termine vinculada al homónimo de
+          // Obras sólo porque todavía no se confirmó su clasificación.
+          id: idDesdeNombre('pr', `${area.id}_${nombrePrograma}`),
+          nombre: nombrePrograma,
+          area: area.nombre,
           activo: true,
         });
         // El eje del dato manda cuando existe; el por defecto es para las
@@ -771,7 +791,10 @@ export async function cargarTodosLosProyectosReales() {
   const resumenValidados = await cargarProyectosValidadosCualitativo();
   const resumenSecretarias = await cargarProyectosRealesSecretarias();
   const resumen = { Posicionamiento: creadosPosicionamiento, 'Ejes Estratégicos': creadosEjesEstrategicos };
-  for (const [area, n] of [...Object.entries(resumenValidados), ...Object.entries(resumenSecretarias)]) {
+  for (const [area, n] of [
+    ...Object.entries(resumenValidados),
+    ...Object.entries(resumenSecretarias),
+  ]) {
     resumen[area] = (resumen[area] ?? 0) + n;
   }
   return resumen;

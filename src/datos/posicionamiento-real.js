@@ -92,4 +92,12 @@ export const PROYECTOS_POSICIONAMIENTO_REAL = [
       'Cooperación técnica en curso, con convenio, plan de trabajo y solicitud de desembolsos en elaboración; ' +
       'sujeta a reglas estrictas de procurement (mínimo tres cotizaciones y no objeción de CAF).',
   },
+  {
+    // Alta solicitada por JP el 18/09/2026. Aún no se informó estado,
+    // actualización ni comentario, por lo que no se los completa por inferencia.
+    nombre: 'Senado de la Nación',
+    estadoReal: '',
+    fechaActualizacion: '',
+    comentario: '',
+  },
 ];

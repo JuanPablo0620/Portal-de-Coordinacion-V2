@@ -25,10 +25,16 @@ const textoDe = (item) => (typeof item === 'string' ? item : item?.descripcion ?
 
 export function VistaPrevia({ reporte, bloques, hoy }) {
   const nada = !Object.values(bloques).some(Boolean);
+  // La plantilla de Dirección imprime lo vigente completo, con el diseño
+  // institucional (navy/naranja) que JP aprobó el 21/09/2026: sin renglones
+  // de anotaciones ni datos de proyecto, barras navy en vez de tarjetas por
+  // secretaría, y sin resumen/leyenda/observaciones (esos bloques quedan
+  // apagados en la plantilla, ver `plantillasReportes.js`).
+  const institucional = Boolean(reporte.plantilla?.compacto);
 
   return (
-    <div className="flex flex-col gap-4">
-      <EncabezadoImpresion hoy={hoy} />
+    <div className={`flex flex-col gap-4 ${institucional ? 'informe-institucional' : ''}`}>
+      <EncabezadoImpresion hoy={hoy} titulo={reporte.plantilla?.nombre} />
 
       {nada ? (
         <Tarjeta>
@@ -50,13 +56,25 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
           {bloques.resumen && (bloques.compromisos || bloques.proyectos) && (
             <BloqueLeyenda conCompromisos={bloques.compromisos} conProyectos={bloques.proyectos} />
           )}
-          {bloques.compromisos && <BloqueCompromisos filas={reporte.compromisos} />}
-          {bloques.mesas && <BloqueMesas filas={reporte.mesas} />}
+          {bloques.eventos && institucional && (
+            <BloqueEventosInstitucional filas={reporte.eventos} rango={reporte.rangoEventos} />
+          )}
+          {bloques.compromisos && (institucional ? (
+            <BloqueCompromisosInstitucional filas={reporte.compromisos} />
+          ) : (
+            <BloqueCompromisos filas={reporte.compromisos} ausentes={reporte.compromisosAusentes} />
+          ))}
+          {bloques.mesas && (institucional ? (
+            <BloqueMesasInstitucional filas={reporte.mesas} />
+          ) : (
+            <BloqueMesas filas={reporte.mesas} />
+          ))}
           {bloques.minutas && (
             <BloqueObservaciones seguimientos={reporte.seguimientos} compromisos={reporte.compromisos} />
           )}
-          {bloques.proyectos && <BloqueProyectos filas={reporte.proyectos} />}
-          {bloques.eventos && <BloqueEventos filas={reporte.eventos} />}
+          {bloques.monitoreos && <BloqueMonitoreos filas={reporte.monitoreos} />}
+          {bloques.proyectos && <BloqueProyectos filas={reporte.proyectos} ausentes={reporte.proyectosAusentes} />}
+          {bloques.eventos && !institucional && <BloqueEventos filas={reporte.eventos} rango={reporte.rangoEventos} />}
         </>
       )}
 
@@ -67,13 +85,14 @@ export function VistaPrevia({ reporte, bloques, hoy }) {
 
 /* ── Encabezado y pie institucionales ───────────────────────────────── */
 
-function EncabezadoImpresion({ hoy }) {
+function EncabezadoImpresion({ hoy, titulo }) {
+  const subtitulo = titulo ?? 'Reporte de seguimiento de proyectos';
   return (
     <>
       {/* Sólo al imprimir */}
       <header className="solo-impresion encabezado-impresion">
-        <p style={{ fontSize: '14pt', fontWeight: 700, margin: 0 }}>Municipio de Tres de Febrero</p>
-        <p style={{ fontSize: '10pt', margin: '2pt 0 0' }}>Área de Coordinación · Reporte de seguimiento de proyectos</p>
+        <p className="titulo-informe" style={{ fontSize: '14pt', fontWeight: 700, margin: 0 }}>Municipio de Tres de Febrero</p>
+        <p style={{ fontSize: '10pt', margin: '2pt 0 0' }}>Área de Coordinación · {subtitulo}</p>
         <p style={{ fontSize: '9pt', color: '#5b6672', margin: '2pt 0 0' }}>
           Emitido el {fechaLarga(hoy)}
         </p>
@@ -87,7 +106,7 @@ function EncabezadoImpresion({ hoy }) {
         <div>
           <p className="text-sm font-semibold text-tinta">Municipio de Tres de Febrero</p>
           <p className="text-xs text-gris">
-            Área de Coordinación · Reporte emitido el {fechaLarga(hoy)}
+            Área de Coordinación · {subtitulo} · emitido el {fechaLarga(hoy)}
           </p>
         </div>
         <span className="ml-auto text-[11px] text-tenue">Vista previa — así se imprime</span>
@@ -233,9 +252,14 @@ function BloqueResumen({ resumen }) {
 }
 
 
-function BloqueProyectos({ filas }) {
+function BloqueProyectos({ filas, ausentes = [] }) {
   return (
     <Tarjeta titulo={`Proyectos (${filas.length})`} sinPadding>
+      {ausentes.length > 0 && (
+        <p className="border-b border-borde bg-paper px-4 py-2 text-xs text-gris">
+          Pendientes de cargar: {ausentes.join(' · ')}
+        </p>
+      )}
       <Tabla
         sinTope
         nombreExport="reporte-proyectos"
@@ -256,6 +280,30 @@ function BloqueProyectos({ filas }) {
   );
 }
 
+function BloqueMonitoreos({ filas }) {
+  return (
+    <Tarjeta titulo={`Monitoreos (${filas.length})`} sinPadding>
+      <Tabla
+        sinTope
+        nombreExport="reporte-monitoreos"
+        filas={filas}
+        claveFila={(f) => f.id}
+        conBusqueda={false}
+        columnas={[
+          { clave: 'fecha', titulo: 'Fecha', ancho: 120, render: (f) => fFecha(f.fecha) },
+          { clave: 'area', titulo: 'Área', ancho: 190 },
+          { clave: 'cantidad_avances', titulo: 'Avances', ancho: 100, render: (f) => numero(f.cantidad_avances) },
+          { clave: 'cantidad_compromisos', titulo: 'Compromisos', ancho: 125, render: (f) => numero(f.cantidad_compromisos) },
+          { clave: 'cantidad_temas', titulo: 'Temas', ancho: 90, render: (f) => numero(f.cantidad_temas) },
+          { clave: 'cerrado', titulo: 'Estado', ancho: 110, render: (f) => <Chip tono={f.cerrado ? 'enregla' : 'proximo'}>{f.cerrado ? 'Cerrado' : 'Abierto'}</Chip> },
+          COLUMNA_ANOTACIONES,
+        ]}
+        vacio={<Vacio compacto titulo="Ningún monitoreo cumple los filtros aplicados" />}
+      />
+    </Tarjeta>
+  );
+}
+
 /**
  * Los compromisos, en lista y agrupados por secretaría.
  *
@@ -270,10 +318,13 @@ function BloqueProyectos({ filas }) {
  * Legales»: lo primero es una fecha, lo segundo es de lo que hay que hablar en
  * la reunión.
  */
-function BloqueCompromisos({ filas }) {
+function BloqueCompromisos({ filas, ausentes = [] }) {
   if (filas.length === 0) {
     return (
       <Tarjeta titulo="Compromisos (0)">
+        {ausentes.length > 0 && (
+          <p className="mb-3 text-xs text-gris">Pendientes de cargar: {ausentes.join(' · ')}</p>
+        )}
         <Vacio compacto titulo="Ningún compromiso cumple los filtros aplicados" />
       </Tarjeta>
     );
@@ -281,6 +332,11 @@ function BloqueCompromisos({ filas }) {
 
   return (
     <>
+      {ausentes.length > 0 && (
+        <p className="rounded-card border border-borde bg-paper px-4 py-2 text-xs text-gris">
+          Pendientes de cargar: {ausentes.join(' · ')}
+        </p>
+      )}
       {agruparParaInforme(filas).map(([area, deLArea]) => (
         <Tarjeta key={area} titulo={`Compromisos · ${area} (${deLArea.length})`}>
           <ol className="flex flex-col">
@@ -332,6 +388,22 @@ function FichaCompromiso({ compromiso: c }) {
       </div>
     </li>
   );
+}
+
+/**
+ * Novedad de un compromiso, sin ruido.
+ *
+ * El alta automática («Alta del compromiso», «Estado al empezar a
+ * registrarse el historial») no dice nada que la ficha no diga ya, y hoy es
+ * la novedad de la mayoría de los compromisos activos (ver traspaso
+ * 22/09/2026). En el diseño institucional se omite entera; sólo se imprime
+ * cuando alguien escribió algo de verdad.
+ */
+function novedadUtil(c) {
+  const texto = c.ultima_actualizacion?.texto?.trim();
+  if (!texto) return null;
+  if (/^(alta del compromiso|estado al empezar a registrarse)/i.test(texto)) return null;
+  return c.ultima_actualizacion;
 }
 
 /**
@@ -583,6 +655,131 @@ function BloqueEventos({ filas }) {
         ]}
         vacio={<Vacio compacto titulo="Sin eventos en este recorte" />}
       />
+    </Tarjeta>
+  );
+}
+
+/* ── Diseño institucional (Informe de Dirección) ──────────────────────
+ *
+ * Un solo bloque de impresión por sección (barra navy), con las
+ * secretarías o mesas como subtítulos adentro — a diferencia del resto de
+ * Reportes, que abre una tarjeta por secretaría. JP aprobó este diseño el
+ * 21/09/2026 sobre un PDF armado aparte con datos reales; esto lo deja
+ * fijo en el portal para que imprimir desde acá dé lo mismo. Las clases
+ * `tarjeta-institucional` / `subseccion-institucional` / etc. están en
+ * `src/estilos/impresion.css`, activas sólo bajo `.informe-institucional`.
+ */
+
+function BloqueCompromisosInstitucional({ filas }) {
+  const grupos = agruparParaInforme(filas);
+  return (
+    <Tarjeta titulo={`Compromisos vigentes por secretaría (${filas.length})`} className="tarjeta-institucional" sinPadding>
+      <div className="p-4">
+        {grupos.length === 0 ? (
+          <Vacio compacto titulo="Ningún compromiso vigente" />
+        ) : (
+          grupos.map(([area, deLArea]) => (
+            <section key={area} className="subseccion-institucional">
+              <h3>
+                {area} <span>({deLArea.length})</span>
+              </h3>
+              <ol>
+                {deLArea.map((c) => (
+                  <ItemCompromisoInstitucional key={c.id} compromiso={c} />
+                ))}
+              </ol>
+            </section>
+          ))
+        )}
+      </div>
+    </Tarjeta>
+  );
+}
+
+function BloqueMesasInstitucional({ filas }) {
+  return (
+    <Tarjeta titulo="Compromisos de las mesas" className="tarjeta-institucional" sinPadding>
+      <div className="p-4">
+        {filas.length === 0 ? (
+          <p className="vacio-institucional">No hay compromisos vigentes vinculados a una mesa.</p>
+        ) : (
+          filas.map((m) => (
+            <section key={m.id} className="subseccion-institucional">
+              <h3>
+                {m.nombre} <span>({(m.compromisos ?? []).length})</span>
+              </h3>
+              <ol>
+                {(m.compromisos ?? []).map((c) => (
+                  <ItemCompromisoInstitucional key={c.id} compromiso={c} conSecretaria />
+                ))}
+              </ol>
+            </section>
+          ))
+        )}
+      </div>
+    </Tarjeta>
+  );
+}
+
+/** Un compromiso: texto, estado y plazo, y la novedad sólo si dice algo real. */
+function ItemCompromisoInstitucional({ compromiso: c, conSecretaria = false }) {
+  const vencido = c.estado_efectivo === 'alerta';
+  const plazo = vencido
+    ? `Vencido el ${fFecha(c.fecha_limite)} (${c.dias_atraso} día${c.dias_atraso === 1 ? '' : 's'} de atraso)`
+    : c.fecha_limite
+      ? `Vence el ${fFecha(c.fecha_limite)}`
+      : 'Sin fecha límite';
+  const estado = c.estado_efectivo === 'cumplido' ? 'Cumplido' : c.estado === 'en_curso' ? 'En curso' : 'Pendiente';
+  const novedad = novedadUtil(c);
+
+  return (
+    <li className="evitar-corte">
+      <p>{c.descripcion}</p>
+      <p className={vencido ? 'meta-institucional vencido' : 'meta-institucional'}>
+        {estado} · {plazo}
+        {conSecretaria && <> · {c.area || 'sin secretaría'}</>}
+      </p>
+      {novedad && (
+        <p className="novedad-institucional">
+          Novedad ({fFecha(novedad.fecha)}): {novedad.texto}
+        </p>
+      )}
+    </li>
+  );
+}
+
+function BloqueEventosInstitucional({ filas, rango = null }) {
+  const titulo = rango
+    ? `Eventos del ${fFecha(rango.desde)} al ${fFecha(rango.hasta)} (${filas.length})`
+    : `Eventos (${filas.length})`;
+  return (
+    <Tarjeta titulo={titulo} className="tarjeta-institucional" sinPadding>
+      {filas.length === 0 ? (
+        <p className="vacio-institucional">Sin eventos cargados para estas dos semanas.</p>
+      ) : (
+        <table className="tabla-institucional">
+          <thead>
+            <tr>
+              <th>Semana</th>
+              <th>Fecha</th>
+              <th>Evento</th>
+              <th>Lugar</th>
+              <th>Área</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((ev) => (
+              <tr key={ev.id}>
+                <td>{ev.semana ?? '—'}</td>
+                <td className="tabular">{fFecha(ev.fecha)}</td>
+                <td>{ev.nombre}</td>
+                <td>{ev.lugar || '—'}</td>
+                <td>{ev.area_organizadora || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </Tarjeta>
   );
 }

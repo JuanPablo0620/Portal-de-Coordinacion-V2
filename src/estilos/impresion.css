@@ -9,6 +9,110 @@
   display: none;
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   DISEÑO INSTITUCIONAL — Informe de Dirección.
+   Activo en pantalla Y en impresión (`.informe-institucional`, puesto por
+   VistaPrevia sólo con la plantilla `informe-direccion`): acá la vista
+   previa es literalmente el documento que JP aprobó el 21/09/2026, armado
+   primero como PDF aparte. El resto de Reportes no usa estas clases y sigue
+   con las tarjetas comunes.
+   ───────────────────────────────────────────────────────────────────── */
+.informe-institucional .titulo-informe {
+  color: var(--color-institucional-navy);
+}
+
+.informe-institucional .encabezado-impresion {
+  border-bottom-color: var(--color-institucional-naranja);
+  border-bottom-width: 3px;
+}
+
+/* Barra navy con el título de cada sección (Eventos, Compromisos, Mesas),
+   en vez de la cabecera gris de una tarjeta común. */
+.tarjeta-institucional {
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.tarjeta-institucional > header {
+  background: var(--color-institucional-navy);
+  border-bottom: none !important;
+  padding: 6pt 10pt;
+}
+
+.tarjeta-institucional > header h2 {
+  color: #fff;
+  font-size: 0.8rem;
+}
+
+/* Cada secretaría o mesa, adentro de la sección: subtítulo navy subrayado,
+   no una tarjeta propia — es lo que permite leerlas de corrido en vez de
+   una tarjeta por secretaría. */
+.subseccion-institucional + .subseccion-institucional {
+  margin-top: 10pt;
+}
+
+.subseccion-institucional h3 {
+  margin: 0 0 4pt;
+  padding-bottom: 2pt;
+  border-bottom: 1px solid var(--color-borde-fuerte);
+  color: var(--color-institucional-navy);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.subseccion-institucional h3 span {
+  color: var(--color-gris);
+  font-weight: 400;
+}
+
+.subseccion-institucional ol {
+  margin: 0;
+  padding-left: 16pt;
+}
+
+.meta-institucional {
+  margin-top: 1pt;
+  color: var(--color-gris);
+  font-size: 0.6875rem;
+}
+
+.meta-institucional.vencido {
+  color: var(--color-vencido-texto);
+  font-weight: 600;
+}
+
+.novedad-institucional {
+  margin-top: 1pt;
+  color: var(--color-tinta);
+  font-size: 0.6875rem;
+}
+
+.vacio-institucional {
+  padding: 1rem;
+  color: var(--color-gris);
+  font-style: italic;
+}
+
+.tabla-institucional {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.tabla-institucional th {
+  background: var(--color-acento-suave);
+  color: var(--color-institucional-navy);
+  text-align: left;
+  font-weight: 600;
+}
+
+.tabla-institucional th,
+.tabla-institucional td {
+  border: 1px solid var(--color-borde-fuerte);
+  padding: 4pt 6pt;
+}
+
 @media print {
   @page {
     size: A4;

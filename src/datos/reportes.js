@@ -19,6 +19,13 @@ import {
   trimestreDe,
   unidadDe,
 } from './selectores.js';
+import {
+  compromisosAusentesDePlantilla,
+  esCompromisoDePlantilla,
+  plantillaReporte,
+  plantillaTraeProyectos,
+  proyectosDePlantilla,
+} from './plantillasReportes.js';
 import { calcularAlertas, filtrarAlertas, proyectosConAlerta } from './alertas.js';
 
 /* ── Rangos temporales ──────────────────────────────────────────────── */
@@ -54,6 +61,20 @@ export function resolverRango(filtros, hoy = hoyISO()) {
     default:
       return { desde: '', hasta: '' };
   }
+}
+
+/**
+ * Lunes de la semana de `hoy`, y el domingo de la semana siguiente.
+ *
+ * Es la ventana de eventos del Informe de Dirección. Se ancla al lunes de la
+ * semana en curso y no a «hoy»: el informe se imprime los lunes, pero si se
+ * abre un miércoles tiene que seguir mostrando la semana entera, no la que
+ * queda.
+ */
+export function ventanaDosSemanas(hoy) {
+  const diaSemana = new Date(`${hoy}T00:00:00Z`).getUTCDay(); // 0 = domingo
+  const lunes = sumarDias(hoy, -((diaSemana + 6) % 7));
+  return { desde: lunes, mitad: sumarDias(lunes, 6), hasta: sumarDias(lunes, 13) };
 }
 
 /**
@@ -109,6 +130,7 @@ export const BLOQUES = [
   // La clave sigue siendo `minutas` aunque el rótulo cambie: las
   // configuraciones guardadas la tienen adentro, y renombrarla las rompería.
   { clave: 'minutas', titulo: 'Observaciones de Seguimiento', descripcion: 'Avances, problemas y compromisos asumidos' },
+  { clave: 'monitoreos', titulo: 'Monitoreos', descripcion: 'Reuniones de monitoreo y lo registrado en ellas' },
   { clave: 'mesas', titulo: 'Mesas de trabajo', descripcion: 'Con reuniones y periodicidad' },
   { clave: 'eventos', titulo: 'Eventos', descripcion: 'Con estado de requerimientos' },
 ];
@@ -132,6 +154,9 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
   if (!bd) return vacio();
 
   const { desde, hasta } = resolverRango(filtros, hoy);
+  const plantilla = plantillaReporte(filtros.plantilla);
+  const soloVigentes = Boolean(plantilla?.soloVigentes);
+  const ventanaEventos = plantilla?.ventanaEventos === 'dos-semanas' ? ventanaDosSemanas(hoy) : null;
   const alertasTodas = calcularAlertas(bd, hoy);
   const conAlerta = proyectosConAlerta(alertasTodas);
 
@@ -171,6 +196,8 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
   let proyectosFiltrados = selProyectos(bd, filtroProyecto);
   if (filtros.solo_con_alertas) proyectosFiltrados = proyectosFiltrados.filter((p) => conAlerta.has(p.id_proyecto));
   proyectosFiltrados = proyectosFiltrados.filter((p) => vigenteEnPeriodo(p, desde, hasta));
+  const seleccionPlantilla = proyectosDePlantilla(proyectosFiltrados, filtros.plantilla);
+  proyectosFiltrados = seleccionPlantilla.proyectos;
 
   // El recorte por proyecto se aplica igual aunque el reporte sea de otro
   // módulo: es lo que ata las entidades vinculadas al mismo universo.
@@ -179,7 +206,7 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
   // limitan a esos proyectos; si no, sólo se filtran por área y fecha.
   const hayRecorteProyecto = Boolean(
     filtros.area || filtros.programa || filtros.eje || filtros.tipo || filtros.estado ||
-      filtros.prioridad || filtros.id_proyecto ||
+      filtros.prioridad || filtros.id_proyecto || plantillaTraeProyectos(filtros.plantilla) ||
       filtros.solo_obras || filtros.solo_prioritarios || filtros.solo_con_alertas,
   );
 
@@ -215,7 +242,17 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
   const compromisos = enModulo('compromisos')
     ? selCompromisos(bd, { area: filtros.area }, hoy)
         .filter((c) => dentroDelPeriodo(c.fecha_limite) || c.estado_efectivo === 'alerta')
-        .filter((c) => !hayRecorteProyecto || !c.id_proyecto || idsProyecto.has(c.id_proyecto))
+        .filter((c) => !soloVigentes || c.estado_efectivo !== 'cumplido')
+        .filter((c) => {
+          if (!hayRecorteProyecto) return true;
+          // La plantilla puede traer compromisos independientes de un
+          // proyecto, como Legales de Coordinación. Los demás compromisos
+          // siguen atados a los proyectos seleccionados.
+          if (filtros.plantilla) {
+            return idsProyecto.has(c.id_proyecto) || esCompromisoDePlantilla(c, filtros.plantilla);
+          }
+          return !c.id_proyecto || idsProyecto.has(c.id_proyecto);
+        })
         // Su propio estado, no el del proyecto: son vocabularios distintos
         // —pendiente, en curso, cumplido— y hasta ahora no había forma de
         // pedir «los compromisos pendientes de Capital Humano».
@@ -228,7 +265,11 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
       )
     : [];
 
-  const monitoreos = enModulo('monitoreos') ? selMonitoreos(bd, { area: filtros.area, desde, hasta }) : [];
+  const monitoreos = enModulo('monitoreos')
+    ? selMonitoreos(bd, { area: filtros.area, desde, hasta }).filter(
+      (m) => !hayRecorteProyecto || (m.avances ?? []).some((a) => idsProyecto.has(a.id_proyecto)),
+    )
+    : [];
 
   /**
    * Las mesas también respetan el período: se quedan las que sesionaron dentro
@@ -262,6 +303,7 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     );
     return todosLosCompromisos
       .filter((c) => c.origen_tipo === 'mesa' && reuniones.has(c.id_origen))
+      .filter((c) => !soloVigentes || c.estado_efectivo !== 'cumplido')
       .map((c) => ({ ...c, unidad: unidadDe(bd, c) }));
   };
 
@@ -274,6 +316,9 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
           );
         })
         .filter(mesaTocaAlArea)
+        // El Informe de Dirección trae los compromisos de las mesas, no las
+        // mesas: una que no tiene ninguno vigente no aporta nada a esa hoja.
+        .filter((m) => !soloVigentes || compromisosDeMesa(m).length > 0)
         .filter((m) => !filtros.estado_mesa || m.estado === filtros.estado_mesa)
         .map((m) => {
           const suyos = compromisosDeMesa(m);
@@ -288,7 +333,12 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     : [];
 
   const eventos = enModulo('eventos')
-    ? selEventos(bd, { area: filtros.area, desde, hasta })
+    ? selEventos(bd, {
+      area: filtros.area,
+      desde: ventanaEventos?.desde ?? desde,
+      hasta: ventanaEventos?.hasta ?? hasta,
+    })
+        .map((e) => (ventanaEventos ? { ...e, semana: semanaDe(e, ventanaEventos) } : e))
         .filter((e) => !hayRecorteProyecto || !e.id_proyecto || idsProyecto.has(e.id_proyecto))
         .filter((e) => !filtros.estado_evento || e.estado === filtros.estado_evento)
     : [];
@@ -320,9 +370,13 @@ export function armarReporte(bd, filtros, hoy = hoyISO()) {
     mesas,
     eventos,
     alertas,
+    proyectosAusentes: seleccionPlantilla.ausentes,
+    compromisosAusentes: compromisosAusentesDePlantilla(compromisos, filtros.plantilla),
+    plantilla: plantillaReporte(filtros.plantilla),
     resumen,
     rango: { desde, hasta },
-    resumenFiltros: describirFiltros(filtros, { desde, hasta }),
+    rangoEventos: ventanaEventos,
+    resumenFiltros: describirFiltros(filtros, { desde, hasta }, ventanaEventos),
   };
 }
 
@@ -330,12 +384,19 @@ function vacio() {
   return {
     proyectos: [], compromisos: [], seguimientos: [], monitoreos: [],
     mesas: [], eventos: [], alertas: [], resumen: {},
-    rango: { desde: '', hasta: '' }, resumenFiltros: [],
+    proyectosAusentes: [], compromisosAusentes: [], plantilla: null,
+    rango: { desde: '', hasta: '' }, rangoEventos: null, resumenFiltros: [],
   };
 }
 
+/** «Esta semana» o «Próxima semana», según el primer día del evento en la ventana. */
+function semanaDe(evento, ventana) {
+  const inicio = String(evento.fecha ?? '').slice(0, 10);
+  return inicio <= ventana.mitad ? 'Esta semana' : 'Próxima semana';
+}
+
 /** Lista legible de los filtros aplicados, para explicitarlos al pie del PDF. */
-export function describirFiltros(filtros, rango) {
+export function describirFiltros(filtros, rango, rangoEventos = null) {
   const partes = [];
   const agregar = (etiqueta, valor) => valor && partes.push(`${etiqueta}: ${valor}`);
 
@@ -350,12 +411,16 @@ export function describirFiltros(filtros, rango) {
   agregar('Estado de la mesa', filtros.estado_mesa);
   agregar('Estado del evento', filtros.estado_evento);
   agregar('Módulo de origen', MODULOS_ORIGEN.find((m) => m.valor === filtros.modulo)?.titulo);
+  agregar('Plantilla', plantillaReporte(filtros.plantilla)?.nombre);
 
   if (filtros.rango) {
     const titulo = RANGOS.find((r) => r.valor === filtros.rango)?.titulo ?? filtros.rango;
     const detalle = rango.desde || rango.hasta ? ` (${rango.desde || '…'} a ${rango.hasta || '…'})` : '';
     partes.push(`Período: ${titulo}${detalle}`);
   }
+
+  if (rangoEventos) partes.push(`Eventos del ${rangoEventos.desde} al ${rangoEventos.hasta}`);
+  if (plantillaReporte(filtros.plantilla)?.soloVigentes) partes.push('Sólo compromisos vigentes');
 
   if (filtros.solo_obras) partes.push('Sólo obras');
   if (filtros.solo_prioritarios) partes.push('Sólo prioritarios');

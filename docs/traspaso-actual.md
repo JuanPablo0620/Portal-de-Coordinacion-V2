@@ -27,6 +27,34 @@ que el otro no puede deducir leyendo el repo.
 
 ## 1. Dónde está parado el portal
 
+### Reportes: plantilla «Informe de Dirección» (22/09)
+
+Primera vez que el informe del lunes se arma desde el portal y no desde los
+Sheets. Reportes ofrece la plantilla fija **Informe de Dirección**, con tres
+bloques —eventos de la semana en curso y la siguiente, compromisos vigentes por
+secretaría, y compromisos vigentes de las mesas— y diseño institucional al
+imprimir: navy `#0f3d6e` y naranja `#ea8b2d` como tokens propios, activos sólo
+bajo la clase `informe-institucional`. JP aprobó ese diseño el 21/09 sobre un
+PDF armado aparte.
+
+No recorta por proyecto ni por período: muestra todo lo vigente, porque un
+compromiso abierto no deja de importar porque nadie lo haya tocado esa semana.
+Sólo los eventos tienen ventana.
+
+**Pendiente:** abrirlo en el navegador con sesión real y la base completa, para
+ver varias mesas con compromisos a la vez. Lo verificado hasta ahora es render
+estático y captura headless.
+
+**El «Informe de Secretaría» quedó fuera** por decisión de JP del 22/09: se
+había construido en la misma rama, pero no va al portal. La maquinaria genérica
+de plantillas (`plantillasReportes.js` y sus helpers) sigue en pie porque es por
+donde pasa el Informe de Dirección; lo que se sacó es esa plantilla, su lista de
+proyectos y su cargador de altas.
+
+**Senado de la Nación** se registra en Posicionamiento, sin estado ni novedad
+agregados por inferencia. Es un alta que pidió JP el 18/09, independiente del
+informe.
+
 ### Apariencia: modo BlueNight (21/09)
 
 La barra lateral incorpora un switch **BlueNight**. Activa un tema oscuro azul
