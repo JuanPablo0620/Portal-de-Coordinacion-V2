@@ -626,7 +626,7 @@ export function nombresAreas(bd) {
 }
 
 /**
- * Áreas que la persona eligió monitorear, en Configuración → «Mis áreas».
+ * Áreas que la persona eligió monitorear, al pie de «Mi trabajo».
  * Con `perfilId` manda la cuenta y se ignora el nombre: las asignaciones
  * remotas ya cuelgan de una identidad, y buscar por nombre libre devolvía
  * vacío apenas alguien se renombraba.

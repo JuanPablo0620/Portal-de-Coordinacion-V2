@@ -175,7 +175,7 @@ const CARGAS_REMOTAS = [
   ['los reportes guardados', planificacionRemota, async () => {
     bdActual.reportes_guardados = await planificacionRemota.cargarReportes();
   }],
-  ['«Mis áreas»', planificacionRemota, async () => {
+  ['las secretarías que seguís', planificacionRemota, async () => {
     bdActual.asignaciones_monitoreo = await planificacionRemota.cargarAsignaciones();
   }],
   ['las notas de proyecto', notasRemotas, async () => {
