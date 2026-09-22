@@ -2,6 +2,9 @@ node_modules
 dist
 .env.local
 
+# Bytecode de los scripts de Python: se regenera solo en cada corrida.
+__pycache__/
+
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 graft/
 .gstack/
