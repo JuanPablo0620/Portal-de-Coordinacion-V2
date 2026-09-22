@@ -28,11 +28,7 @@ import * as notasRemotas from './supabaseNotas.js';
 import * as organigramaRemoto from './supabaseOrganigrama.js';
 import * as equipoRemoto from './supabaseEquipo.js';
 import * as reunionesDireccionRemotas from './supabaseReunionesDireccion.js';
-import {
-  responsableEsObligatorio,
-  temasDeReunionDireccion,
-  validarResponsable,
-} from './equipo.js';
+import { temasDeReunionDireccion, validarResponsable } from './equipo.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -954,8 +950,7 @@ export async function eliminarSeguimiento(id) {
  * al registro de origen que muestran las alertas.
  */
 export async function crearCompromiso(datos) {
-  const bdPrevia = await obtenerBD();
-  validarResponsable(bdPrevia, datos.id_responsable, { requerido: responsableEsObligatorio(bdPrevia) });
+  validarResponsable(await obtenerBD(), datos.id_responsable);
   if (!datos.origen_tipo || !datos.id_origen) {
     throw new Error('Un compromiso requiere origen_tipo e id_origen');
   }
@@ -983,8 +978,7 @@ export async function crearCompromiso(datos) {
  * silencio: el compromiso se creaba bien, pero huérfano.
  */
 export async function crearCompromisoDirecto(datos) {
-  const bdPrevia = await obtenerBD();
-  validarResponsable(bdPrevia, datos.id_responsable, { requerido: responsableEsObligatorio(bdPrevia) });
+  validarResponsable(await obtenerBD(), datos.id_responsable);
   if (compromisosRemotos.activo()) {
     return escribirRemoto(
       'compromisos',
@@ -1009,12 +1003,7 @@ export async function crearCompromisos(lista) {
 }
 
 export async function actualizarCompromiso(id, cambios) {
-  // Requerido aunque el padron este vacio: si el compromiso ya tiene dueno,
-  // derivarlo sin elegir otro lo dejaria huerfano. Espeja la regla (b) del
-  // trigger `validar_responsable_compromiso`.
-  if ('id_responsable' in cambios) {
-    validarResponsable(await obtenerBD(), cambios.id_responsable, { requerido: true });
-  }
+  if ('id_responsable' in cambios) validarResponsable(await obtenerBD(), cambios.id_responsable);
   if (compromisosRemotos.activo()) {
     const bd = await obtenerBD();
     const previo = bd.compromisos.find((c) => c.id === id);
@@ -1229,7 +1218,7 @@ export async function agregarTema(idMonitoreo, tema) {
   // sin responsable, conviene que falle ahora y no despues de haber escrito
   // el tema, que dejaria el monitoreo a medio cargar.
   if (tema.requiere_accion && !tema.compromiso_existente) {
-    validarResponsable(bd, tema.id_responsable, { requerido: responsableEsObligatorio(bd) });
+    validarResponsable(bd, tema.id_responsable);
   }
   const monitoreo = bd.monitoreos.find((m) => m.id === idMonitoreo);
   if (!monitoreo) throw new Error(`No existe el monitoreo ${idMonitoreo}`);

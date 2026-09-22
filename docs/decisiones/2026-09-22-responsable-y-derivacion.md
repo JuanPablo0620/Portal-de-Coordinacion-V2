@@ -36,13 +36,39 @@ a meter.
    no se versionan: este repositorio es público.
 4. **Mi trabajo** une los compromisos asignados a la cuenta y los de las áreas
    elegidas, sin duplicados. La parte personal funciona sin áreas elegidas.
-5. Los históricos sin responsable se conservan. Una vez habilitada al menos una
-   persona, todo compromiso nuevo requiere asignación.
+5. **Todo compromiso tiene responsable, sin excepción.** `id_responsable` es
+   `not null`.
 6. Una cuenta de sólo lectura puede actualizar o derivar un compromiso propio;
    una vez transferido, pierde ese permiso individual. El servidor valida que
    el destinatario esté activo y habilitado.
 
-## Por qué la regla 5 se decide en la base y no en el formulario
+## Los 130 históricos no se cargan, y eso simplifica el esquema
+
+Decisión de JP del 22/09/2026: `supabase/datos/carga-inicial/05-compromisos.csv`
+no se sube, y los que ya estaban cargados en Supabase desde el 04/09 tampoco
+quedan.
+
+Es lo que permite que `id_responsable` sea `not null`. Esas 130 filas son el
+único caso de compromiso sin dueño que existía —el `_db` de origen nunca
+registró quién se hacía cargo—, así que sin ellas no hay nada que sostener:
+
+- **Se cae la regla de transición.** Una versión anterior de este trabajo dejaba
+  crear compromisos sin responsable mientras el padrón estuviera vacío. Era una
+  puerta abierta con un solo propósito, y ese propósito ya no existe.
+- **El trigger queda con una sola regla**: que el destinatario esté activo y
+  habilitado. Que *haya* responsable lo garantiza el `not null`, y que no se
+  pueda derivar a nadie, también.
+
+**La migración falla si quedan filas en `compromisos`**, y está escrito así a
+propósito: vaciar esa tabla tiene que ser un acto deliberado y con backup, no
+algo que una migración haga sola mientras nadie mira.
+
+`fecha_limite` sigue siendo **nullable**, por decisión aparte del mismo día.
+Vale la pena anotar que el único motivo por el que no podía ser `not null` eran
+justamente estos históricos —ver `ciclo-de-vida-del-compromiso.md`, sección 7—,
+así que el bloqueo técnico ya no existe: queda como deuda elegida, no heredada.
+
+## Por qué la regla se decide en la base y no en el formulario
 
 El trigger `validar_responsable_compromiso` corre en Postgres porque el portal
 escribe por PostgREST: cualquiera con la `anon key` —que va en el front y es
@@ -50,19 +76,18 @@ pública por diseño— puede mandar un PATCH a mano. `validarResponsable()` en
 `src/datos/equipo.js` es el espejo en el front, para no ofrecer un botón que la
 base va a rechazar, pero no es la autorización.
 
-Por eso tampoco se repitió la validación en cada formulario de alta. Hacerlo la
-habría congelado en «siempre obligatorio», y durante la transición —padrón
-vacío, histórico sin repartir— eso no deja cargar nada.
+Por eso tampoco se repitió la validación en cada formulario de alta: vive en el
+repositorio, en un solo lugar, y los formularios sólo aportan el campo.
 
 ## Antes de activar el circuito
 
-1. Aplicar la migración en un entorno de prueba, no en producción.
-2. **Repartir el histórico primero.** Apenas se habilita a la primera persona,
-   el alta empieza a exigir responsable. No inferir responsabilidad individual
-   a partir del área.
-3. Habilitar las cuentas acordadas desde Configuración → Equipo y verificar con
-   dos sesiones.
-4. Revisar Mi trabajo y la reunión de Dirección en escritorio y móvil.
+1. **Vaciar `compromisos` con backup previo.** Si no, la migración no aplica.
+2. Aplicar la migración en un entorno de prueba, no en producción.
+3. **Habilitar al menos una cuenta en Configuración → Equipo.** No es opcional
+   ni un paso posterior: con el padrón vacío no se puede crear ningún
+   compromiso en todo el portal, porque no hay a quién asignárselo.
+4. Verificar con dos sesiones, y revisar Mi trabajo y la reunión de Dirección en
+   escritorio y móvil.
 
 ## Lo que todavía no se hizo
 

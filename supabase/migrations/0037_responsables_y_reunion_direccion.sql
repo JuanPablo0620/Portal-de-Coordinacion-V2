@@ -6,6 +6,10 @@
 -- `Pendiente` con el mismo comentario copiado — nadie lo tenía asignado, así
 -- que no era de nadie. Acá se agrega el responsable y la derivación.
 --
+-- PRECONDICIÓN: `public.compromisos` tiene que estar vacía. El responsable es
+-- `not null` y no hay valor por defecto razonable que inventarle a una fila
+-- vieja; asignarle una persona al azar seria peor que no tener la columna.
+--
 -- Aplicar después de 0036. No contiene identidades: el padrón se configura
 -- contra las cuentas reales desde Configuración → Equipo, y este repositorio
 -- es público.
@@ -29,8 +33,19 @@ comment on column public.perfiles.recibe_compromisos is
 
 /* ── 2. El responsable ──────────────────────────────────────────────── */
 
+-- `not null` a proposito, y por decision de JP del 22/09/2026: los 130
+-- compromisos historicos de `05-compromisos.csv` NO se cargan. Sin filas sin
+-- dueno que sostener, la columna puede exigir responsable desde el principio
+-- y no hace falta ninguna regla de transicion.
+--
+-- SI ESTA LINEA FALLA es porque todavia quedan compromisos en la tabla. No es
+-- un error de la migracion: es que vaciarlos tiene que ser un acto deliberado
+-- y con backup, no algo que una migracion haga por su cuenta mientras nadie
+-- mira. Contalos primero:
+--
+--   select count(*) from public.compromisos;
 alter table public.compromisos
-  add column if not exists id_responsable uuid references public.perfiles(id);
+  add column if not exists id_responsable uuid not null references public.perfiles(id);
 
 create index if not exists compromisos_responsable_idx
   on public.compromisos(id_responsable);
@@ -102,17 +117,23 @@ create policy "responsable actualiza su compromiso" on public.compromisos
   using (public.mi_rol() is not null and id_responsable = auth.uid())
   with check (public.mi_rol() is not null);
 
-/* ── 5. Las tres reglas del responsable ─────────────────────────────── */
+/* ── 5. La regla del responsable ────────────────────────────────────── */
 
--- Corre en la base y no sólo en el selector de la pantalla, porque el portal
--- escribe por PostgREST y cualquiera con la anon key podría mandar un PATCH
--- a mano.
+-- Que la columna exista y sea `not null` garantiza que HAYA alguien, pero no
+-- que ese alguien corresponda: sin esto se podria asignar un compromiso a una
+-- cuenta dada de baja, o a una que entra solo a consultar.
+--
+-- Corre en la base y no solo en el selector de la pantalla, porque el portal
+-- escribe por PostgREST y cualquiera con la anon key —que va en el front y es
+-- publica por diseno— podria mandar un PATCH a mano.
+--
+-- Las otras dos reglas que tenia este trigger (no dejar el compromiso
+-- huerfano al derivar, y exigir responsable en el alta) las cubre ahora el
+-- `not null` de la columna, que las rechaza antes de llegar aca.
 create or replace function public.validar_responsable_compromiso()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  -- (a) El destinatario tiene que estar activo y habilitado.
-  if new.id_responsable is not null
-     and (tg_op = 'INSERT' or new.id_responsable is distinct from old.id_responsable) then
+  if tg_op = 'INSERT' or new.id_responsable is distinct from old.id_responsable then
     if not exists (
       select 1 from public.perfiles
       where id = new.id_responsable and activo and recibe_compromisos
@@ -120,21 +141,6 @@ begin
       raise exception 'La persona no está habilitada para recibir compromisos';
     end if;
   end if;
-
-  -- (b) Derivar transfiere; no deja huérfano. Sacar el responsable sin poner
-  -- otro volvería a la situación que esta migración vino a corregir.
-  if tg_op = 'UPDATE' and old.id_responsable is not null and new.id_responsable is null then
-    raise exception 'Elegí otro responsable para derivar el compromiso';
-  end if;
-
-  -- (c) Los históricos sin dueño se conservan tal como están. Pero una vez
-  -- que hay al menos una persona habilitada, ya no hay excusa para cargar un
-  -- compromiso nuevo sin responsable.
-  if tg_op = 'INSERT' and new.id_responsable is null
-     and exists (select 1 from public.perfiles where activo and recibe_compromisos) then
-    raise exception 'Elegí quién se hará cargo del compromiso';
-  end if;
-
   return new;
 end;
 $$;

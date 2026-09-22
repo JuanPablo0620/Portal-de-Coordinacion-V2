@@ -5,11 +5,10 @@
  * en el código — este repositorio es público y las identidades reales viven
  * en `supabase/datos/usuarios-autorizados.local.sql`, que no se versiona.
  *
- * Arranca vacío a propósito. Mientras no haya nadie habilitado, un
- * compromiso se puede cargar sin responsable, que es lo que deja entrar a los
- * históricos; en cuanto se habilita a la primera persona, el alta pasa a
- * exigirlo (regla (c) del trigger de 0037). Conviene repartir el histórico
- * antes de habilitar a nadie.
+ * Arranca vacío, y eso bloquea: `compromisos.id_responsable` es `not null`,
+ * así que **hasta que haya alguien habilitado acá no se puede crear ningún
+ * compromiso en todo el portal**. Es un paso de puesta en marcha, no una
+ * preferencia.
  */
 import { useState } from 'react';
 import { acciones, useBD } from '../../estado/tienda.js';
@@ -36,8 +35,8 @@ export function SeccionEquipo() {
       )}
       {integrantes.length > 0 && habilitados === 0 && (
         <Aviso tono="alerta" titulo="Nadie habilitado todavía">
-          Mientras el padrón esté vacío, los compromisos se pueden cargar sin responsable.
-          Apenas habilites a la primera persona, el alta va a pedirlo siempre.
+          Hasta que habilites a alguien acá, nadie puede crear compromisos: todo compromiso
+          necesita un responsable, y no hay a quién asignárselo.
         </Aviso>
       )}
       <div className="grid gap-3 md:grid-cols-2">

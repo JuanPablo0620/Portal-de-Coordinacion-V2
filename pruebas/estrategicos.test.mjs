@@ -19,9 +19,24 @@ import {
 
 const HOY = '2026-08-08';
 
+/**
+ * El padron de prueba. Desde 0037 `compromisos.id_responsable` es `not null`,
+ * asi que sin alguien habilitado no se puede crear ningun compromiso: sembrar
+ * el equipo es parte de dejar la base en cero, no un detalle del escenario.
+ */
+export const RESPONSABLE = 'pf_prueba';
+
+function sembrarEquipo(bd) {
+  bd.equipo = [
+    { id: RESPONSABLE, nombre: 'Persona de prueba', rol: 'admin', activo: true, recibe_compromisos: true },
+    { id: 'pf_solo_lectura', nombre: 'Persona que solo consulta', rol: 'area', activo: true, recibe_compromisos: false },
+  ];
+  return bd;
+}
+
 async function limpio() {
   await repo.vaciarSistema();
-  return repo.obtenerBD();
+  return sembrarEquipo(await repo.obtenerBD());
 }
 
 const PROYECTO = {
@@ -145,6 +160,7 @@ test('promover desde un tema de monitoreo deja el rastro del origen', async () =
 
   await repo.promoverAEstrategico({
     origen_tipo: 'monitoreo',
+    id_responsable: RESPONSABLE,
     id_origen: tema.id,
     id_proyecto: p.id_proyecto,
     descripcion_estrategica: 'Riesgo alto si se atrasa',
@@ -168,6 +184,7 @@ test('si el tema no tiene proyecto, la promoción da de alta uno en la base maes
 
   const creado = await repo.promoverAEstrategico({
     origen_tipo: 'monitoreo',
+    id_responsable: RESPONSABLE,
     id_origen: tema.id,
     proyecto: { ...PROYECTO, proyecto: 'Plan integral del sector' },
     descripcion_estrategica: 'Innovación institucional',
@@ -188,7 +205,7 @@ test('la promoción exige saber de dónde salió', async () => {
     /origen_tipo e id_origen/,
   );
   await assert.rejects(
-    () => repo.promoverAEstrategico({ origen_tipo: 'monitoreo', id_origen: 'x' }),
+    () => repo.promoverAEstrategico({ origen_tipo: 'monitoreo', id_responsable: RESPONSABLE, id_origen: 'x' }),
     /proyecto a promover/,
   );
 });

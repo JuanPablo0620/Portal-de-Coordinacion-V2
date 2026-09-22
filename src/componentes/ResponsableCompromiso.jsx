@@ -22,14 +22,7 @@ import { nombreResponsable, puedeGestionarCompromiso, responsablesEquipo } from 
 import { CampoSelect } from './Campo.jsx';
 import { Aviso, Boton } from './Basicos.jsx';
 
-/**
- * `requerido` se deduce del padrón en vez de estar fijo en true: mientras no
- * haya nadie habilitado el compromiso se puede cargar sin responsable, y
- * marcar como obligatorio un campo sin una sola opción no deja avanzar.
- * Quien decide de verdad es `validarResponsable()` en el repositorio, que
- * espeja el trigger de la base — acá sólo se dibuja el asterisco.
- */
-export function SelectorResponsable({ valor, alCambiar, requerido, disabled = false }) {
+export function SelectorResponsable({ valor, alCambiar, disabled = false }) {
   const bd = useBD();
   const opciones = responsablesEquipo(bd).map((p) => ({ valor: p.id, titulo: p.nombre }));
   // Si el compromiso ya apunta a alguien que salió del padrón, su nombre se
@@ -41,12 +34,14 @@ export function SelectorResponsable({ valor, alCambiar, requerido, disabled = fa
   return (
     <CampoSelect
       etiqueta="Responsable en Coordinación"
-      requerido={requerido ?? opciones.length > 0}
+      requerido
       opciones={opciones}
       value={valor ?? ''}
       onChange={(e) => alCambiar(e.target.value)}
       disabled={disabled}
-      ayuda={opciones.length ? undefined : 'Configurá los responsables en Configuración → Equipo.'}
+      ayuda={opciones.length
+        ? undefined
+        : 'Todavía no hay nadie habilitado, así que no se puede guardar. Configuración → Equipo.'}
     />
   );
 }
