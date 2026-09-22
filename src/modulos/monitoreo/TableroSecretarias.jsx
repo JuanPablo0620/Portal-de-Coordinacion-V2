@@ -19,6 +19,7 @@ import {
   BarChart3,
   Building2,
   CalendarCheck,
+  CalendarClock,
   CalendarPlus,
   Check,
   ClipboardList,
@@ -67,6 +68,7 @@ import {
   seguimientos as selSeguimientos,
   trimestreDe,
 } from '../../datos/selectores.js';
+import { sumarDias } from '../../datos/tiempo.js';
 import { fecha as fFecha, fechaLarga, moneda, numero, sufijoArchivo } from '../../utilidades/formato.js';
 import { useItems } from '../../utilidades/catalogos.js';
 import { acciones } from '../../estado/tienda.js';
@@ -80,6 +82,23 @@ const TEXTO_NIVEL = {
   sindato: 'sin monitorear',
 };
 
+
+/**
+ * Cadencia del monitoreo (glosario: reunión semanal con el coordinador del
+ * área). No hay agenda de monitoreos en la base, así que el «próximo» es una
+ * previsión sobre el último cargado, no una fecha que alguien confirmó.
+ */
+const DIAS_CADENCIA_MONITOREO = 7;
+
+/**
+ * Dos paneles apagados a pedido (22/09/2026), no borrados: la serie mensual
+ * dibuja seis meses en cero mientras la carga recién arranca en septiembre —
+ * y un cero acá significa «no se monitoreó», con lo cual el panel miente— y
+ * planificación trimestral / presupuesto todavía no se cargan. Se reactivan
+ * poniendo estas constantes en true, sin tener que rehacer nada.
+ */
+const MOSTRAR_SERIE_MENSUAL = false;
+const MOSTRAR_PLANIFICACION = false;
 
 export function TableroSecretarias({ bd, filtros, setFiltros, alertas = [], rango }) {
   const hoy = hoyISO();
@@ -229,7 +248,7 @@ function Grilla({ bd, periodo, filtros, setFiltros, alertas, areas, hoy }) {
 }
 
 /**
- * Exportada para «Mis áreas» (`src/modulos/mis-areas/MisAreas.jsx`): la
+ * Exportada para «Mi trabajo» (`src/modulos/mi-trabajo/MiTrabajo.jsx`): la
  * reutiliza tal cual, filtrada a las áreas que cada persona eligió monitorear,
  * para no duplicar el semáforo, la mini-serie ni el resto de esta tarjeta.
  */
@@ -395,6 +414,10 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
   );
   const eventos = useMemo(() => (bd ? selEventos(bd, { area }) : []), [bd, area]);
   const alertasArea = useMemo(() => filtrarAlertas(alertas, { area }), [alertas, area]);
+  const pulso = useMemo(
+    () => (resumen ? calcularPulso(resumen, compromisos, hoy) : null),
+    [resumen, compromisos, hoy],
+  );
 
   const anio = Number(hoy.slice(0, 4));
   const trimestre = trimestreDe(hoy);
@@ -494,31 +517,62 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
         </div>
       </Tarjeta>
 
-      {/* Seis columnas recién a 2xl: más apretadas, las etiquetas se truncan y
-          «Compromisos vencidos» queda en «Compromisos ven…». */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* Las tres primeras son ESTADO (valen al día de hoy) y las tres últimas son
+          PERÍODO (dependen del filtro). Van en la misma fila igual: el orden las
+          separa y una segunda fila costaba alto de pantalla sin aclarar nada.
+          Seis columnas recién a xl; abajo de eso, de a tres y de a dos. */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Metrica
+          envolverEtiqueta
+          valor={pulso.ultimo ? fFecha(pulso.ultimo) : '—'}
+          etiqueta="Último monitoreo"
+          detalle={pulso.ultimo ? `hace ${resumen.dias_sin_monitoreo} d` : 'sin registrar'}
+          tono={pulso.sinMonitorearHaceMucho ? 'vencido' : 'neutro'}
+          icono={History}
+        />
+        <Metrica
+          envolverEtiqueta
+          valor={pulso.proximo ? fFecha(pulso.proximo) : '—'}
+          etiqueta="Próximo monitoreo"
+          detalle={pulso.detalleProximo}
+          tono={pulso.dias !== null && pulso.dias < 0 ? 'vencido' : 'neutro'}
+          icono={CalendarClock}
+        />
+        <Metrica
+          envolverEtiqueta
+          valor={pulso.vigentes}
+          etiqueta="Compromisos vigentes"
+          detalle={pulso.detalleVigentes}
+          tono={pulso.vencidos ? 'vencido' : 'neutro'}
+          icono={ClipboardList}
+        />
+        <Metrica
+          envolverEtiqueta
           valor={resumen.monitoreos}
           etiqueta="Monitoreos del período"
           icono={ListChecks}
           detalle={
             resumen.comparativo
-              ? `${resumen.comparativo.delta_monitoreos >= 0 ? '+' : ''}${resumen.comparativo.delta_monitoreos} vs. período anterior`
+              ? `${resumen.comparativo.delta_monitoreos >= 0 ? '+' : ''}${resumen.comparativo.delta_monitoreos} vs. anterior`
               : undefined
           }
         />
-        <Metrica valor={resumen.seguimientos} etiqueta="Seguimientos" icono={CalendarCheck} />
         <Metrica
-          valor={resumen.compromisos.vencidos}
-          etiqueta="Compromisos vencidos"
-          tono={resumen.compromisos.vencidos ? 'vencido' : 'neutro'}
-          detalle={`${resumen.compromisos.por_vencer} vencen en ≤${UMBRALES.DIAS_POR_VENCER} d`}
-          icono={ClipboardList}
+          envolverEtiqueta
+          valor={resumen.seguimientos}
+          etiqueta="Seguimientos"
+          detalle={
+            resumen.proximo_seguimiento
+              ? `próximo ${fFecha(resumen.proximo_seguimiento.fecha)}`
+              : 'ninguno agendado'
+          }
+          icono={CalendarCheck}
         />
         <Metrica
+          envolverEtiqueta
           valor={resumen.proyectos.activos}
           etiqueta="Proyectos activos"
-          detalle={`${resumen.proyectos.porcentaje_avance}% de avance agregado`}
+          detalle={`${resumen.proyectos.porcentaje_avance}% de avance`}
           icono={BarChart3}
         />
       </div>
@@ -539,17 +593,19 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
         </Tarjeta>
       )}
 
-      <Tarjeta
-        titulo="Monitoreos por mes"
-        descripcion="Serie histórica del área: un mes en cero significa que no se monitoreó, no que el filtro lo excluyó."
-      >
-        <GraficoBarras
-          datos={resumen.serie}
-          clave="etiqueta"
-          alto={220}
-          series={[{ clave: 'monitoreos', titulo: 'Monitoreos' }]}
-        />
-      </Tarjeta>
+      {MOSTRAR_SERIE_MENSUAL && (
+        <Tarjeta
+          titulo="Monitoreos por mes"
+          descripcion="Serie histórica del área: un mes en cero significa que no se monitoreó, no que el filtro lo excluyó."
+        >
+          <GraficoBarras
+            datos={resumen.serie}
+            clave="etiqueta"
+            alto={220}
+            series={[{ clave: 'monitoreos', titulo: 'Monitoreos' }]}
+          />
+        </Tarjeta>
+      )}
 
       {alertasArea.length > 0 && (
         <Tarjeta
@@ -561,14 +617,16 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
         </Tarjeta>
       )}
 
-      <PanelPlanificacion
-        desvios={desvios}
-        presupuesto={resumen.presupuesto}
-        anio={anio}
-        trimestre={trimestre}
-        sufijo={sufijo}
-        navegar={navegar}
-      />
+      {MOSTRAR_PLANIFICACION && (
+        <PanelPlanificacion
+          desvios={desvios}
+          presupuesto={resumen.presupuesto}
+          anio={anio}
+          trimestre={trimestre}
+          sufijo={sufijo}
+          navegar={navegar}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Tarjeta titulo="Monitoreos del período" sinPadding>
@@ -759,6 +817,56 @@ function HojaSecretaria({ bd, area, periodo, alertas, hoy, prefijo, alVolver }) 
       {cerrando && <ModalCierre item={cerrando} hoy={hoy} alCerrar={() => setCerrando(null)} />}
     </div>
   );
+}
+
+/* ── Pulso del área ─────────────────────────────────────────────────── */
+
+/**
+ * Los tres datos de ESTADO que abren la fila de métricas: cuándo fue el último
+ * monitoreo, cuándo toca el que viene y cuánto hay abierto.
+ *
+ * Ocupan el lugar que tenía la serie mensual porque responden lo mismo —¿este
+ * área se está monitoreando?— sin depender de tener meses de historia cargada.
+ *
+ * Los textos son cortos a propósito: en una fila de seis columnas un detalle
+ * largo se corta y deja de informar.
+ */
+function calcularPulso(resumen, compromisos, hoy) {
+  const ultimo = resumen.ultimo_monitoreo;
+  // Previsión, no agenda: la base no guarda monitoreos futuros.
+  const proximo = ultimo ? sumarDias(ultimo, DIAS_CADENCIA_MONITOREO) : null;
+  const dias = proximo ? diasHasta(proximo, hoy) : null;
+
+  const abiertos = compromisos.filter((c) => c.estado_efectivo !== 'cumplido');
+  const vencidos = abiertos.filter((c) => c.estado_efectivo === 'alerta').length;
+  const porVencer = abiertos.filter(
+    (c) =>
+      c.dias_restantes !== null && c.dias_restantes >= 0 && c.dias_restantes <= UMBRALES.DIAS_POR_VENCER,
+  ).length;
+
+  let detalleProximo = 'a definir';
+  if (dias !== null) {
+    if (dias < 0) detalleProximo = `atrasado ${Math.abs(dias)} d`;
+    else if (dias === 0) detalleProximo = 'corresponde hoy';
+    else detalleProximo = `en ${dias} d`;
+  }
+
+  let detalleVigentes = 'ninguno vencido';
+  if (!abiertos.length) detalleVigentes = 'sin compromisos abiertos';
+  else if (vencidos) detalleVigentes = `${vencidos} vencido${vencidos > 1 ? 's' : ''}`;
+  else if (porVencer) detalleVigentes = `${porVencer} en ≤${UMBRALES.DIAS_POR_VENCER} d`;
+
+  return {
+    ultimo,
+    proximo,
+    dias,
+    detalleProximo,
+    vigentes: abiertos.length,
+    vencidos,
+    detalleVigentes,
+    sinMonitorearHaceMucho:
+      !ultimo || resumen.dias_sin_monitoreo > UMBRALES.DIAS_SIN_MONITOREO,
+  };
 }
 
 /* ── Planificación y presupuesto ────────────────────────────────────── */

@@ -352,7 +352,22 @@ export function Aviso({ tono = 'info', titulo, children }) {
 
 /* ── Métrica ────────────────────────────────────────────────────────── */
 
-export function Metrica({ etiqueta, valor, detalle, icono: Icono, alHacerClic, tono = 'neutro' }) {
+/**
+ * `envolverEtiqueta` existe para las filas de seis columnas: ahí la etiqueta no
+ * entra en una línea y truncar convierte «Compromisos vigentes» en
+ * «Compromisos ven…», que no dice nada. Dejarla envolver en dos renglones
+ * cuesta unos píxeles de alto y conserva la palabra. Por defecto sigue
+ * truncando, que es lo correcto en las filas de tres o cuatro.
+ */
+export function Metrica({
+  etiqueta,
+  valor,
+  detalle,
+  icono: Icono,
+  alHacerClic,
+  tono = 'neutro',
+  envolverEtiqueta = false,
+}) {
   const interactiva = Boolean(alHacerClic);
   const Elemento = interactiva ? 'button' : 'div';
   return (
@@ -376,8 +391,12 @@ export function Metrica({ etiqueta, valor, detalle, icono: Icono, alHacerClic, t
       )}
       <div className="min-w-0">
         <p className="tabular text-xl font-semibold leading-none text-tinta">{valor}</p>
-        <p className="mt-1 truncate text-xs text-gris">{etiqueta}</p>
-        {detalle && <p className="mt-0.5 truncate text-[11px] text-tenue">{detalle}</p>}
+        <p className={`mt-1 text-xs text-gris ${envolverEtiqueta ? 'leading-snug' : 'truncate'}`}>{etiqueta}</p>
+        {detalle && (
+          <p className={`mt-0.5 text-[11px] text-tenue ${envolverEtiqueta ? 'leading-snug' : 'truncate'}`}>
+            {detalle}
+          </p>
+        )}
       </div>
     </Elemento>
   );
