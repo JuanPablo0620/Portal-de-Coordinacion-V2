@@ -9,6 +9,7 @@ import { hoyISO } from '../../datos/selectores.js';
 import { acciones, useBD, useCatalogos } from '../../estado/tienda.js';
 import { usePerfil, useSesion } from '../../estado/sesion.js';
 import { nuevoId } from '../../datos/ids.js';
+import { SeccionEquipo } from './Equipo.jsx';
 
 export default function Configuracion() {
   return (
@@ -19,6 +20,7 @@ export default function Configuracion() {
       />
       <Pagina className="flex flex-col gap-4">
         <SeccionUsuario />
+        <SeccionEquipo />
         <SeccionCatalogos />
         <SeccionDatos />
       </Pagina>
