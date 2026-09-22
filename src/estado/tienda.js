@@ -66,7 +66,11 @@ export async function sincronizarUsuario(nombreReal) {
   const anterior = bd.config?.usuario;
   if (anterior === nombreReal) return;
 
-  if (anterior) {
+  // Sólo migra preferencias viejas, las que todavía cuelgan de un nombre
+  // libre. Contra Supabase las dos escrituras operan sobre `auth.uid()` y no
+  // sobre el nombre que se les pasa, así que la segunda borraba las áreas que
+  // acababa de escribir la primera: cambiar de nombre te vaciaba las tuyas.
+  if (anterior && !(bd.asignaciones_monitoreo ?? []).some((a) => a.perfil_id)) {
     const areas = areasAsignadas(bd, anterior);
     if (areas.length) {
       await repo.guardarAsignacionesMonitoreo(nombreReal, areas);

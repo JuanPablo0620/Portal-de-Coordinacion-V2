@@ -26,6 +26,13 @@ import * as auditoriaRemota from './supabaseAuditoria.js';
 import * as catalogosRemotos from './supabaseCatalogos.js';
 import * as notasRemotas from './supabaseNotas.js';
 import * as organigramaRemoto from './supabaseOrganigrama.js';
+import * as equipoRemoto from './supabaseEquipo.js';
+import * as reunionesDireccionRemotas from './supabaseReunionesDireccion.js';
+import {
+  responsableEsObligatorio,
+  temasDeReunionDireccion,
+  validarResponsable,
+} from './equipo.js';
 
 /* ── Estado interno ─────────────────────────────────────────────────── */
 
@@ -115,6 +122,15 @@ export const estadoRemoto = () => ({ error: errorRemoto });
  * dos cosas distintas y no ayuda a ninguna de las dos.
  */
 const CARGAS_REMOTAS = [
+  // Va primero junto con los catalogos: sin el padron cargado, el selector de
+  // responsable aparece vacio y la pantalla sugiere configurar el equipo
+  // cuando en realidad todavia no llego la lista.
+  ['el equipo', equipoRemoto, async () => {
+    bdActual.equipo = await equipoRemoto.cargar();
+  }],
+  ['las reuniones de Dirección', reunionesDireccionRemotas, async () => {
+    Object.assign(bdActual, await reunionesDireccionRemotas.cargar());
+  }],
   // Van primeros: son el vocabulario compartido del que cuelgan los
   // desplegables y los filtros de todas las demas pantallas.
   ['los catálogos', catalogosRemotos, async () => {
@@ -938,6 +954,8 @@ export async function eliminarSeguimiento(id) {
  * al registro de origen que muestran las alertas.
  */
 export async function crearCompromiso(datos) {
+  const bdPrevia = await obtenerBD();
+  validarResponsable(bdPrevia, datos.id_responsable, { requerido: responsableEsObligatorio(bdPrevia) });
   if (!datos.origen_tipo || !datos.id_origen) {
     throw new Error('Un compromiso requiere origen_tipo e id_origen');
   }
@@ -965,6 +983,8 @@ export async function crearCompromiso(datos) {
  * silencio: el compromiso se creaba bien, pero huérfano.
  */
 export async function crearCompromisoDirecto(datos) {
+  const bdPrevia = await obtenerBD();
+  validarResponsable(bdPrevia, datos.id_responsable, { requerido: responsableEsObligatorio(bdPrevia) });
   if (compromisosRemotos.activo()) {
     return escribirRemoto(
       'compromisos',
@@ -989,6 +1009,12 @@ export async function crearCompromisos(lista) {
 }
 
 export async function actualizarCompromiso(id, cambios) {
+  // Requerido aunque el padron este vacio: si el compromiso ya tiene dueno,
+  // derivarlo sin elegir otro lo dejaria huerfano. Espeja la regla (b) del
+  // trigger `validar_responsable_compromiso`.
+  if ('id_responsable' in cambios) {
+    validarResponsable(await obtenerBD(), cambios.id_responsable, { requerido: true });
+  }
   if (compromisosRemotos.activo()) {
     const bd = await obtenerBD();
     const previo = bd.compromisos.find((c) => c.id === id);
@@ -1056,7 +1082,10 @@ export async function actualizarEstadoCompromiso(
   if (fecha_limite !== undefined) cambios.fecha_limite = fecha_limite || null;
   if (id_subsecretaria !== undefined) cambios.id_subsecretaria = id_subsecretaria || null;
   if (id_direccion !== undefined) cambios.id_direccion = id_direccion || null;
-  if (estado !== previo.estado) {
+  // `estado` puede no venir: hay llamadas que solo cambian el plazo o la
+  // unidad. Sin el chequeo de `undefined`, esas escrituras guardaban
+  // `estado: undefined` y borraban el estado anterior en la base local.
+  if (estado !== undefined && estado !== previo.estado) {
     cambios.estado = estado;
     cambios.fecha_cumplimiento = estado === 'cumplido' ? previo.fecha_cumplimiento || hoy : null;
   }
@@ -1089,6 +1118,97 @@ export async function actualizarEstadoCompromiso(
   });
 }
 
+/* ── Equipo y responsables ──────────────────────────────────────────── */
+
+/**
+ * Derivar transfiere quien lo impulsa y nada mas: no toca el area, el
+ * estado, el plazo ni las novedades anteriores. Tampoco deja rastro propio
+ * —no hay historial de derivaciones ni se pide motivo— porque la auditoria
+ * general de la base ya registra el cambio de columna.
+ */
+export async function asignarCompromiso(id, idResponsable) {
+  return actualizarCompromiso(id, { id_responsable: idResponsable });
+}
+
+export async function configurarIntegrante(id, cambios) {
+  if (equipoRemoto.activo()) {
+    return escribirRemoto('equipo', () => equipoRemoto.configurar(id, cambios), { id });
+  }
+  return actualizar('equipo', id, cambios);
+}
+
+/* ── Reunión de Dirección ───────────────────────────────────────────── */
+
+export async function crearReunionDireccion(datos) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datos.fecha ?? '')) {
+    throw new Error('Elegí la fecha de la reunión.');
+  }
+  if (reunionesDireccionRemotas.activo()) {
+    return escribirRemoto('reuniones_direccion', () => reunionesDireccionRemotas.crear(datos));
+  }
+  return crear('reuniones_direccion', { ...datos, cerrada: false });
+}
+
+export async function guardarTemaReunionDireccion(datos) {
+  const bd = await obtenerBD();
+  const reunion = bd.reuniones_direccion.find((r) => r.id === datos.reunion_id);
+  if (!reunion) throw new Error('No existe la reunión.');
+  if (!datos.titulo?.trim()) throw new Error('Escribí el tema que se va a tratar.');
+  if (datos.compromiso_id && !bd.compromisos.some((c) => c.id === datos.compromiso_id)) {
+    throw new Error('No existe el compromiso.');
+  }
+  const previo = bd.temas_reunion_direccion.find((t) => t.id === datos.id
+    || (datos.compromiso_id && t.reunion_id === datos.reunion_id && t.compromiso_id === datos.compromiso_id));
+  const fila = { nota: '', acuerdo: '', orden: 0, revisado: false, ...previo, ...datos };
+  // Una reunión cerrada sigue aceptando marcar `revisado` y escribir el
+  // acuerdo: lo que queda congelado es la lista de temas, no el acta.
+  if (reunion.cerrada
+    && (!previo || ['titulo', 'nota', 'orden', 'compromiso_id'].some((k) => fila[k] !== previo[k]))) {
+    throw new Error('El temario de la reunión está cerrado.');
+  }
+  if (reunionesDireccionRemotas.activo()) {
+    return escribirRemoto(
+      'temas_reunion_direccion',
+      () => reunionesDireccionRemotas.guardarTema(fila),
+      { id: previo?.id },
+    );
+  }
+  return previo
+    ? actualizar('temas_reunion_direccion', previo.id, fila)
+    : crear('temas_reunion_direccion', fila);
+}
+
+export async function quitarTemaReunionDireccion(id) {
+  const bd = await obtenerBD();
+  const tema = bd.temas_reunion_direccion.find((t) => t.id === id);
+  if (!tema) return;
+  if (bd.reuniones_direccion.find((r) => r.id === tema.reunion_id)?.cerrada) {
+    throw new Error('El temario está cerrado.');
+  }
+  if (reunionesDireccionRemotas.activo()) await reunionesDireccionRemotas.quitarTema(id);
+  bd.temas_reunion_direccion = bd.temas_reunion_direccion.filter((t) => t.id !== id);
+  await persistir();
+}
+
+export async function cerrarReunionDireccion(id) {
+  const bd = await obtenerBD();
+  const reunion = bd.reuniones_direccion.find((r) => r.id === id);
+  if (!reunion) throw new Error('No existe la reunión.');
+  if (reunionesDireccionRemotas.activo()) {
+    Object.assign(bd, await reunionesDireccionRemotas.cerrar(id));
+    await persistir();
+    return;
+  }
+  // Sin Supabase no hay transacción, así que se agrupa en un lote para que
+  // la lista y el cierre se persistan juntos.
+  return enLote(async () => {
+    for (const tema of temasDeReunionDireccion(bd, reunion)) {
+      if (!tema.id) await guardarTemaReunionDireccion(tema);
+    }
+    await actualizar('reuniones_direccion', id, { cerrada: true });
+  });
+}
+
 /* ── Monitoreos ─────────────────────────────────────────────────────── */
 
 export async function crearMonitoreo(datos) {
@@ -1105,6 +1225,12 @@ export async function crearMonitoreo(datos) {
  */
 export async function agregarTema(idMonitoreo, tema) {
   const bd = await obtenerBD();
+  // Se valida antes de abrir el lote: si el tema va a generar un compromiso
+  // sin responsable, conviene que falle ahora y no despues de haber escrito
+  // el tema, que dejaria el monitoreo a medio cargar.
+  if (tema.requiere_accion && !tema.compromiso_existente) {
+    validarResponsable(bd, tema.id_responsable, { requerido: responsableEsObligatorio(bd) });
+  }
   const monitoreo = bd.monitoreos.find((m) => m.id === idMonitoreo);
   if (!monitoreo) throw new Error(`No existe el monitoreo ${idMonitoreo}`);
 
@@ -1130,6 +1256,7 @@ export async function agregarTema(idMonitoreo, tema) {
         // tema cuenta qué pasó, el compromiso qué hay que hacer. Si no se
         // completó la propia, se usa la del tema como antes.
         descripcion: tema.descripcion_compromiso || tema.descripcion,
+        id_responsable: tema.id_responsable,
         fecha_limite: tema.fecha_limite,
       });
       if (!monitoreosRemotos.activo()) await actualizar('temas_monitoreo', registro.id, { id_compromiso: compromiso.id });
@@ -1199,6 +1326,10 @@ export async function actualizarTema(id, cambios) {
 
     if (tema.requiere_accion && !(teniaPropio && sigueApuntandoIgual)) {
       const compromiso = await crearCompromiso({
+        // Va sólo en el alta y no dentro de `datos`, que también alimenta la
+        // actualización de un compromiso que ya existe: ahí el responsable
+        // se cambia derivando, no reescribiéndolo desde el tema.
+        id_responsable: cambios.id_responsable ?? tema.id_responsable,
         origen_tipo: 'monitoreo',
         id_origen: monitoreosRemotos.activo() ? tema.id : previo.id_monitoreo,
         area: monitoreo?.area ?? '',
