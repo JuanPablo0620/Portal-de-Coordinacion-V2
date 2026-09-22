@@ -3,6 +3,7 @@ import { Check, ChevronDown, History, MessageSquareText } from 'lucide-react';
 import { Boton } from './Basicos.jsx';
 import { CampoArea, CampoFecha, CampoRadios } from './Campo.jsx';
 import { SelectorUnidad } from './SelectorUnidad.jsx';
+import { AsignarResponsable } from './ResponsableCompromiso.jsx';
 import { ESTADOS_COMPROMISO } from '../datos/catalogos.js';
 import { historialCompromiso } from '../datos/repositorio.js';
 import { fecha as fFecha } from '../utilidades/formato.js';
@@ -160,11 +161,20 @@ function EditorPanelOperativo({
             />
           )}
 
+          {/* Queda fuera del borrador y se guarda por su cuenta: derivar no es
+              un movimiento del compromiso, y mezclarlo con «Guardar
+              movimiento» obligaría a inventar una novedad para pasarle algo a
+              otra persona. */}
+          <AsignarResponsable compromiso={compromiso} />
+
           {/* También se conserva acá la corrección del organigrama para los
-              compromisos históricos que todavía no tienen unidad asignada. */}
+              compromisos históricos que todavía no tienen unidad asignada.
+              Dice «subsecretaría y dirección» y no «unidad responsable» para
+              no confundirse con el responsable de arriba, que es una persona:
+              esto es el área del organigrama de la que cuelga el compromiso. */}
           <details className="group mt-3 overflow-hidden rounded-chip border border-borde bg-card">
             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-xs font-medium text-gris marker:content-none hover:bg-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-acento">
-              Editar unidad responsable
+              Editar subsecretaría y dirección
               <ChevronDown
                 size={16}
                 aria-hidden="true"

@@ -24,6 +24,7 @@ import {
   GrillaCampos,
 } from '../../componentes/Campo.jsx';
 import { SelectorUnidad } from '../../componentes/SelectorUnidad.jsx';
+import { SelectorResponsable } from '../../componentes/ResponsableCompromiso.jsx';
 import { ESTADOS_ACTIVOS } from '../../datos/catalogos.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
@@ -119,6 +120,7 @@ export function FormularioNovedad({ abierto, proyecto, alCerrar }) {
           id_subsecretaria: comp.id_subsecretaria || null,
           id_direccion: comp.id_direccion || null,
           descripcion: comp.descripcion,
+          id_responsable: comp.id_responsable || null,
           fecha_limite: comp.fecha_limite || null,
           estado: 'pendiente',
         });
@@ -227,9 +229,13 @@ export function FormularioNovedad({ abierto, proyecto, alCerrar }) {
               <CampoFecha
                 etiqueta="Fecha límite"
                 value={nuevoCompromiso.fecha_limite}
-                onChange={(e) => setNuevoCompromiso((c) => ({ ...c, fecha_limite: e }))}
+                onChange={(e) => setNuevoCompromiso((c) => ({ ...c, fecha_limite: e.target.value }))}
               />
 
+              <SelectorResponsable
+                valor={nuevoCompromiso.id_responsable}
+                alCambiar={(id) => setNuevoCompromiso((c) => ({ ...c, id_responsable: id }))}
+              />
               <SelectorUnidad
                 area={datos.area_contacto}
                 idSubsecretaria={nuevoCompromiso.id_subsecretaria}

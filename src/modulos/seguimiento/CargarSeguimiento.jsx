@@ -25,6 +25,7 @@ import { Check, Plus, Trash2 } from 'lucide-react';
 import { Aviso, Boton, Chip, Semaforo, Tarjeta } from '../../componentes/Basicos.jsx';
 import { CampoFecha, CampoHora, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import { SelectorUnidad } from '../../componentes/SelectorUnidad.jsx';
+import { SelectorResponsable } from '../../componentes/ResponsableCompromiso.jsx';
 import { hoyISO, proyectos as selProyectos } from '../../datos/selectores.js';
 import { numero } from '../../utilidades/formato.js';
 import { sumarDias } from '../../datos/tiempo.js';
@@ -154,6 +155,7 @@ export function CargarSeguimiento({ alTerminar }) {
             id_subsecretaria: c.id_subsecretaria || null,
             id_direccion: c.id_direccion || null,
             descripcion: c.descripcion.trim(),
+            id_responsable: c.id_responsable || null,
             fecha_limite: c.fecha_limite || null,
           }));
         if (aCrear.length) await acciones.crearCompromisos(aCrear);
@@ -329,6 +331,10 @@ function BloqueCompromisos({ filas, setFilas, hoy, area, fechaSeguimiento }) {
                 <Trash2 size={15} />
               </button>
             </div>
+            <SelectorResponsable
+              valor={fila.id_responsable}
+              alCambiar={(id) => setFilas((f) => f.map((x) => (x.clave === fila.clave ? { ...x, id_responsable: id } : x)))}
+            />
             <SelectorUnidad
               area={area}
               idSubsecretaria={fila.id_subsecretaria}

@@ -4,6 +4,7 @@ import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton, Chip } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoFecha, CampoTexto } from '../../componentes/Campo.jsx';
 import { SelectorUnidad } from '../../componentes/SelectorUnidad.jsx';
+import { SelectorResponsable } from '../../componentes/ResponsableCompromiso.jsx';
 import { hoyISO, proximaReunionMesa } from '../../datos/selectores.js';
 import { fecha as fFecha } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
@@ -91,6 +92,7 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
           id_subsecretaria: c.id_subsecretaria || null,
           id_direccion: c.id_direccion || null,
           descripcion: c.descripcion.trim(),
+          id_responsable: c.id_responsable || null,
           fecha_limite: c.fecha_limite || null,
         }));
       if (aCrear.length) await acciones.crearCompromisos(aCrear);
@@ -183,6 +185,10 @@ export function RegistrarReunion({ abierto, alCerrar, mesa }) {
                   <Trash2 size={15} />
                 </button>
               </div>
+              <SelectorResponsable
+                valor={fila.id_responsable}
+                alCambiar={(id) => actualizarFila(fila.clave, 'id_responsable', id)}
+              />
               <SelectorUnidad
                 area={fila.area}
                 idSubsecretaria={fila.id_subsecretaria}
