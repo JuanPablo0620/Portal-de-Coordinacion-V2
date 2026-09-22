@@ -49,7 +49,10 @@ const CON_DEMO = [
   ['/monitoreo?tab=cobertura', 'Cobertura semanal de Monitoreo'],
   ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras', 'Monitoreos del período'],
   ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras', 'Compromisos vigentes'],
-  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras', 'Ejecución presupuestaria'],
+  // Era «Ejecución presupuestaria», pero ese panel quedó apagado a pedido el
+  // 22/09 (`MOSTRAR_PLANIFICACION` en TableroSecretarias.jsx). Se comprueba
+  // otro bloque de la hoja para no perder la cobertura de la ruta.
+  ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras', 'Proyectos de la secretaría'],
   ['/monitoreo?secretaria=Secretar%C3%ADa%20de%20Obras', 'Proyectos de la secretaría'],
   ['/monitoreo?tab=ultimos', 'Registrado'],
   ['/monitoreo?tab=cobertura', 'Secretarías sin cobertura'],
