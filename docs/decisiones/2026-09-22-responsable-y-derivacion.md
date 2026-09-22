@@ -36,37 +36,50 @@ a meter.
    no se versionan: este repositorio es público.
 4. **Mi trabajo** une los compromisos asignados a la cuenta y los de las áreas
    elegidas, sin duplicados. La parte personal funciona sin áreas elegidas.
-5. **Todo compromiso tiene responsable, sin excepción.** `id_responsable` es
-   `not null`.
+5. **Los 137 compromisos ya cargados se quedan sin responsable.** En cuanto
+   haya al menos una persona habilitada, todo compromiso nuevo lo exige.
 6. Una cuenta de sólo lectura puede actualizar o derivar un compromiso propio;
    una vez transferido, pierde ese permiso individual. El servidor valida que
    el destinatario esté activo y habilitado.
 
-## Los 130 históricos no se cargan, y eso simplifica el esquema
+## Por qué `id_responsable` es nullable: lo que había en producción
 
-Decisión de JP del 22/09/2026: `supabase/datos/carga-inicial/05-compromisos.csv`
-no se sube, y los que ya estaban cargados en Supabase desde el 04/09 tampoco
-quedan.
+Durante el 22/09 esta decisión se tomó dos veces, y la segunda corrigió a la
+primera. Queda escrito porque el error es fácil de repetir.
 
-Es lo que permite que `id_responsable` sea `not null`. Esas 130 filas son el
-único caso de compromiso sin dueño que existía —el `_db` de origen nunca
-registró quién se hacía cargo—, así que sin ellas no hay nada que sostener:
+**Primera versión.** Se decidió no cargar los 130 compromisos históricos de
+`05-compromisos.csv`. Como esas filas eran el único caso conocido de compromiso
+sin dueño, se puso `id_responsable not null` y se simplificó el trigger a una
+sola regla.
 
-- **Se cae la regla de transición.** Una versión anterior de este trabajo dejaba
-  crear compromisos sin responsable mientras el padrón estuviera vacío. Era una
-  puerta abierta con un solo propósito, y ese propósito ya no existe.
-- **El trigger queda con una sola regla**: que el destinatario esté activo y
-  habilitado. Que *haya* responsable lo garantiza el `not null`, y que no se
-  pueda derivar a nadie, también.
+**Lo que apareció al contar.** Antes de vaciar nada se hizo backup de la tabla
+real. No había 130 filas: había **137**, y la distribución importaba.
 
-**La migración falla si quedan filas en `compromisos`**, y está escrito así a
-propósito: vaciar esa tabla tiene que ser un acto deliberado y con backup, no
-algo que una migración haga sola mientras nadie mira.
+| Grupo | Total | Activos | Actualizaciones |
+|---|---|---|---|
+| Carga histórica del 04/09 | 84 | 15 | 153 |
+| Cargados por el equipo desde el 08/09 | 53 | 46 | 82 |
 
-`fecha_limite` sigue siendo **nullable**, por decisión aparte del mismo día.
-Vale la pena anotar que el único motivo por el que no podía ser `not null` eran
-justamente estos históricos —ver `ciclo-de-vida-del-compromiso.md`, sección 7—,
-así que el bloqueo técnico ya no existe: queda como deuda elegida, no heredada.
+Los 53 no son histórico: son trabajo real, cargado desde el portal en tres
+semanas, once de ellos el mismo 22/09, con contenido inequívoco («Canil de
+Plaza Echeverría», «Avanzar con la compactación de autos en la comisaría N°6»).
+Vaciar `compromisos` se los habría llevado junto con sus 82 actualizaciones.
+
+**Decisión final.** La columna es **nullable** y vuelve la regla (c) del
+trigger. A los 137 no se les puede inventar un responsable, y deducirlo del
+área es justamente lo que la regla 3 prohíbe: el área dice quién ejecuta, no
+quién se comprometió a impulsarlo.
+
+**La lección operativa:** el backup no fue un trámite previo a borrar, fue el
+que mostró que no había que borrar. Ante cualquier `delete` masivo en
+producción, contar y mirar *antes*, aunque la decisión ya esté tomada.
+
+Backups en el repo de trabajo de JP:
+`archivos_varios/backup_compromisos_produccion_2026-09-22.json` y el de
+`actualizaciones_compromisos`.
+
+`fecha_limite` sigue siendo **nullable** por decisión aparte del mismo día —ver
+`ciclo-de-vida-del-compromiso.md`, sección 7.
 
 ## Por qué la regla se decide en la base y no en el formulario
 
@@ -81,20 +94,31 @@ repositorio, en un solo lugar, y los formularios sólo aportan el campo.
 
 ## Antes de activar el circuito
 
-1. **Vaciar `compromisos` con backup previo.** Si no, la migración no aplica.
-2. Aplicar la migración en un entorno de prueba, no en producción.
-3. **Habilitar al menos una cuenta en Configuración → Equipo.** No es opcional
-   ni un paso posterior: con el padrón vacío no se puede crear ningún
-   compromiso en todo el portal, porque no hay a quién asignárselo.
-4. Verificar con dos sesiones, y revisar Mi trabajo y la reunión de Dirección en
-   escritorio y móvil.
+**No hay que vaciar nada.** La migración no toca las filas existentes.
+
+1. **Aplicar la migración ANTES de publicar el frontend.** No es una
+   preferencia de orden: `supabaseCompromisos.js` pide `id_responsable` dentro
+   del `select` que trae todos los compromisos del portal, y PostgREST rechaza
+   la consulta entera si una columna no existe. Publicar primero deja al equipo
+   sin compromisos en ninguna pantalla, no con un aviso de error.
+2. Correrla desde el editor SQL de Supabase, en el navegador: desde la red del
+   municipio los puertos de Postgres están bloqueados y PostgREST no ejecuta
+   DDL.
+3. Publicar el frontend.
+4. **Recién entonces, habilitar cuentas en Configuración → Equipo.** Ese es el
+   interruptor: hasta ahí todo sigue funcionando como antes.
+5. Verificar con dos sesiones, y revisar Mi trabajo y la reunión de Dirección
+   en escritorio y móvil.
 
 ## Lo que todavía no se hizo
 
 - **Nunca se abrió en el navegador con sesión real.** Lo que está verificado es
   `npm run test` (402), `npm run build` y el render SSR de la prueba de humo.
-- La migración no se aplicó en ninguna base. No se pudo confirmar contra
-  Supabase que la `0037` no exista ya: el MCP responde `Unauthorized`.
+- **La migración no está aplicada**, confirmado el 22/09 contra la base real
+  por REST: no existen `compromisos.id_responsable`,
+  `compromisos.id_reunion_direccion_origen` ni la tabla `reuniones_direccion`.
+  (El MCP de Supabase responde `Unauthorized`; la comprobación se hizo pidiendo
+  cada columna y leyendo el `42703`.)
 - `scripts/humo.mjs` no cubre la lista de compromisos de Mi trabajo con datos:
   en la demo no hay áreas asignadas ni perfil, así que la ruta cae en el estado
   vacío. Para cubrirla haría falta un escenario con perfil.

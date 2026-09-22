@@ -6,9 +6,9 @@
 -- `Pendiente` con el mismo comentario copiado — nadie lo tenía asignado, así
 -- que no era de nadie. Acá se agrega el responsable y la derivación.
 --
--- PRECONDICIÓN: `public.compromisos` tiene que estar vacía. El responsable es
--- `not null` y no hay valor por defecto razonable que inventarle a una fila
--- vieja; asignarle una persona al azar seria peor que no tener la columna.
+-- No borra ni modifica ninguna fila existente: los 137 compromisos que hay en
+-- producción siguen igual, sin responsable, y el circuito nuevo empieza a
+-- regir cuando se habilita el padrón. Ver la regla (c) del trigger.
 --
 -- Aplicar después de 0036. No contiene identidades: el padrón se configura
 -- contra las cuentas reales desde Configuración → Equipo, y este repositorio
@@ -33,19 +33,18 @@ comment on column public.perfiles.recibe_compromisos is
 
 /* ── 2. El responsable ──────────────────────────────────────────────── */
 
--- `not null` a proposito, y por decision de JP del 22/09/2026: los 130
--- compromisos historicos de `05-compromisos.csv` NO se cargan. Sin filas sin
--- dueno que sostener, la columna puede exigir responsable desde el principio
--- y no hace falta ninguna regla de transicion.
+-- Nullable, y no es una concesion: el 22/09/2026 se conto lo que hay en
+-- produccion y son 137 compromisos, ninguno con responsable. Ochenta y cuatro
+-- vienen de la carga historica del 04/09, pero los otros 53 los cargo el
+-- equipo desde el portal en las tres semanas siguientes —46 siguen activos, 11
+-- son del mismo 22/09— y tienen 82 actualizaciones colgando.
 --
--- SI ESTA LINEA FALLA es porque todavia quedan compromisos en la tabla. No es
--- un error de la migracion: es que vaciarlos tiene que ser un acto deliberado
--- y con backup, no algo que una migracion haga por su cuenta mientras nadie
--- mira. Contalos primero:
---
---   select count(*) from public.compromisos;
+-- A esas filas no se les puede inventar un dueno. Deducirlo del area es
+-- exactamente lo que no hay que hacer: el area dice quien ejecuta, no quien se
+-- comprometio a impulsarlo. Asi que la columna entra nullable y quien decide
+-- si es obligatoria es el trigger de mas abajo, segun haya o no padron.
 alter table public.compromisos
-  add column if not exists id_responsable uuid not null references public.perfiles(id);
+  add column if not exists id_responsable uuid references public.perfiles(id);
 
 create index if not exists compromisos_responsable_idx
   on public.compromisos(id_responsable);
@@ -117,23 +116,18 @@ create policy "responsable actualiza su compromiso" on public.compromisos
   using (public.mi_rol() is not null and id_responsable = auth.uid())
   with check (public.mi_rol() is not null);
 
-/* ── 5. La regla del responsable ────────────────────────────────────── */
+/* ── 5. Las tres reglas del responsable ─────────────────────────────── */
 
--- Que la columna exista y sea `not null` garantiza que HAYA alguien, pero no
--- que ese alguien corresponda: sin esto se podria asignar un compromiso a una
--- cuenta dada de baja, o a una que entra solo a consultar.
---
 -- Corre en la base y no solo en el selector de la pantalla, porque el portal
 -- escribe por PostgREST y cualquiera con la anon key —que va en el front y es
 -- publica por diseno— podria mandar un PATCH a mano.
---
--- Las otras dos reglas que tenia este trigger (no dejar el compromiso
--- huerfano al derivar, y exigir responsable en el alta) las cubre ahora el
--- `not null` de la columna, que las rechaza antes de llegar aca.
 create or replace function public.validar_responsable_compromiso()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if tg_op = 'INSERT' or new.id_responsable is distinct from old.id_responsable then
+  -- (a) El destinatario tiene que estar activo y habilitado. Tener cuenta no
+  -- alcanza: hay integrantes que entran solo a consultar.
+  if new.id_responsable is not null
+     and (tg_op = 'INSERT' or new.id_responsable is distinct from old.id_responsable) then
     if not exists (
       select 1 from public.perfiles
       where id = new.id_responsable and activo and recibe_compromisos
@@ -141,6 +135,26 @@ begin
       raise exception 'La persona no está habilitada para recibir compromisos';
     end if;
   end if;
+
+  -- (b) Derivar transfiere; no deja huerfano. Sacar el responsable sin poner
+  -- otro devolveria el compromiso al estado que esta migracion vino a corregir.
+  if tg_op = 'UPDATE' and old.id_responsable is not null and new.id_responsable is null then
+    raise exception 'Elegí otro responsable para derivar el compromiso';
+  end if;
+
+  -- (c) La regla que hace convivir lo viejo con lo nuevo. Los 137 que ya
+  -- estan cargados se quedan sin dueno: no se les puede inventar uno. Pero en
+  -- cuanto haya al menos una persona habilitada, ya no hay excusa para cargar
+  -- un compromiso nuevo sin responsable.
+  --
+  -- Consecuencia buscada: habilitar el padron es lo que activa el circuito.
+  -- Mientras Configuracion > Equipo este vacio, el portal se comporta como
+  -- hasta hoy y nada se rompe.
+  if tg_op = 'INSERT' and new.id_responsable is null
+     and exists (select 1 from public.perfiles where activo and recibe_compromisos) then
+    raise exception 'Elegí quién se hará cargo del compromiso';
+  end if;
+
   return new;
 end;
 $$;

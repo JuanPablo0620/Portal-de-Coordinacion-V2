@@ -58,30 +58,27 @@ export function filtrarMiTrabajo(filas, perfilId, areas, vista = 'todos') {
 }
 
 /**
- * Espeja `compromisos.id_responsable not null` más el trigger
- * `validar_responsable_compromiso`: todo compromiso tiene dueño, y ese dueño
- * tiene que estar activo y habilitado.
+ * Espeja el trigger `validar_responsable_compromiso` de 0037.
  *
- * No hay caso de transición ni excepción por padrón vacío. Lo hubo mientras
- * se pensaba cargar los 130 compromisos históricos, que no tienen responsable
- * en su `_db` de origen; el 22/09/2026 se decidió no cargarlos, y sin filas
- * sin dueño que sostener la regla es una sola.
- *
- * Consecuencia a tener presente: **con el padrón vacío no se puede crear
- * ningún compromiso.** Habilitar a alguien en Configuración → Equipo es un
- * paso previo, no opcional.
+ * `requerido` no es un capricho del que llama: sale de si hay padrón. En
+ * producción hay 137 compromisos sin responsable —84 de la carga histórica y
+ * 53 que cargó el equipo desde el portal— y a ninguno se le puede inventar un
+ * dueño, así que la columna es nullable y el portal tiene que seguir
+ * funcionando con el padrón vacío. Habilitar a la primera persona en
+ * Configuración → Equipo es lo que activa la obligatoriedad.
  */
-export function validarResponsable(bd, id) {
+export function validarResponsable(bd, id, { requerido = false } = {}) {
   if (!id) {
-    throw new Error(
-      responsablesEquipo(bd).length
-        ? 'Elegí quién se hará cargo del compromiso.'
-        : 'Antes de cargar un compromiso hay que habilitar en Configuración → Equipo a quién puede hacerse cargo.',
-    );
+    if (requerido) throw new Error('Elegí quién se hará cargo del compromiso.');
+    return;
   }
   if (!responsablesEquipo(bd).some((p) => p.id === id)) {
     throw new Error('La persona elegida no está habilitada para recibir compromisos.');
   }
+}
+
+export function responsableEsObligatorio(bd) {
+  return responsablesEquipo(bd).length > 0;
 }
 
 /**
