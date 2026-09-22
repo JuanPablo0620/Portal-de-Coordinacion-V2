@@ -50,6 +50,27 @@ export const PLANTILLAS_REPORTES = [
     // proyectos ni se atribuya a otra secretaría.
     compromisos: [{ titulo: 'Legales', descripciones: ['Legales'] }],
   },
+  {
+    id: 'informe-direccion',
+    nombre: 'Informe de Dirección',
+    descripcion: 'Eventos de esta semana y la próxima, compromisos vigentes por secretaría y compromisos de las mesas.',
+    filtros: { plantilla: 'informe-direccion' },
+    // El resto va apagado a propósito: `aplicarPlantilla` mezcla con los
+    // bloques iniciales, que dejan prendidos Resumen y Proyectos.
+    bloques: {
+      resumen: false, proyectos: false, compromisos: true,
+      minutas: false, monitoreos: false, mesas: true, eventos: true,
+    },
+    // Esta plantilla no recorta por proyecto ni por período: muestra TODO lo
+    // vigente, porque el informe se imprime el lunes y un compromiso abierto
+    // no deja de importar porque nadie lo tocó esa semana. Sólo los eventos
+    // tienen ventana: la semana en curso y la siguiente.
+    soloVigentes: true,
+    ventanaEventos: 'dos-semanas',
+    // Sin código de proyecto ni renglones de anotaciones por compromiso: con
+    // todo lo vigente cargado, esos renglones pasarían las cuarenta hojas.
+    compacto: true,
+  },
 ];
 
 export function plantillaReporte(id) {
@@ -65,7 +86,7 @@ const normalizar = (texto) => String(texto ?? '')
 /** Devuelve los proyectos en el orden de la agenda institucional. */
 export function proyectosDePlantilla(proyectos, idPlantilla) {
   const plantilla = plantillaReporte(idPlantilla);
-  if (!plantilla) return { proyectos, ausentes: [] };
+  if (!plantilla?.proyectos) return { proyectos, ausentes: [] };
 
   const porNombre = new Map(proyectos.map((p) => [normalizar(p.proyecto), p]));
   const encontrados = [];
@@ -76,6 +97,11 @@ export function proyectosDePlantilla(proyectos, idPlantilla) {
     else ausentes.push(item.titulo);
   }
   return { proyectos: encontrados, ausentes };
+}
+
+/** La plantilla trae su propia lista de proyectos (y por eso recorta la base). */
+export function plantillaTraeProyectos(idPlantilla) {
+  return Boolean(plantillaReporte(idPlantilla)?.proyectos);
 }
 
 /** Indica si un compromiso es uno de los temas explícitos de la plantilla. */

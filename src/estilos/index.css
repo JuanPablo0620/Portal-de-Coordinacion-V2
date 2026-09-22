@@ -28,6 +28,17 @@
   --color-acento-fuerte: #164a82;
   --color-limite-mapa: #0f3d6e;
 
+  /* Identidad institucional de Tres de Febrero — navy y naranja oficiales.
+     Sólo se usan en el Informe de Dirección (Reportes → plantilla
+     «Informe de Dirección»): JP aprobó ese diseño el 21/09/2026 sobre un PDF
+     armado aparte y pidió que imprimir desde el portal dé lo mismo. No
+     reemplazan a `--color-acento`, que sigue siendo el acento del resto de
+     la aplicación. Navy en texto sobre blanco y blanco sobre navy superan
+     4,5:1 de sobra; el naranja se usa sólo como borde decorativo, nunca como
+     texto, así que no le aplica la pauta de 4,5:1. */
+  --color-institucional-navy: #0f3d6e;
+  --color-institucional-naranja: #ea8b2d;
+
   /* Semáforo diferencial — 4 niveles distinguibles de un vistazo.
      Los niveles claros llevan texto oscuro, nunca blanco.
 

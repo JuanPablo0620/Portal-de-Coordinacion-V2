@@ -5,7 +5,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { armarReporte, describirFiltros, resolverRango } from '../src/datos/reportes.js';
+import { armarReporte, describirFiltros, resolverRango, ventanaDosSemanas } from '../src/datos/reportes.js';
 import { generarDemo } from '../src/datos/demo.js';
 import { compromisos } from '../src/datos/selectores.js';
 import { SECRETARIAS_INFORME_SECRETARIA } from '../src/datos/proyectos-informe-secretaria.js';
@@ -356,4 +356,43 @@ test('los compromisos sin secretaría van al final, con rótulo propio', async (
   ]);
 
   assert.deepEqual(grupos.map(([a]) => a), ['Ambiente', 'Salud', 'Sin secretaría asignada']);
+});
+
+test('la ventana del Informe de Dirección va del lunes de esta semana al domingo de la próxima', () => {
+  assert.deepEqual(ventanaDosSemanas('2026-09-21'), { desde: '2026-09-21', mitad: '2026-09-27', hasta: '2026-10-04' });
+  // Domingo: sigue siendo la semana que empezó el lunes anterior.
+  assert.deepEqual(ventanaDosSemanas('2026-09-27'), { desde: '2026-09-21', mitad: '2026-09-27', hasta: '2026-10-04' });
+  assert.deepEqual(ventanaDosSemanas('2026-09-23').desde, '2026-09-21');
+});
+
+test('el Informe de Dirección trae todos los compromisos vigentes y ninguno cumplido', () => {
+  const r = armarReporte(bd, { plantilla: 'informe-direccion' }, HOY);
+  const vigentes = compromisos(bd, { solo_vigentes: true }, HOY);
+  assert.ok(vigentes.length > 0);
+  assert.equal(r.compromisos.length, vigentes.length);
+  assert.ok(r.compromisos.every((c) => c.estado_efectivo !== 'cumplido'));
+  assert.equal(r.proyectosAusentes.length, 0);
+});
+
+test('el Informe de Dirección limita los eventos a la semana en curso y la siguiente', () => {
+  const base = structuredClone(bd);
+  const molde = base.eventos[0];
+  base.eventos = [
+    { ...molde, id: 'EV-a', nombre: 'Antes', fecha: '2026-08-02', fecha_fin: null },
+    { ...molde, id: 'EV-b', nombre: 'Esta semana', fecha: '2026-08-06', fecha_fin: null },
+    { ...molde, id: 'EV-c', nombre: 'Próxima semana', fecha: '2026-08-12', fecha_fin: null },
+    { ...molde, id: 'EV-d', nombre: 'Después', fecha: '2026-08-17', fecha_fin: null },
+  ];
+  const r = armarReporte(base, { plantilla: 'informe-direccion' }, HOY);
+  assert.deepEqual(r.eventos.map((e) => [e.nombre, e.semana]), [
+    ['Esta semana', 'Esta semana'],
+    ['Próxima semana', 'Próxima semana'],
+  ]);
+  assert.ok(r.resumenFiltros.some((f) => f.startsWith('Eventos del 2026-08-03 al 2026-08-16')));
+});
+
+test('el Informe de Dirección sólo lista mesas con compromisos vigentes', () => {
+  const r = armarReporte(bd, { plantilla: 'informe-direccion' }, HOY);
+  assert.ok(r.mesas.every((m) => m.compromisos.length > 0));
+  assert.ok(r.mesas.every((m) => m.compromisos.every((c) => c.estado_efectivo !== 'cumplido')));
 });
