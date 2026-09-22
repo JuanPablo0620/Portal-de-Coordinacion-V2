@@ -756,12 +756,6 @@ export async function cargarProyectosRealesSecretarias() {
   return cargarListaDeSecretarias(SECRETARIAS_REALES, 'Puntual');
 }
 
-/** Altas del Informe de Secretaría que todavía no tienen programa confirmado. */
-export async function cargarProyectosInformeSecretaria() {
-  const { SECRETARIAS_INFORME_SECRETARIA } = await import('./proyectos-informe-secretaria.js');
-  return cargarListaDeSecretarias(SECRETARIAS_INFORME_SECRETARIA, 'Puntual');
-}
-
 /**
  * Da de alta los proyectos VALIDADOS de la pestaña "1. Cualitativo" (ver
  * `datos/proyectos-validados-cualitativo.js`).
@@ -788,12 +782,10 @@ export async function cargarTodosLosProyectosReales() {
   // proyecto está en las dos fuentes conviene que gane esta.
   const resumenValidados = await cargarProyectosValidadosCualitativo();
   const resumenSecretarias = await cargarProyectosRealesSecretarias();
-  const resumenInformeSecretaria = await cargarProyectosInformeSecretaria();
   const resumen = { Posicionamiento: creadosPosicionamiento, 'Ejes Estratégicos': creadosEjesEstrategicos };
   for (const [area, n] of [
     ...Object.entries(resumenValidados),
     ...Object.entries(resumenSecretarias),
-    ...Object.entries(resumenInformeSecretaria),
   ]) {
     resumen[area] = (resumen[area] ?? 0) + n;
   }

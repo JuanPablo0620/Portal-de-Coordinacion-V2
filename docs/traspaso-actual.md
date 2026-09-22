@@ -27,26 +27,33 @@ que el otro no puede deducir leyendo el repo.
 
 ## 1. Dónde está parado el portal
 
-### Reportes: plantilla «Informe de Secretaría»
+### Reportes: plantilla «Informe de Dirección» (22/09)
 
-Reportes ofrece la plantilla fija **Informe de Secretaría**, que conserva el
-orden acordado de temas, incluye proyectos comunes y estratégicos, y agrega
-Monitoreos como bloque imprimible. Si un tema de la plantilla no existe todavía
-como proyecto, el informe lo declara como pendiente de cargar; no se inventa ni
-se omite en silencio.
+Primera vez que el informe del lunes se arma desde el portal y no desde los
+Sheets. Reportes ofrece la plantilla fija **Informe de Dirección**, con tres
+bloques —eventos de la semana en curso y la siguiente, compromisos vigentes por
+secretaría, y compromisos vigentes de las mesas— y diseño institucional al
+imprimir: navy `#0f3d6e` y naranja `#ea8b2d` como tokens propios, activos sólo
+bajo la clase `informe-institucional`. JP aprobó ese diseño el 21/09 sobre un
+PDF armado aparte.
 
-**Legales** queda fuera de la tabla de proyectos: es un compromiso del
-seguimiento de Coordinación. La plantilla lo reserva en el bloque de
-compromisos y lo señala como pendiente hasta que se cargue el seguimiento de
-origen con su fecha. **Senado de la Nación** se registra en Posicionamiento,
-sin estado ni novedad agregados por inferencia.
+No recorta por proyecto ni por período: muestra todo lo vigente, porque un
+compromiso abierto no deja de importar porque nadie lo haya tocado esa semana.
+Sólo los eventos tienen ventana.
 
-Los Rusos, Intervención en puntos estratégicos, Suministro de cartelería, CAPS
-10, SISU, Bunker Libertador y Movilización de suelo quedan disponibles en sus
-áreas confirmadas bajo el programa explícito «Sin programa», hasta que se
-clasifiquen. El cargador conserva el área al resolver programas homónimos y
-normaliza tildes para no duplicar proyectos entre fuentes. Falta definir el
-origen de Legales y Senado de la Nación.
+**Pendiente:** abrirlo en el navegador con sesión real y la base completa, para
+ver varias mesas con compromisos a la vez. Lo verificado hasta ahora es render
+estático y captura headless.
+
+**El «Informe de Secretaría» quedó fuera** por decisión de JP del 22/09: se
+había construido en la misma rama, pero no va al portal. La maquinaria genérica
+de plantillas (`plantillasReportes.js` y sus helpers) sigue en pie porque es por
+donde pasa el Informe de Dirección; lo que se sacó es esa plantilla, su lista de
+proyectos y su cargador de altas.
+
+**Senado de la Nación** se registra en Posicionamiento, sin estado ni novedad
+agregados por inferencia. Es un alta que pidió JP el 18/09, independiente del
+informe.
 
 ### Apariencia: modo BlueNight (21/09)
 
