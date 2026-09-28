@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, CalendarPlus, FolderOpen, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CalendarPlus, FolderOpen, Pencil, Send, Trash2 } from 'lucide-react';
 import {
   BarraAvance,
   Boton,
@@ -26,7 +26,7 @@ import { acciones, useBD } from '../../estado/tienda.js';
 import { EditarReunion } from './EditarReunion.jsx';
 import { configDe } from './tipos.js';
 
-export function FichaMesa({ mesa, color, atrasada, alVolver, alEditar, alRegistrar, alAgendar }) {
+export function FichaMesa({ mesa, color, atrasada, alVolver, alEditar, alRegistrar, alAgendar, alInvitar }) {
   const bd = useBD();
   const navegar = useNavigate();
   const hoy = hoyISO();
@@ -102,7 +102,18 @@ export function FichaMesa({ mesa, color, atrasada, alVolver, alEditar, alRegistr
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <Tarjeta titulo="Próxima reunión" descripcion="Se refleja en el calendario del inicio.">
+        {/* Invitar vive acá y no en la cabecera: convoca a ESTA reunión, y la
+            cabecera ya tiene seis botones. Sin reunión agendada, abre igual
+            con la fecha en blanco. */}
+        <Tarjeta
+          titulo="Próxima reunión"
+          descripcion="Se refleja en el calendario del inicio."
+          acciones={
+            <Boton tamanio="sm" icono={Send} onClick={() => alInvitar(proxima?.fecha ?? '')}>
+              Invitar
+            </Boton>
+          }
+        >
           {proxima ? (
             <div className="flex items-center gap-3">
               <div className="w-14 shrink-0 rounded-chip bg-acento-suave py-2 text-center">

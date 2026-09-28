@@ -98,6 +98,42 @@ export function escribirBorradoresMonitoreo(idMonitoreo, borradores) {
   }
 }
 
+const CLAVE_PLANTILLAS = 'coord3f_plantillas_invitacion_v1';
+
+/**
+ * Plantillas de invitación, por id de mesa (o `eventos`).
+ *
+ * PROVISORIO: viven en el navegador porque esta primera versión se armó sin
+ * tocar la base. La consecuencia es que cada persona tiene su propia copia —lo
+ * que carga una no lo ve la otra—, cuando la idea es que cualquiera del equipo
+ * edite la plantilla compartida de la mesa. Cuando se valide, esto pasa a una
+ * tabla de Supabase y sólo cambian estas dos funciones.
+ */
+export function leerPlantillaInvitacion(clave) {
+  if (!disponible) return null;
+  try {
+    const crudo = localStorage.getItem(CLAVE_PLANTILLAS);
+    return (crudo ? JSON.parse(crudo) : {})[clave] ?? null;
+  } catch (error) {
+    console.error('No se pudo leer la plantilla de invitación', error);
+    return null;
+  }
+}
+
+export function escribirPlantillaInvitacion(clave, plantilla) {
+  if (!disponible) return false;
+  try {
+    const crudo = localStorage.getItem(CLAVE_PLANTILLAS);
+    const todas = crudo ? JSON.parse(crudo) : {};
+    todas[clave] = plantilla;
+    localStorage.setItem(CLAVE_PLANTILLAS, JSON.stringify(todas));
+    return true;
+  } catch (error) {
+    console.error('No se pudo guardar la plantilla de invitación', error);
+    return false;
+  }
+}
+
 /**
  * La apariencia es una preferencia local y no un dato de gestión: cada
  * persona puede elegir BlueNight sin cambiarle la vista a sus compañeros. Se

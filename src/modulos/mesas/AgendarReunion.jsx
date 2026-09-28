@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarPlus } from 'lucide-react';
+import { CalendarPlus, Send } from 'lucide-react';
 import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton } from '../../componentes/Basicos.jsx';
 import { CampoFecha, CampoTexto } from '../../componentes/Campo.jsx';
@@ -14,14 +14,18 @@ import { acciones } from '../../estado/tienda.js';
  * tengan a qué próxima fecha apuntar como fecha límite: sin una reunión
  * agendada, `RegistrarReunion` no tiene de dónde proponerla y el campo queda
  * en blanco, como antes de este formulario.
+ *
+ * «Agendar e invitar» es el mismo guardado, seguido de la invitación con la
+ * fecha ya puesta (`alInvitar`): agendar y convocar suelen ir juntos, y así no
+ * hay que volver a elegir la fecha en otro formulario.
  */
-export function AgendarReunion({ abierto, alCerrar, mesa }) {
+export function AgendarReunion({ abierto, alCerrar, mesa, alInvitar }) {
   const hoy = hoyISO();
   const [fecha, setFecha] = useState('');
   const [urlDrive, setUrlDrive] = useState('');
   const [error, setError] = useState('');
 
-  async function guardar() {
+  async function guardar({ invitar = false } = {}) {
     if (!fecha) {
       setError('Indicá la fecha de la próxima reunión.');
       return;
@@ -33,7 +37,8 @@ export function AgendarReunion({ abierto, alCerrar, mesa }) {
     setError('');
     try {
       await acciones.crearReunionMesa({ id_mesa: mesa.id, fecha, asistentes: '', temas: '', url_drive: urlDrive });
-      alCerrar();
+      if (invitar) alInvitar(fecha);
+      else alCerrar();
     } catch (err) {
       setError(err?.message || 'No se pudo agendar la reunión. Probá de nuevo.');
     }
@@ -49,7 +54,12 @@ export function AgendarReunion({ abierto, alCerrar, mesa }) {
       pie={
         <>
           <Boton onClick={alCerrar}>Cancelar</Boton>
-          <Boton variante="primario" icono={CalendarPlus} onClick={guardar}>
+          {alInvitar && (
+            <Boton icono={Send} onClick={() => guardar({ invitar: true })}>
+              Agendar e invitar
+            </Boton>
+          )}
+          <Boton variante="primario" icono={CalendarPlus} onClick={() => guardar()}>
             Agendar
           </Boton>
         </>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, CalendarDays, ClipboardCheck, List, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, CalendarDays, ClipboardCheck, List, Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import { Aviso, Boton, Chip, Metrica, Pestanias, Semaforo, Tarjeta, Vacio, nivelPorDias } from '../../componentes/Basicos.jsx';
 import { ModalConfirmacion } from '../../componentes/Modal.jsx';
 import { Tabla } from '../../componentes/Tabla.jsx';
@@ -9,6 +9,8 @@ import { LeyendaAreas, identidadArea } from '../../componentes/identidadArea.jsx
 import { CampoSelect } from '../../componentes/Campo.jsx';
 import { GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../../componentes/Filtros.jsx';
 import { FormularioEvento, SeccionRequerimientos } from './FormularioEvento.jsx';
+import { InvitarReunion } from '../mesas/InvitarReunion.jsx';
+import { CLAVE_EVENTOS } from '../../datos/invitaciones.js';
 import { UMBRALES, calcularAlertas, TIPOS_ALERTA } from '../../datos/alertas.js';
 import { ESTADOS_EVENTO } from '../../datos/catalogos.js';
 import { diasHasta, eventos as selEventos, hoyISO, itemsCalendario, requerimientosDe } from '../../datos/selectores.js';
@@ -39,6 +41,7 @@ export default function Eventos() {
   const [aBorrar, setABorrar] = useState(null);
   const [errorRemoto, setErrorRemoto] = useState(null);
   const [errorAccion, setErrorAccion] = useState('');
+  const [invitando, setInvitando] = useState(false);
 
   // Eventos es la primera colección que vive en Supabase y no en el navegador,
   // así que otra persona puede haber cargado algo desde que abriste el portal.
@@ -93,9 +96,17 @@ export default function Eventos() {
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Pestanias opciones={pestanias} valor={filtros.tab} alCambiar={(v) => setFiltros({ tab: v })} />
-        <Boton variante="primario" icono={Plus} onClick={() => setFormulario({})}>
-          Cargar evento
-        </Boton>
+        <div className="flex flex-wrap gap-2">
+          {/* La reunión de agenda de eventos no tiene todavía entidad propia en
+              el front (la `0036` creó la tabla, sin pantallas): su invitación
+              cuelga de la pestaña, con la plantilla guardada bajo `CLAVE_EVENTOS`. */}
+          <Boton icono={Send} onClick={() => setInvitando(true)}>
+            Invitar a la reunión
+          </Boton>
+          <Boton variante="primario" icono={Plus} onClick={() => setFormulario({})}>
+            Cargar evento
+          </Boton>
+        </div>
       </div>
 
       {alertasEvento.length > 0 && filtros.tab === 'lista' && (
@@ -131,6 +142,9 @@ export default function Eventos() {
       )}
 
       {formulario && <FormularioEvento abierto alCerrar={() => setFormulario(null)} evento={formulario.id ? formulario : null} />}
+      {invitando && (
+        <InvitarReunion abierto alCerrar={() => setInvitando(false)} clave={CLAVE_EVENTOS} nombre="Agenda de eventos" />
+      )}
       <ModalConfirmacion
         abierto={Boolean(aBorrar)}
         alCerrar={() => setABorrar(null)}

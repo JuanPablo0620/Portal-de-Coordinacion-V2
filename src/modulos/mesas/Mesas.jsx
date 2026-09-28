@@ -5,6 +5,7 @@ import { Boton, Chip, Pestanias, Tarjeta, Vacio } from '../../componentes/Basico
 import { AgendarReunion } from './AgendarReunion.jsx';
 import { FichaMesa } from './FichaMesa.jsx';
 import { FormularioMesa } from './FormularioMesa.jsx';
+import { InvitarReunion } from './InvitarReunion.jsx';
 import { RegistrarReunion } from './RegistrarReunion.jsx';
 import { CONFIG_TIPO, coloresPorMesa, configDe } from './tipos.js';
 import Eventos from '../eventos/Eventos.jsx';
@@ -37,6 +38,8 @@ export default function Mesas() {
   const [formulario, setFormulario] = useState(null);
   const [registrando, setRegistrando] = useState(null);
   const [agendando, setAgendando] = useState(null);
+  /** `{ mesa, fecha }` de la invitación abierta, o null. */
+  const [invitando, setInvitando] = useState(null);
 
   const todas = useMemo(() => (bd ? selMesas(bd, {}) : []), [bd]);
   const atrasadas = useMemo(() => (bd ? new Set(mesasSinReunion(bd, hoy).map((m) => m.id)) : new Set()), [bd, hoy]);
@@ -107,6 +110,7 @@ export default function Mesas() {
             alEditar={() => setFormulario(mesaAbierta)}
             alRegistrar={() => setRegistrando(mesaAbierta)}
             alAgendar={() => setAgendando(mesaAbierta)}
+            alInvitar={(fecha) => setInvitando({ mesa: mesaAbierta, fecha })}
           />
         ) : (
           <>
@@ -152,7 +156,26 @@ export default function Mesas() {
 
       {formulario && <FormularioMesa abierto alCerrar={() => setFormulario(null)} mesa={formulario.id ? formulario : null} tipoInicial={formulario.tipo} />}
       {registrando && <RegistrarReunion abierto alCerrar={() => setRegistrando(null)} mesa={registrando} />}
-      {agendando && <AgendarReunion abierto alCerrar={() => setAgendando(null)} mesa={agendando} />}
+      {agendando && (
+        <AgendarReunion
+          abierto
+          alCerrar={() => setAgendando(null)}
+          mesa={agendando}
+          alInvitar={(fecha) => {
+            setAgendando(null);
+            setInvitando({ mesa: agendando, fecha });
+          }}
+        />
+      )}
+      {invitando && (
+        <InvitarReunion
+          abierto
+          alCerrar={() => setInvitando(null)}
+          clave={invitando.mesa.id}
+          nombre={invitando.mesa.nombre}
+          fechaInicial={invitando.fecha}
+        />
+      )}
     </>
   );
 }

@@ -8,7 +8,16 @@
  * el cuerpo de cada función por un `fetch` sin tocar un solo componente.
  * ─────────────────────────────────────────────────────────────────────
  */
-import { leerBD, escribirBD, limpiar, leerBorradoresMonitoreo, escribirBorradoresMonitoreo } from './almacenamiento.js';
+import {
+  leerBD,
+  escribirBD,
+  limpiar,
+  leerBorradoresMonitoreo,
+  escribirBorradoresMonitoreo,
+  leerPlantillaInvitacion,
+  escribirPlantillaInvitacion,
+} from './almacenamiento.js';
+import { normalizarPlantilla } from './invitaciones.js';
 import { bdVacia, normalizarBD, claveDe } from './esquema.js';
 import { crearAsiento, diffCampos } from './bitacora.js';
 import { nuevoId, generarIdProyecto } from './ids.js';
@@ -1303,6 +1312,16 @@ export async function actualizarTema(id, cambios) {
  * vuelve a tocar 15 minutos después (cuando ya van por el cuarto) se sigue
  * editando, no genera una segunda actualización en el mismo monitoreo.
  */
+/**
+ * Plantilla de invitación de una mesa, o de la agenda de eventos
+ * (`CLAVE_EVENTOS`). Sincrónicas como los borradores de arriba: hoy viven en el
+ * navegador (ver la nota en `almacenamiento.js`). Al pasarlas a Supabase se
+ * vuelven async y el único consumidor es `InvitarReunion.jsx`.
+ */
+export const plantillaInvitacion = (clave) => normalizarPlantilla(leerPlantillaInvitacion(clave));
+export const guardarPlantillaInvitacion = (clave, plantilla) =>
+  escribirPlantillaInvitacion(clave, normalizarPlantilla(plantilla));
+
 export const leerBorradoresCompromisos = (idMonitoreo) => leerBorradoresMonitoreo(idMonitoreo) ?? {};
 export const guardarBorradoresCompromisos = (idMonitoreo, borradores) =>
   escribirBorradoresMonitoreo(idMonitoreo, borradores);

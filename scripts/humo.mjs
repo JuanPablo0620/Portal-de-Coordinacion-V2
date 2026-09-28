@@ -75,6 +75,7 @@ const CON_DEMO = [
   ['/mesas?tipo=otros%20proyectos', 'Convenios, planes y proyectos con seguimiento propio.'],
   ['/mesas', 'Ver ficha'],
   ['/mesas?tipo=eventos', 'Próximos eventos'],
+  ['/mesas?tipo=eventos', 'Invitar a la reunión'],
   ['/mesas?tipo=eventos&tab=lista', 'Requerimientos'],
   ['/mesas?tipo=eventos&tab=checklist', 'Requerimientos sin confirmar'],
   // El mapa se monta en el navegador (Leaflet necesita `window`), así que acá
