@@ -61,7 +61,7 @@ importaciones circulares · ausencia de importaciones sin uso · 292 tests · bu
 
 | Ruta | Módulo | Qué resuelve |
 |---|---|---|
-| `/` | **Inicio** | Vencimientos a 15 días, próximos seguimientos, proyectos prioritarios, feed de últimas cargas, calendario unificado con capas y contadores clickeables |
+| `/` | **Inicio** | Vencimientos a 15 días, próximos seguimientos, feed de últimas cargas, calendario unificado con capas y contadores clickeables. Enlace al organigrama municipal en otra pestaña |
 | `/proyectos` | **Base maestra** | Alta, edición, ficha con historial e importación CSV. Es la tabla que alimenta todo lo demás |
 | `/seguimiento` | **Módulo 2** | Calendario de seguimientos, carga de minutas con transferencia de texto a campos, lista de compromisos e historial por área |
 | `/monitoreo` | **Módulo 3** | Carga de temas —transferidos desde texto o a mano—, cobertura por área y panel de alertas |
