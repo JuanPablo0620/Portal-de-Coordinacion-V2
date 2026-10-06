@@ -5,14 +5,14 @@ import {
   AlertTriangle,
   CalendarCheck,
   Database,
-  HardHat,
+  ExternalLink,
   Gem,
   Globe2,
+  HardHat,
   History,
-  Star,
 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
-import { BarraAvance, Boton, Chip, EstadoProyecto, Metrica, Semaforo, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
+import { Boton, Chip, Metrica, Semaforo, Tarjeta, Vacio } from '../../componentes/Basicos.jsx';
 import { Calendario, useMesVisible } from '../../componentes/Calendario.jsx';
 import { calcularAlertas, vencimientosProximos } from '../../datos/alertas.js';
 import {
@@ -21,7 +21,6 @@ import {
   resumenEstrategico,
   resumenPosicionamiento,
   itemsCalendario,
-  proyectos as selProyectos,
   seguimientos as selSeguimientos,
   esProyectoActivo,
   activos,
@@ -32,6 +31,22 @@ import { acciones, useBD } from '../../estado/tienda.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
 const CAPAS_DEFAULT = { seguimientos: true, eventos: true, mesas: true, vencimientos: true };
+const URL_ORGANIGRAMA = 'https://drive.google.com/file/d/1H1ytLnDHfCN_OP6HYq7ApTaU1KD6hBsy/view';
+
+function EnlaceOrganigrama() {
+  return (
+    <a
+      href={URL_ORGANIGRAMA}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-chip border border-borde-fuerte bg-card px-3.5 py-2 text-sm font-medium text-tinta transition hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+    >
+      <ExternalLink size={16} aria-hidden="true" />
+      Ver organigrama municipal
+      <span className="sr-only"> (se abre en otra pestaña)</span>
+    </a>
+  );
+}
 
 export default function Dashboard() {
   const bd = useBD();
@@ -82,19 +97,6 @@ export default function Dashboard() {
       .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))
       .slice(0, 6);
   }, [bd, hoy]);
-  /**
-   * El contador y la lista son dos cosas distintas.
-   *
-   * Estaban en una: el contador mostraba el largo de la lista YA recortada a
-   * seis, así que el tablero decía «6 prioritarios activos» hubiera seis o
-   * cuarenta y seis. Con el set chico el recorte no llegaba a activarse y el
-   * número parecía correcto.
-   */
-  const prioritariosTodos = useMemo(
-    () => (bd ? selProyectos(bd, { solo_prioritarios: true, solo_activos: true }) : []),
-    [bd],
-  );
-  const prioritarios = useMemo(() => prioritariosTodos.slice(0, 6), [prioritariosTodos]);
   const feed = useMemo(() => (bd ? feedBitacora(bd, 10) : []), [bd]);
   const items = useMemo(() => (bd ? itemsCalendario(bd, capas, mes.rango[0], mes.rango[1]) : []), [bd, capas, mes.rango]);
 
@@ -110,7 +112,7 @@ export default function Dashboard() {
   if (sistemaVacio) {
     return (
       <>
-        <EncabezadoPagina titulo="Inicio" descripcion="Panel de coordinación · Municipio de Tres de Febrero" />
+        <EncabezadoPagina titulo="Inicio" descripcion="Panel de coordinación · Municipio de Tres de Febrero" acciones={<EnlaceOrganigrama />} />
         <Pagina>
           <Tarjeta>
             <Vacio
@@ -132,11 +134,11 @@ export default function Dashboard() {
 
   return (
     <>
-      <EncabezadoPagina titulo="Inicio" descripcion={`Panel de coordinación · ${fFecha(hoy)}`} />
+      <EncabezadoPagina titulo="Inicio" descripcion={`Panel de coordinación · ${fFecha(hoy)}`} acciones={<EnlaceOrganigrama />} />
 
       <Pagina className="flex flex-col gap-4">
         {/* Contadores */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Metrica
             icono={Activity}
             valor={proyectosActivos.length}
@@ -166,13 +168,6 @@ export default function Dashboard() {
                 : 'sin alertas críticas'
             }
             alHacerClic={() => navegar('/monitoreo?tab=alertas')}
-          />
-          <Metrica
-            icono={Star}
-            valor={prioritariosTodos.length}
-            etiqueta="Prioritarios activos"
-            detalle="proyectos de prioridad alta"
-            alHacerClic={() => navegar('/proyectos?solo_prioritarios=1&solo_activos=1')}
           />
         </div>
 
@@ -331,77 +326,32 @@ export default function Dashboard() {
           </Tarjeta>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <Tarjeta
-            titulo="Proyectos prioritarios"
-            descripcion="Proyectos activos de prioridad alta."
-            sinPadding
-            acciones={
-              <Boton tamanio="sm" variante="fantasma" onClick={() => navegar('/proyectos?solo_prioritarios=1')}>
-                Ver todos
-              </Boton>
-            }
-          >
-            {prioritarios.length === 0 ? (
-              <Vacio
-                compacto
-                icono={Star}
-                titulo="Ningún proyecto marcado como prioritario"
-                descripcion="Marcá prioridad alta en la ficha de un proyecto para que aparezca acá."
-                accion={{ texto: 'Ir a proyectos', alHacerClic: () => navegar('/proyectos') }}
-              />
-            ) : (
-              <ul>
-                {prioritarios.map((p) => (
-                  <li key={p.id_proyecto}>
-                    <Link
-                      to={`/proyectos/${p.id_proyecto}`}
-                      className="flex items-center gap-3 border-b border-borde/60 px-4 py-2.5 transition hover:bg-paper"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm leading-tight text-tinta">{p.proyecto}</p>
-                        <p className="truncate text-[11px] text-tenue">{p.area}</p>
-                      </div>
-                      <div className="w-28 shrink-0">
-                        <BarraAvance valor={p.porcentaje_avance} />
-                      </div>
-                      <div className="w-24 shrink-0 text-right">
-                        <EstadoProyecto estado={p.estado} />
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Tarjeta>
-
-          <Tarjeta titulo="Última actualización" descripcion="Las 10 cargas más recientes del sistema." sinPadding>
-            {feed.length === 0 ? (
-              <Vacio compacto icono={History} titulo="Sin movimientos registrados" />
-            ) : (
-              <ol>
-                {feed.map((h) => (
-                  <li key={h.id} className="flex items-start gap-2.5 border-b border-borde/60 px-4 py-2 last:border-0">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-acento-medio" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs leading-snug text-tinta">
-                        <strong className="font-medium">{h.creado_por}</strong> {ACCION[h.accion] ?? h.accion}{' '}
-                        {ENTIDAD[h.entidad] ?? h.entidad}
-                        {h.id_proyecto && (
-                          <>
-                            {' '}
-                            en <Chip tono="acento">{h.id_proyecto}</Chip>
-                          </>
-                        )}
-                      </p>
-                      <p className="text-[11px] text-tenue">{haceCuanto(h.creado_en)}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </Tarjeta>
-        </div>
+        <Tarjeta titulo="Última actualización" descripcion="Las 10 cargas más recientes del sistema." sinPadding>
+          {feed.length === 0 ? (
+            <Vacio compacto icono={History} titulo="Sin movimientos registrados" />
+          ) : (
+            <ol>
+              {feed.map((h) => (
+                <li key={h.id} className="flex items-start gap-2.5 border-b border-borde/60 px-4 py-2 last:border-0">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-acento-medio" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs leading-snug text-tinta">
+                      <strong className="font-medium">{h.creado_por}</strong> {ACCION[h.accion] ?? h.accion}{' '}
+                      {ENTIDAD[h.entidad] ?? h.entidad}
+                      {h.id_proyecto && (
+                        <>
+                          {' '}
+                          en <Chip tono="acento">{h.id_proyecto}</Chip>
+                        </>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-tenue">{haceCuanto(h.creado_en)}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </Tarjeta>
       </Pagina>
     </>
   );

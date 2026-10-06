@@ -19,13 +19,20 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 21/09/2026 · Codex, por pedido de JP
+**Última actualización:** 29/09/2026 · Codex, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
 ---
 
 ## 1. Dónde está parado el portal
+
+### Inicio: acceso al organigrama (29/09)
+
+JP facilitó el enlace al archivo municipal de Drive para abrirlo desde Inicio.
+La implementación y el build están verificados; el acceso al archivo con las
+cuentas de los usuarios del portal no se pudo comprobar desde este entorno.
+Si alguien recibe un error de permisos, revisar el uso compartido del archivo.
 
 ### Reportes: plantilla «Informe de Dirección» (22/09)
 

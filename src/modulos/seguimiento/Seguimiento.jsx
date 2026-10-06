@@ -552,8 +552,13 @@ function PanelCompromisos({ bd, filtros, setFiltros }) {
 
 /* ── Agendar seguimiento ────────────────────────────────────────────── */
 
+/**
+ * La fecha no tiene mínimo a propósito: hay reuniones que se registran
+ * después de hechas, y el calendario tiene que poder mostrarlas en el día en
+ * que ocurrieron. Un agendado con fecha pasada no dispara alertas ni aparece
+ * en «por delante» (esa lista filtra desde hoy); sólo queda en el calendario.
+ */
 function AgendarSeguimiento({ abierto, alCerrar }) {
-  const hoy = hoyISO();
   const opcionesArea = useOpciones('areas');
   const [datos, setDatos] = useState({ area: '', fecha: '', hora: '' });
   const [error, setError] = useState('');
@@ -597,7 +602,7 @@ function AgendarSeguimiento({ abierto, alCerrar }) {
       <div className="flex flex-col gap-3">
         <GrillaCampos columnas={3}>
           <CampoSelect etiqueta="Área" requerido opciones={opcionesArea} value={datos.area} onChange={cambiar('area')} />
-          <CampoFecha etiqueta="Fecha" requerido min={hoy} value={datos.fecha} onChange={cambiar('fecha')} />
+          <CampoFecha etiqueta="Fecha" requerido value={datos.fecha} onChange={cambiar('fecha')} />
           <CampoHora etiqueta="Hora" value={datos.hora} onChange={cambiar('hora')} />
         </GrillaCampos>
         {error && (
