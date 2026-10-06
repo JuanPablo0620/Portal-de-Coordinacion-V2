@@ -1,0 +1,107 @@
+# Convocatorias de Seguimiento
+
+## Circuito acordado
+
+1. Una semana antes de la reunión se prepara una **Convocatoria**.
+2. Se dirige a las personas invitadas en el evento de Google Calendar.
+3. Se copia el template de la secretaría, dentro de su carpeta de PPTS. El nombre
+   lleva el número siguiente, «Seguimiento», la secretaría y la fecha de reunión.
+4. Se recuperan los compromisos de la reunión anterior y se adjuntan como PDF.
+5. Se pide al área completar la presentación; se comparte su enlace editable.
+6. Una persona del equipo revisa el borrador y lo envía desde Gmail.
+
+La fecha de entrega se propone para el día anterior y puede cambiarse antes de
+preparar el texto. Los invitados que rechazaron Calendar siguen en la convocatoria:
+la regla indicada fue convocar a quienes están agendados. Se excluyen los recursos
+como salas; no se inventan correos a partir de los nombres del portal.
+
+## Uso en el portal
+
+1. Entrar a **Seguimiento → Enviar convocatoria**. También está en las filas
+   de la vista Lista de próximos seguimientos.
+2. Conectar la cuenta de Google que guardará el borrador. Esta identidad se
+   muestra explícitamente y es independiente del login de Supabase.
+3. Elegir el calendario y la reunión. Se consultan eventos con «seguimiento»
+   en el título, a 90 días; desde una fila del portal se consulta ese día y se
+   comprueba que coincida el horario. Los datos del mail usan la hora argentina.
+4. Elegir la carpeta de secretaría bajo «01. Seguimiento por Secretarias».
+   La carpeta de Seguimiento debe contener PPTS y Compromisos.
+5. Confirmar la presentación y los compromisos propuestos por la fecha de reunión
+   escrita en el nombre. No se usa la última fecha de edición. Si hay más de un
+   candidato para la misma fecha, la selección queda vacía para revisión manual.
+6. Preparar la convocatoria. Se puede usar una PPT existente o copiar el template.
+   Se reconsulta PPTS antes de copiar para reutilizar una presentación ya existente
+   de esa fecha y calcular el número siguiente.
+7. Revisar y editar destinatarios, asunto y mensaje. Abrir el PDF y la presentación;
+   se puede reemplazar el PDF por uno corregido. Marcar la revisión y guardar el
+   borrador. Luego abrir **Borradores de Gmail** para verificarlo y enviarlo.
+
+El borrador pertenece a la cuenta conectada. Otra persona del equipo debe preparar
+la convocatoria desde su propia cuenta si será quien la revise y envíe. Esta
+implementación no crea una bandeja compartida ni una aprobación entre dos cuentas.
+Tampoco programa un envío automático siete días antes ni modifica el evento de
+Calendar. El resultado del portal es un borrador, no una constancia de envío.
+
+## Activación de Google
+
+1. En el proyecto de Google Cloud destinado al portal, habilitar **Gmail API**,
+   **Google Calendar API** y **Google Drive API**.
+2. Configurar Google Auth Platform y crear un cliente OAuth de tipo
+   **Aplicación web**. Agregar como orígenes JavaScript autorizados el origen
+   de producción y los orígenes locales que se usen. El flujo es popup/token;
+   no requiere secreto del cliente ni servidor de callbacks.
+3. En modo Testing agregar como usuarios de prueba a quienes prepararán
+   convocatorias. Como el equipo usa cuentas personales, no asumir que puede
+   elegirse una audiencia Internal. Revisar las condiciones de verificación
+   de Google antes de abrir el acceso fuera del equipo de prueba.
+4. Configurar las variables de `.env.example` en `.env.local` y en el entorno de
+   despliegue:
+   - `VITE_GOOGLE_CLIENT_ID`: identificador público del cliente OAuth.
+   - `VITE_GOOGLE_SEGUIMIENTO_FOLDER_ID`: carpeta «01. Seguimiento por Secretarias».
+     Es opcional; si falta, el usuario puede pegar su enlace en el formulario.
+5. Reconstruir el portal después de configurar las variables `VITE_*`.
+
+No copiar las claves de la cuenta de servicio al front. La cuenta vigente de los
+scripts sirve para acceder al Drive compartido, pero no tiene la casilla personal
+de Gmail del integrante del equipo. Esta función necesita su autorización OAuth.
+Los IDs de carpetas reales y los correos del equipo no se guardan en este documento.
+
+Referencias de Google: [modelo de token](https://developers.google.com/identity/oauth2/web/guides/use-token-model),
+[borradores de Gmail](https://developers.google.com/workspace/gmail/api/guides/drafts),
+[permisos de Drive](https://developers.google.com/workspace/drive/api/guides/api-specific-auth),
+[importación y conversión](https://developers.google.com/workspace/drive/api/guides/manage-uploads).
+
+## Permisos y manejo de errores
+
+1. Se piden `calendar.readonly`, `drive` y `gmail.compose` sólo al usar la función.
+   Drive requiere escritura para copiar templates de las carpetas existentes y
+   convertir Word. `gmail.compose` incluye capacidad de envío según Google;
+   el código de esta función llama solamente a `users.drafts.create`.
+2. El token queda en memoria mientras el diálogo está abierto y se descarta al
+   cerrarlo. No se almacena en Supabase, el navegador ni el repositorio. No se
+   solicitan refresh tokens ni se renuevan autorizaciones en segundo plano.
+3. Un Word se descarga y se importa como Google Docs temporal en el Drive de
+   quien prepara la convocatoria. Luego se exporta a PDF y se envía esa copia
+   temporal a la papelera. El documento original queda intacto. Si no se puede
+   retirar la copia, se informa; una desconexión durante la creación puede dejar
+   un temporal que debe revisarse en Drive.
+4. El PDF se valida por cabecera y tamaño, hasta 8 MB. Conviene revisar su formato:
+   una conversión automática puede cambiar la paginación de Word.
+5. Si Google no confirma una escritura, se bloquea el reintento dentro del
+   diálogo y se pide revisar Drive/Gmail. Crear un borrador no es idempotente;
+   cerrar y reabrir el diálogo puede crear otro. No se reintentan POST a ciegas.
+6. Dos personas copiando exactamente al mismo tiempo aún pueden crear dos PPTS:
+   Drive no ofrece una transacción sobre la numeración. Si ocurre, seleccionar
+   el archivo correcto en Drive y evitar repetir la preparación.
+
+## Validación
+
+1. `npm run verificar`: reglas de arquitectura, pruebas de lógica, build, humo
+   y accesibilidad de las rutas existentes; incluye el montaje del diálogo.
+2. `node scripts/verificar-convocatoria.mjs`: Chrome con sesión, Calendar,
+   Drive y Gmail ficticios. Prueba copia del template, conversión de Word a PDF,
+   revisión obligatoria, MIME adjunto y un único borrador; captura escritorio y
+   móvil. No consulta ni escribe cuentas reales. Los archivos temporales del
+   build se retiran al finalizar.
+3. Falta prueba con Google real hasta configurar el cliente OAuth y autorizar
+   la cuenta que usará la función. Tampoco se desplegó este cambio en producción.

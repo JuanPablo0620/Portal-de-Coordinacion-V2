@@ -18,6 +18,12 @@ import {
   escribirPlantillaInvitacion,
 } from './almacenamiento.js';
 import { normalizarPlantilla } from './invitaciones.js';
+export {
+  CARPETA_SEGUIMIENTOS,
+  GOOGLE_CLIENT_ID,
+  prepararConexionGoogle,
+  conectarGoogleConvocatorias,
+} from './googleConvocatorias.js';
 import { bdVacia, normalizarBD, claveDe } from './esquema.js';
 import { crearAsiento, diffCampos } from './bitacora.js';
 import { nuevoId, generarIdProyecto } from './ids.js';

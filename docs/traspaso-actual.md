@@ -19,13 +19,31 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 29/09/2026 · Codex, por pedido de JP
+**Última actualización:** 06/10/2026 · Codex, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
 ---
 
 ## 1. Dónde está parado el portal
+
+### Convocatorias de Seguimiento (06/10, rama `feat/invitaciones-mesas`)
+
+«Enviar convocatoria» en Seguimiento prepara un borrador de Gmail con los invitados
+de una reunión elegida en Calendar, los compromisos anteriores como PDF y el enlace
+de la PPT que completará el área. Puede reutilizar una presentación o copiar su
+template con el número siguiente. Una persona revisa y envía desde Gmail.
+
+**Pendiente de activación:** configurar el cliente OAuth de Google del portal
+(`VITE_GOOGLE_CLIENT_ID`), habilitar las tres APIs y autorizar las cuentas del equipo.
+La cuenta de servicio de los scripts no reemplaza la autorización de Gmail personal.
+Sin esa configuración la pantalla muestra que la conexión está pendiente.
+
+Validación: `npm run verificar` pasó con 436 pruebas, build, 130 comprobaciones
+de render y 29 rutas de accesibilidad. Chrome probó el circuito completo en
+escritorio y móvil con servicios ficticios. Falta probar con la cuenta real y
+desplegarlo. Circuito, configuración y límites en `docs/convocatorias-seguimiento.md`.
+La rama conserva las invitaciones manuales anteriores de Mesas y Eventos.
 
 ### Inicio: acceso al organigrama (29/09)
 

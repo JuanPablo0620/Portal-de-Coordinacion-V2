@@ -22,6 +22,7 @@ import { generarBaseCompleta } from '../../src/datos/base-completa.js';
 import { bdVacia } from '../../src/datos/esquema.js';
 import { hoyISO, proyectoPorId } from '../../src/datos/selectores.js';
 import { auditarAccesibilidad } from './accesibilidad.js';
+import { ConvocarSeguimiento } from '../../src/modulos/seguimiento/ConvocarSeguimiento.jsx';
 
 /**
  * Componentes que no se alcanzan por URL porque viven detrás de estado local
@@ -30,6 +31,7 @@ import { auditarAccesibilidad } from './accesibilidad.js';
 const CATEGORIAS = CATALOGOS_SEMILLA.categorias_tema.map((c) => ({ valor: c.nombre, titulo: c.nombre }));
 
 const COMPONENTES = {
+  ConvocarSeguimiento: () => <ConvocarSeguimiento alCerrar={() => {}} />,
   HistorialProyecto: (bd, proyecto) => <HistorialProyecto bd={bd} proyecto={proyecto} />,
 
   /**

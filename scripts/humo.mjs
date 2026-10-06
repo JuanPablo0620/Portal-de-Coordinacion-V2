@@ -70,10 +70,10 @@ const CON_DEMO = [
   ['/planificacion', 'Ejecución presupuestaria'],
   ['/planificacion?tab=comparativo', 'Comparativo al T'],
   ['/planificacion?tab=carga', 'Elegí un proyecto'],
-  ['/mesas', 'Espacios intersectoriales por tema de gestión.'],
+  ['/mesas?tipo=tem%C3%A1tica', 'Espacios intersectoriales por tema de gestión.'],
   ['/mesas?tipo=barrial', 'Espacios de participación territorial'],
   ['/mesas?tipo=otros%20proyectos', 'Convenios, planes y proyectos con seguimiento propio.'],
-  ['/mesas', 'Ver ficha'],
+  ['/mesas?tipo=tem%C3%A1tica', 'Ver ficha'],
   ['/mesas?tipo=eventos', 'Próximos eventos'],
   ['/mesas?tipo=eventos', 'Invitar a la reunión'],
   ['/mesas?tipo=eventos&tab=lista', 'Requerimientos'],
@@ -123,7 +123,7 @@ const CON_BASE_COMPLETA = [
   ['/posicionamiento?tab=alianzas', 'Ciudades y comunidades sostenibles'],
   ['/planificacion', 'Ejecución presupuestaria'],
   ['/planificacion?tab=comparativo', 'Comparativo al T'],
-  ['/mesas', 'Ver ficha'],
+  ['/mesas?tipo=tem%C3%A1tica', 'Ver ficha'],
   ['/mesas?tipo=eventos&tab=checklist', 'Requerimientos sin confirmar'],
   ['/reportes', 'Filtros aplicados'],
   ['/configuracion', 'Cargar base completa'],
@@ -154,7 +154,7 @@ const CON_SISTEMA_VACIO = [
   ['/planificacion', 'Sin proyectos para analizar'],
   ['/planificacion?tab=comparativo', 'Sin proyectos planificados'],
   ['/planificacion?tab=carga', 'Elegí un proyecto'],
-  ['/mesas', 'Sin mesas temáticas'],
+  ['/mesas?tipo=tem%C3%A1tica', 'Sin mesas temáticas'],
   ['/mesas?tipo=barrial', 'Sin mesas barriales'],
   ['/mesas?tipo=eventos', 'Sin eventos próximos'],
   ['/mesas?tipo=eventos&tab=lista', 'Sin eventos cargados'],
@@ -181,6 +181,7 @@ const RUTAS_PROFUNDAS = [
  * de que la línea de tiempo unificada entre en la prueba de humo.
  */
 const COMPONENTES = [
+  ['ConvocarSeguimiento', 'Enviar convocatoria'],
   ['HistorialProyecto', 'Historial del proyecto'],
   ['SelectorProyectoElegido', '{proyecto}'],
   ['HistorialProyecto', 'Cambios de ficha'],

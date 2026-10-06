@@ -7,6 +7,7 @@ import {
   ClipboardList,
   History,
   List,
+  Mail,
   NotebookPen,
   X,
 } from 'lucide-react';
@@ -32,6 +33,7 @@ import { EditorCompromiso } from '../../componentes/EditorCompromiso.jsx';
 import { LeyendaAreas, identidadArea } from '../../componentes/identidadArea.jsx';
 import { CargarSeguimiento } from './CargarSeguimiento.jsx';
 import { HistorialArea } from './HistorialArea.jsx';
+import { ConvocarSeguimiento } from './ConvocarSeguimiento.jsx';
 import { COLUMNAS_COMPROMISO, nivelDe } from './columnasCompromiso.jsx';
 import { ESTADOS_COMPROMISO } from '../../datos/catalogos.js';
 import {
@@ -66,6 +68,7 @@ export default function Seguimiento() {
   const bd = useBD();
   const [filtros, setFiltros] = useFiltrosUrl(DEFAULTS);
   const [agendando, setAgendando] = useState(false);
+  const [convocando, setConvocando] = useState(null);
 
   const pestanias = [
     { valor: 'calendario', titulo: 'Próximos seguimientos', icono: CalendarRange },
@@ -81,6 +84,9 @@ export default function Seguimiento() {
         descripcion="Reuniones de seguimiento con las áreas y compromisos que surgen de ellas."
         acciones={
           <>
+            <Boton icono={Mail} onClick={() => setConvocando({})} className="min-h-11">
+              Enviar convocatoria
+            </Boton>
             <Boton icono={CalendarPlus} onClick={() => setAgendando(true)}>
               Agendar seguimiento
             </Boton>
@@ -95,7 +101,7 @@ export default function Seguimiento() {
         <Pestanias opciones={pestanias} valor={filtros.tab} alCambiar={(v) => setFiltros({ tab: v })} />
 
         {filtros.tab === 'calendario' && (
-          <PanelCalendario bd={bd} filtros={filtros} setFiltros={setFiltros} alAgendar={() => setAgendando(true)} />
+          <PanelCalendario bd={bd} filtros={filtros} setFiltros={setFiltros} alAgendar={() => setAgendando(true)} alConvocar={setConvocando} />
         )}
         {filtros.tab === 'cargar' && <CargarSeguimiento alTerminar={() => setFiltros({ tab: 'compromisos' })} />}
         {filtros.tab === 'compromisos' && <PanelCompromisos bd={bd} filtros={filtros} setFiltros={setFiltros} />}
@@ -103,13 +109,14 @@ export default function Seguimiento() {
       </Pagina>
 
       {agendando && <AgendarSeguimiento abierto alCerrar={() => setAgendando(false)} />}
+      {convocando && <ConvocarSeguimiento seguimiento={convocando.id ? convocando : null} alCerrar={() => setConvocando(null)} />}
     </>
   );
 }
 
 /* ── Calendario y lista de próximos ─────────────────────────────────── */
 
-function PanelCalendario({ bd, filtros, setFiltros, alAgendar }) {
+function PanelCalendario({ bd, filtros, setFiltros, alAgendar, alConvocar }) {
   const hoy = hoyISO();
   const mes = useMesVisible(hoy);
   const esLista = filtros.vista === 'lista';
@@ -225,6 +232,10 @@ function PanelCalendario({ bd, filtros, setFiltros, alAgendar }) {
             },
             { clave: 'participantes', titulo: 'Participantes' },
             { clave: 'temas', titulo: 'Temas a tratar' },
+            {
+              clave: 'convocatoria', titulo: 'Convocatoria', sinOrdenar: true,
+              render: (f) => <Boton icono={Mail} className="min-h-11" onClick={() => alConvocar(f)}>Enviar convocatoria</Boton>,
+            },
             {
               clave: 'dias',
               titulo: 'Cuándo',
