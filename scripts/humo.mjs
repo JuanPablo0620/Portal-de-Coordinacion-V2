@@ -182,6 +182,7 @@ const RUTAS_PROFUNDAS = [
  */
 const COMPONENTES = [
   ['ConvocarSeguimiento', 'Enviar convocatoria'],
+  ['EnviarCompromisos', 'Enviar compromisos'],
   ['HistorialProyecto', 'Historial del proyecto'],
   ['SelectorProyectoElegido', '{proyecto}'],
   ['HistorialProyecto', 'Cambios de ficha'],

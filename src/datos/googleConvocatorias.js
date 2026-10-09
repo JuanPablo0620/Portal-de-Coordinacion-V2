@@ -248,7 +248,7 @@ export function crearClienteConvocatorias(tokenInicial, vence, consultar = globa
     },
     async crearBorrador(datos, pdf) {
       // Una respuesta perdida puede haber guardado el borrador: nunca reintentar a ciegas.
-      if (borradorIntentado) throw new Error('Revisá Borradores de Gmail antes de volver a crear esta convocatoria.');
+      if (borradorIntentado) throw new Error('Revisá Borradores de Gmail antes de volver a crear este borrador.');
       const raw = rawGmail(mensajeMime(datos, pdf, cliente.email));
       borradorIntentado = true;
       try {

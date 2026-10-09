@@ -32,6 +32,7 @@ const CATEGORIAS = CATALOGOS_SEMILLA.categorias_tema.map((c) => ({ valor: c.nomb
 
 const COMPONENTES = {
   ConvocarSeguimiento: () => <ConvocarSeguimiento alCerrar={() => {}} />,
+  EnviarCompromisos: () => <ConvocarSeguimiento tipo="compromisos" alCerrar={() => {}} />,
   HistorialProyecto: (bd, proyecto) => <HistorialProyecto bd={bd} proyecto={proyecto} />,
 
   /**

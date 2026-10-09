@@ -7,8 +7,8 @@ import {
   CARPETA_SEGUIMIENTOS, GOOGLE_CLIENT_ID, conectarGoogleConvocatorias, prepararConexionGoogle,
 } from '../../datos/repositorio.js';
 import {
-  areaDelTitulo, coincidenciaUnica, datosDelEvento, fechaCorta, fechaDelArchivo, materialesSugeridos, moverFecha, nombreSinPrefijo,
-  normalizarNombre, segmentosMensaje, textoConvocatoria, validarConvocatoria, validarPDF,
+  areaDelTitulo, coincidenciaUnica, compromisoDeLaReunion, datosDelEvento, fechaCorta, fechaDelArchivo, materialesSugeridos, moverFecha,
+  nombreSinPrefijo, normalizarNombre, reunionesRealizadas, segmentosMensaje, textoCompromisos, textoConvocatoria, validarConvocatoria, validarPDF,
 } from '../../datos/convocatorias.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { useSesion } from '../../estado/sesion.js';
@@ -21,8 +21,14 @@ import { useBD } from '../../estado/tienda.js';
  * coincidencia es única; si no, se eligen a mano, y siempre quedan editables
  * para no asociar una reunión a otra secretaría por inferencia.
  * Ningún mail ni token queda guardado en el navegador.
+ *
+ * `tipo="compromisos"` es el envío del día siguiente: misma conexión, reunión y
+ * carpeta, pero mira hacia atrás (la última reunión realizada), adjunta los
+ * compromisos de esa misma reunión y no lleva presentación ni entrega.
  */
-export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
+export function ConvocarSeguimiento({ alCerrar, seguimiento = null, tipo = 'convocatoria' }) {
+  const esCompromisos = tipo === 'compromisos';
+  const redactar = esCompromisos ? textoCompromisos : textoConvocatoria;
   const perfil = useSesion((s) => s.perfil);
   const bd = useBD();
   const conexion = useRef(null);
@@ -49,7 +55,7 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
   const [revisado, setRevisado] = useState(false);
   const [borrador, setBorrador] = useState(null);
   const [datos, setDatos] = useState({
-    area: seguimiento?.area?.replace(/^Secretaría de /i, '') ?? '', fecha: '', hora: '', lugar: '',
+    tipo, area: seguimiento?.area?.replace(/^Secretaría de /i, '') ?? '', fecha: '', hora: '', lugar: '',
     modalidad: 'presencial', entrega: '', destinatarios: '', asunto: '', mensaje: '', presentacion: '',
     firma: [perfil?.nombre ?? '', 'Dirección de Control de Gestión', 'Secretaría de Coordinación'].filter(Boolean).join('\n'),
   });
@@ -113,6 +119,14 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
   function cargarReuniones() {
     invalidar(); setEventoId(''); setEventos([]);
     ejecutar('Buscando reuniones de seguimiento…', async () => {
+      if (esCompromisos) {
+        const hoy = hoyISO();
+        const realizadas = reunionesRealizadas(await conexion.current.reuniones(calendario, moverFecha(hoy, -30), moverFecha(hoy, 1)));
+        if (!activo.current) return;
+        setEventos(realizadas);
+        if (realizadas[0]) await leerEvento(realizadas[0].id);
+        return;
+      }
       const desde = seguimiento?.fecha ?? hoyISO();
       const eventosGoogle = await conexion.current.reuniones(calendario, desde, moverFecha(desde, seguimiento ? 1 : 90));
       if (activo.current) setEventos(eventosGoogle);
@@ -121,17 +135,19 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
 
   function elegirEvento(id) {
     invalidar(); setEventoId('');
-    ejecutar('Leyendo invitados y datos de la reunión…', async () => {
-      const evento = await conexion.current.evento(calendario, id);
-      const reunion = datosDelEvento(evento);
-      if (seguimiento && (reunion.fecha !== seguimiento.fecha || (seguimiento.hora && reunion.hora !== seguimiento.hora))) {
-        throw new Error('El horario de Calendar no coincide con el seguimiento del portal. Revisá cuál es la reunión correcta.');
-      }
-      if (!activo.current) return;
-      setEventoId(id);
-      const deducida = areaDelTitulo(evento.summary ?? '', bd.areas ?? []);
-      setDatos((d) => ({ ...d, ...reunion, area: seguimiento ? d.area : deducida, entrega: moverFecha(reunion.fecha, -1), asunto: '', mensaje: '', presentacion: '' }));
-    });
+    ejecutar('Leyendo invitados y datos de la reunión…', () => leerEvento(id));
+  }
+
+  async function leerEvento(id) {
+    const evento = await conexion.current.evento(calendario, id);
+    const reunion = datosDelEvento(evento);
+    if (seguimiento && (reunion.fecha !== seguimiento.fecha || (seguimiento.hora && reunion.hora !== seguimiento.hora))) {
+      throw new Error('El horario de Calendar no coincide con el seguimiento del portal. Revisá cuál es la reunión correcta.');
+    }
+    if (!activo.current) return;
+    setEventoId(id);
+    const deducida = areaDelTitulo(evento.summary ?? '', bd.areas ?? []);
+    setDatos((d) => ({ ...d, ...reunion, area: seguimiento ? d.area : deducida, entrega: moverFecha(reunion.fecha, -1), asunto: '', mensaje: '', presentacion: '' }));
   }
 
   function cargarCarpetas() {
@@ -162,7 +178,9 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
     const sugeridos = materialesSugeridos(encontrados.presentaciones, encontrados.compromisos, datos.fecha);
     setCarpeta(carpetaElegida.id);
     setMateriales(encontrados);
-    setSeleccion({ ...sugeridos, modo: sugeridos.presentacion ? 'existente' : 'nueva' });
+    setSeleccion(esCompromisos
+      ? { modo: 'existente', plantilla: '', presentacion: '', compromiso: compromisoDeLaReunion(encontrados.compromisos, datos.fecha) }
+      : { ...sugeridos, modo: sugeridos.presentacion ? 'existente' : 'nueva' });
     setDatos((d) => ({
       ...d, asunto: '', mensaje: '', presentacion: '',
       area: coincidenciaUnica(d.area, [carpetaElegida], (c) => c.name) ? d.area : nombreSinPrefijo(carpetaElegida.name),
@@ -170,12 +188,22 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
   }
 
   function prepararMateriales() {
-    ejecutar('Preparando PDF y presentación…', async () => {
-      if (!eventoId || !datos.area.trim() || !datos.lugar.trim()) throw new Error('Elegí la reunión y completá secretaría y lugar.');
-      if (!seleccion.compromiso) throw new Error('Elegí el documento de compromisos de la última reunión.');
+    ejecutar(esCompromisos ? 'Preparando el PDF de compromisos…' : 'Preparando PDF y presentación…', async () => {
+      if (!eventoId || !datos.area.trim()) throw new Error('Elegí la reunión y completá la secretaría.');
+      if (!esCompromisos && !datos.lugar.trim()) throw new Error('Completá el lugar de la reunión.');
+      if (!seleccion.compromiso) throw new Error(`Elegí el documento de compromisos de ${esCompromisos ? 'esta' : 'la última'} reunión.`);
       const documento = materiales.compromisos.find((a) => a.id === seleccion.compromiso);
       if (!documento || !/compromiso/.test(normalizarNombre(documento.name))) throw new Error('Elegí un documento de compromisos.');
       const fechaDocumento = fechaDelArchivo(documento, datos.fecha.slice(0, 4));
+      if (esCompromisos) {
+        if (fechaDocumento && fechaDocumento !== datos.fecha) throw new Error(`Los compromisos deben ser de la reunión del ${fechaCorta(datos.fecha)}.`);
+        const pdf = await conexion.current.pdfCompromisos(documento.id);
+        if (!activo.current) return;
+        setDatos((d) => ({ ...d, presentacion: '', ...textoCompromisos(d) }));
+        setAdjuntos({ pdf, presentacion: null, documento });
+        setRevisado(false);
+        return;
+      }
       if (fechaDocumento && fechaDocumento >= datos.fecha) throw new Error('Los compromisos deben corresponder a una reunión anterior.');
       let presentacion = materiales.presentaciones.find((a) => a.id === seleccion.presentacion);
       if (seleccion.modo === 'existente' && !presentacion) throw new Error('Elegí la presentación de la próxima reunión.');
@@ -224,7 +252,7 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
   const cerrar = () => { if (!operando.current) alCerrar(); };
 
   return (
-    <Modal abierto alCerrar={cerrar} ancho="lg" titulo="Enviar convocatoria"
+    <Modal abierto alCerrar={cerrar} ancho="lg" titulo={esCompromisos ? 'Enviar compromisos' : 'Enviar convocatoria'}
       descripcion="Prepará un borrador para revisar y enviar desde Gmail."
       pie={
         <div className="flex w-full flex-wrap items-center justify-end gap-2">
@@ -236,14 +264,16 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
         </div>
       }>
       <div className="flex flex-col gap-5" aria-busy={Boolean(ocupado)}>
-        <p className="text-sm text-gris">La convocatoria incluye los compromisos anteriores en PDF y el enlace de la presentación que el área debe completar.</p>
+        <p className="text-sm text-gris">{esCompromisos
+          ? 'El mail lleva en PDF los compromisos de la última reunión realizada, para sus mismos invitados.'
+          : 'La convocatoria incluye los compromisos anteriores en PDF y el enlace de la presentación que el área debe completar.'}</p>
         {ocupado && <p role="status" className="text-sm font-medium text-acento">{ocupado}</p>}
         {error && <div role="alert"><Aviso tono="error" titulo="No se pudo completar la preparación">{error}</Aviso></div>}
         {!GOOGLE_CLIENT_ID && <Aviso titulo="Conexión con Google pendiente">
           El botón ya está disponible. Para guardar borradores, el administrador debe habilitar la conexión de Google del portal.
         </Aviso>}
-        {borrador && <div role="status"><Aviso titulo="Convocatoria guardada en Borradores">
-          El borrador quedó en {borrador.email}, con el PDF adjunto y la presentación enlazada. Abrí Gmail para verificarlo y enviarlo.
+        {borrador && <div role="status"><Aviso titulo={esCompromisos ? 'Compromisos guardados en Borradores' : 'Convocatoria guardada en Borradores'}>
+          El borrador quedó en {borrador.email}, con el PDF adjunto{esCompromisos ? '' : ' y la presentación enlazada'}. Abrí Gmail para verificarlo y enviarlo.
         </Aviso></div>}
         {!cuenta && <Boton icono={Mail} className="min-h-11 self-start" disabled={!googleListo || bloqueado} onClick={conectar}>
           Conectar mi cuenta de Google
@@ -260,24 +290,28 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
             <CampoSelect etiqueta="Reunión de seguimiento" value={eventoId} disabled={!eventos.length}
               opciones={eventos.map((e) => ({ valor: e.id, titulo: `${e.summary} · ${e.start.dateTime.slice(0, 10)}` }))}
               placeholder="Elegí la reunión de Calendar" onChange={(e) => { if (e.target.value) elegirEvento(e.target.value); }} />
-            <p className="text-xs text-gris">Buscamos reuniones cuyo título contenga «seguimiento». {seguimiento ? `Para el ${fechaCorta(seguimiento.fecha)}.` : 'En los próximos 90 días.'} Si no aparece, revisá el calendario seleccionado.</p>
+            <p className="text-xs text-gris">Buscamos reuniones cuyo título contenga «seguimiento». {esCompromisos
+              ? 'Ya realizadas, en los últimos 30 días; se propone la más reciente.'
+              : seguimiento ? `Para el ${fechaCorta(seguimiento.fecha)}.` : 'En los próximos 90 días.'} Si no aparece, revisá el calendario seleccionado.</p>
             {eventoId && <>
-              <p className="text-xs text-gris">Fecha prevista para la convocatoria: {fechaCorta(moverFecha(datos.fecha, -7))} (una semana antes).</p>
-              <GrillaCampos columnas={3}>
+              <p className="text-xs text-gris">{esCompromisos
+                ? `Fecha prevista para el envío: ${fechaCorta(moverFecha(datos.fecha, 1))} (el día siguiente).`
+                : `Fecha prevista para la convocatoria: ${fechaCorta(moverFecha(datos.fecha, -7))} (una semana antes).`}</p>
+              <GrillaCampos columnas={esCompromisos ? 2 : 3}>
                 <CampoTexto etiqueta="Secretaría" requerido value={datos.area} onChange={(e) => { invalidar(); cambiar('area')(e); }} />
                 <CampoTexto etiqueta="Fecha de reunión" value={`${fechaCorta(datos.fecha)} · ${datos.hora} hs`} readOnly />
-                <CampoFecha etiqueta="Entrega de presentación" requerido max={datos.fecha} value={datos.entrega} onChange={cambiar('entrega')} />
+                {!esCompromisos && <CampoFecha etiqueta="Entrega de presentación" requerido max={datos.fecha} value={datos.entrega} onChange={cambiar('entrega')} />}
               </GrillaCampos>
-              <GrillaCampos>
+              {!esCompromisos && <GrillaCampos>
                 <CampoSelect etiqueta="Modalidad" value={datos.modalidad} opciones={['presencial', 'virtual', 'híbrida']} onChange={cambiar('modalidad')} />
                 <CampoTexto etiqueta="Lugar o enlace de reunión" requerido value={datos.lugar} onChange={cambiar('lugar')} />
-              </GrillaCampos>
+              </GrillaCampos>}
               <CampoArea etiqueta="Destinatarios de Calendar" requerido filas={2} value={datos.destinatarios} onChange={cambiar('destinatarios')}
                 ayuda="Podés ajustar la lista antes de guardar." />
             </>}
           </fieldset>}
           {eventoId && !adjuntos && <fieldset disabled={bloqueado} className="flex flex-col gap-3 border-t border-borde pt-4">
-            <legend className="mb-3 text-sm font-semibold text-tinta">2. Presentación y compromisos</legend>
+            <legend className="mb-3 text-sm font-semibold text-tinta">{esCompromisos ? '2. Compromisos de la reunión' : '2. Presentación y compromisos'}</legend>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <CampoTexto className="flex-1" etiqueta="Carpeta de secretarías en Drive" value={carpetaRaiz}
                 ayuda="01. Seguimiento por Secretarias" onChange={(e) => { setCarpetaRaiz(e.target.value); setCarpetas([]); setCarpeta(''); setMateriales(null); invalidar(); }} />
@@ -285,7 +319,13 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
             </div>
             <CampoSelect etiqueta="Carpeta de la secretaría" value={carpeta} opciones={opciones(carpetas)} disabled={!carpetas.length}
               onChange={(e) => { if (e.target.value) elegirCarpeta(e.target.value); }} />
-            {materiales && <>
+            {materiales && esCompromisos && <>
+              <CampoSelect etiqueta="Compromisos de esta reunión" value={seleccion.compromiso} opciones={opciones(materiales.compromisos)}
+                onChange={(e) => { invalidar(); setSeleccion((s) => ({ ...s, compromiso: e.target.value })); }} />
+              <p className="text-xs text-gris">Se propone el documento con la fecha de la reunión en el nombre. Si todavía no está en Drive, subilo y volvé a buscar carpetas.</p>
+              <Boton className="min-h-11 self-start" icono={FileCheck} onClick={prepararMateriales}>Preparar envío</Boton>
+            </>}
+            {materiales && !esCompromisos && <>
               <CampoSelect etiqueta="Presentación de la próxima reunión" value={seleccion.modo}
                 opciones={[{ valor: 'existente', titulo: 'Usar una presentación existente' }, { valor: 'nueva', titulo: 'Copiar el template para esta reunión' }]}
                 onChange={(e) => { invalidar(); setSeleccion((s) => ({ ...s, modo: e.target.value })); }} />
@@ -301,27 +341,27 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
           </fieldset>}
           {adjuntos && <fieldset disabled={bloqueado} className="flex flex-col gap-3 border-t border-borde pt-4">
             <legend ref={revision} tabIndex={-1} className="mb-3 text-sm font-semibold text-tinta">3. Revisar el borrador</legend>
-            <p className="text-sm text-gris">{datos.area} · {fechaCorta(datos.fecha)} · {datos.hora} hs · {datos.lugar}</p>
+            <p className="text-sm text-gris">{datos.area} · {fechaCorta(datos.fecha)} · {datos.hora} hs{esCompromisos ? '' : ` · ${datos.lugar}`}</p>
             <Boton className="self-start" onClick={invalidar}>Editar reunión o materiales</Boton>
             <CampoArea etiqueta="Destinatarios de Calendar" requerido filas={2} value={datos.destinatarios} onChange={cambiar('destinatarios')} />
             <CampoTexto etiqueta="Asunto" requerido value={datos.asunto} onChange={cambiar('asunto')} />
-            <CampoArea etiqueta="Mensaje" requerido filas={12} value={datos.mensaje} onChange={cambiar('mensaje')}
-              ayuda="**texto** va en negrita; [texto] es el enlace a la presentación." />
+            <CampoArea etiqueta="Mensaje" requerido filas={esCompromisos ? 8 : 12} value={datos.mensaje} onChange={cambiar('mensaje')}
+              ayuda={esCompromisos ? '**texto** va en negrita.' : '**texto** va en negrita; [texto] es el enlace a la presentación.'} />
             <div>
               <p className="mb-1 text-xs font-medium text-gris">Vista previa del mail</p>
               <div className="whitespace-pre-line rounded-chip border border-borde bg-paper p-3 text-sm leading-relaxed text-tinta">
                 {segmentosMensaje(datos.mensaje).map((s, i) => (
                   s.tipo === 'negrita' ? <strong key={i}>{s.texto}</strong>
-                    : s.tipo === 'enlace' ? <a key={i} href={datos.presentacion} target="_blank" rel="noopener noreferrer" className="text-acento underline">{s.texto}</a>
-                      : <span key={i}>{s.texto}</span>
+                    : s.tipo === 'enlace' && datos.presentacion ? <a key={i} href={datos.presentacion} target="_blank" rel="noopener noreferrer" className="text-acento underline">{s.texto}</a>
+                      : <span key={i}>{s.tipo === 'enlace' ? `[${s.texto}]` : s.texto}</span>
                 ))}
               </div>
             </div>
-            <Boton onClick={() => { setDatos((d) => ({ ...d, ...textoConvocatoria(d) })); setRevisado(false); }} className="self-start">
+            <Boton onClick={() => { setDatos((d) => ({ ...d, ...redactar(d) })); setRevisado(false); }} className="self-start">
               Actualizar texto con los datos de la reunión
             </Boton>
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              <a href={adjuntos.presentacion.webViewLink} target="_blank" rel="noopener noreferrer" className="text-acento underline">Abrir presentación</a>
+              {adjuntos.presentacion && <a href={adjuntos.presentacion.webViewLink} target="_blank" rel="noopener noreferrer" className="text-acento underline">Abrir presentación</a>}
               <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="text-acento underline">Revisar PDF: {adjuntos.pdf.nombre}</a>
             </div>
             <div>
@@ -329,7 +369,8 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
               <input id={archivoId} type="file" accept="application/pdf,.pdf" onChange={reemplazarPDF} className="campo-base" />
             </div>
             {conexion.current?.advertenciaConversion && <Aviso>{conexion.current.advertenciaConversion}</Aviso>}
-            <CampoCheck etiqueta="Revisé los destinatarios, el mensaje, la presentación y el PDF de compromisos."
+            <CampoCheck etiqueta={esCompromisos ? 'Revisé los destinatarios, el mensaje y el PDF de compromisos.'
+              : 'Revisé los destinatarios, el mensaje, la presentación y el PDF de compromisos.'}
               checked={revisado} onChange={(e) => setRevisado(e.target.checked)} />
           </fieldset>}
         </>}

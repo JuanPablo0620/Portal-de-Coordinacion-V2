@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_PDF, MIME_DOC, MIME_DOCX, MIME_PPTX, areaDelTitulo, coincidenciaUnica, datosDelEvento, fechaConDia, idDeDrive,
-  materialesSugeridos, mensajeHtml, mensajeMime, mensajePlano, moverFecha, nombrePresentacion, rawGmail, textoConvocatoria, validarConvocatoria,
+  MAX_PDF, MIME_DOC, MIME_DOCX, MIME_PPTX, areaDelTitulo, coincidenciaUnica, compromisoDeLaReunion, datosDelEvento, fechaConDia, idDeDrive,
+  materialesSugeridos, mensajeHtml, mensajeMime, mensajePlano, moverFecha, nombrePresentacion, rawGmail, reunionesRealizadas,
+  textoCompromisos, textoConvocatoria, validarConvocatoria,
 } from '../src/datos/convocatorias.js';
 import { crearClienteConvocatorias } from '../src/datos/googleConvocatorias.js';
 
@@ -80,6 +81,36 @@ test('la secretaría sale del título de Calendar y la carpeta se propone sólo 
   assert.equal(carpeta('Obras'), 'o');
   assert.equal(carpeta('Salud'), null);
   assert.equal(coincidenciaUnica('Capital', [{ name: 'Capital Humano' }, { name: 'Capital Social' }], (c) => c.name), null);
+});
+
+test('envío de compromisos: última reunión realizada, documento del mismo día y sin presentación', () => {
+  const evento = (id, dateTime) => ({ id, start: { dateTime } });
+  const ahora = new Date('2026-10-08T15:00:00-03:00');
+  const realizadas = reunionesRealizadas([
+    evento('vieja', '2026-09-30T10:00:00-03:00'), evento('futura', '2026-10-14T14:30:00-03:00'),
+    evento('ayer', '2026-10-07T14:30:00-03:00'),
+  ], ahora);
+  assert.deepEqual(realizadas.map((e) => e.id), ['ayer', 'vieja']);
+
+  const documentos = [
+    { id: 'anterior', name: '04. Compromisos de Capital Humano 14/09.docx' },
+    { id: 'del-dia', name: '05. Compromisos de Capital Humano 07/10.docx' },
+  ];
+  assert.equal(compromisoDeLaReunion(documentos, '2026-10-07'), 'del-dia');
+  assert.equal(compromisoDeLaReunion(documentos, '2026-10-21'), '');
+  assert.equal(compromisoDeLaReunion([...documentos, { id: 'otro', name: 'Compromisos 07/10.pdf' }], '2026-10-07'), '');
+
+  const envio = { tipo: 'compromisos', area: 'Capital Humano', fecha: '2026-10-07', destinatarios: 'ana@example.test', firma: 'Equipo de prueba' };
+  Object.assign(envio, textoCompromisos(envio));
+  assert.equal(envio.asunto, 'Compromisos | Seguimiento Capital Humano 07/10');
+  assert.match(envio.mensaje, /^¡Buenas tardes a todos!\n\nEn este mail les adjunto los compromisos de la reunión de seguimiento del miércoles 07\/10\./);
+  assert.ok(envio.mensaje.endsWith('Equipo de prueba'));
+  // Sin lugar, entrega ni enlace a la PPT: igual es válido.
+  assert.equal(validarConvocatoria(envio, pdf).length, 1);
+  assert.throws(() => validarConvocatoria({ ...envio, area: '' }, pdf));
+  const mime = mensajeMime(envio, pdf, 'equipo@example.test', 'limite_compromisos');
+  assert.doesNotMatch(mime, /href=/);
+  assert.equal(mensajeHtml('Ver [esto]', ''), '<div dir="ltr">Ver [esto]</div>');
 });
 
 test('el mensaje marca negrita y enlaza sólo a la presentación, sin inyectar HTML', () => {

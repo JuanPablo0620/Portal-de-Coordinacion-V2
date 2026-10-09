@@ -69,6 +69,7 @@ export default function Seguimiento() {
   const [filtros, setFiltros] = useFiltrosUrl(DEFAULTS);
   const [agendando, setAgendando] = useState(false);
   const [convocando, setConvocando] = useState(null);
+  const [enviandoCompromisos, setEnviandoCompromisos] = useState(false);
 
   const pestanias = [
     { valor: 'calendario', titulo: 'Próximos seguimientos', icono: CalendarRange },
@@ -86,6 +87,9 @@ export default function Seguimiento() {
           <>
             <Boton icono={Mail} onClick={() => setConvocando({})} className="min-h-11">
               Enviar convocatoria
+            </Boton>
+            <Boton icono={ClipboardList} onClick={() => setEnviandoCompromisos(true)} className="min-h-11">
+              Enviar compromisos
             </Boton>
             <Boton icono={CalendarPlus} onClick={() => setAgendando(true)}>
               Agendar seguimiento
@@ -110,6 +114,7 @@ export default function Seguimiento() {
 
       {agendando && <AgendarSeguimiento abierto alCerrar={() => setAgendando(false)} />}
       {convocando && <ConvocarSeguimiento seguimiento={convocando.id ? convocando : null} alCerrar={() => setConvocando(null)} />}
+      {enviandoCompromisos && <ConvocarSeguimiento tipo="compromisos" alCerrar={() => setEnviandoCompromisos(false)} />}
     </>
   );
 }

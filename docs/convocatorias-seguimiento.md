@@ -44,6 +44,22 @@ implementación no crea una bandeja compartida ni una aprobación entre dos cuen
 Tampoco programa un envío automático siete días antes ni modifica el evento de
 Calendar. El resultado del portal es un borrador, no una constancia de envío.
 
+## Envío de compromisos
+
+Es el mismo circuito hacia atrás: el día siguiente a la reunión se mandan sus
+compromisos a los mismos invitados. **Seguimiento → Enviar compromisos**.
+
+1. Al buscar reuniones se listan las ya realizadas de los últimos 30 días y se
+   elige sola la más reciente. La secretaría sale del título, como en la convocatoria.
+2. Al buscar carpetas se propone el documento de Compromisos con **la fecha de esa
+   reunión** en el nombre (no la anterior). Si todavía no está en Drive, hay que
+   subirlo y volver a buscar.
+3. Asunto: `Compromisos | Seguimiento <Secretaría> <dd/mm>`. Mensaje fijo, editable,
+   sin presentación ni fecha de entrega.
+
+Comparte conexión, permisos y manejo de errores con la convocatoria: es el mismo
+diálogo con `tipo="compromisos"`.
+
 ## Activación de Google
 
 1. En el proyecto de Google Cloud destinado al portal, habilitar **Gmail API**,

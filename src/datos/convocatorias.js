@@ -148,6 +148,32 @@ export function textoConvocatoria({ area, fecha, hora, lugar, modalidad, entrega
 }
 
 /**
+ * Envío de compromisos: el mismo circuito que la convocatoria, pero hacia atrás.
+ * Va el día siguiente a la reunión, a sus mismos invitados, con el documento de
+ * compromisos de ESA reunión (no de la anterior) y sin presentación.
+ */
+export function textoCompromisos({ area, fecha, firma }) {
+  return {
+    asunto: `Compromisos | Seguimiento ${area} ${fechaCorta(fecha)}`,
+    mensaje: `¡Buenas tardes a todos!\n\n` +
+      `En este mail les adjunto los compromisos de la reunión de seguimiento del ${fechaConDia(fecha)}.\n` +
+      `Cualquier duda o consulta estoy a disposición\n\n${firma}`,
+  };
+}
+
+/** Reuniones que ya empezaron, la más reciente primero: la de arriba es la que se propone. */
+export function reunionesRealizadas(eventos, ahora = new Date()) {
+  return eventos.filter((e) => new Date(e.start.dateTime) <= ahora)
+    .sort((a, b) => new Date(b.start.dateTime) - new Date(a.start.dateTime));
+}
+
+/** El documento de la misma fecha que la reunión; con cero o varios se elige a mano. */
+export function compromisoDeLaReunion(compromisos, fecha) {
+  const delDia = compromisos.filter((a) => fechaDelArchivo(a, fecha.slice(0, 4)) === fecha);
+  return delDia.length === 1 ? delDia[0].id : '';
+}
+
+/**
  * El mensaje se edita como texto plano con dos marcas: **texto** va en negrita
  * y [texto] es el enlace a la presentación. No es un editor enriquecido ni
  * Markdown completo a propósito: el único enlace legítimo de la convocatoria es
@@ -163,10 +189,11 @@ export function segmentosMensaje(mensaje = '') {
 
 const escaparHtml = (texto) => texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+// Sin presentación (envío de compromisos) un corchete queda como texto: no hay a dónde enlazar.
 export function mensajeHtml(mensaje, presentacion) {
   const cuerpo = segmentosMensaje(mensaje).map(({ tipo, texto }) => {
     if (tipo === 'negrita') return `<strong>${escaparHtml(texto)}</strong>`;
-    if (tipo === 'enlace') return `<a href="${escaparHtml(presentacion)}">${escaparHtml(texto)}</a>`;
+    if (tipo === 'enlace') return presentacion ? `<a href="${escaparHtml(presentacion)}">${escaparHtml(texto)}</a>` : escaparHtml(`[${texto}]`);
     return escaparHtml(texto);
   }).join('').replace(/\r?\n/g, '<br>\r\n');
   return `<div dir="ltr">${cuerpo}</div>`;
@@ -174,15 +201,25 @@ export function mensajeHtml(mensaje, presentacion) {
 
 /** Versión sin formato para clientes que no muestran HTML: el enlace va escrito. */
 export function mensajePlano(mensaje, presentacion) {
-  return segmentosMensaje(mensaje).map(({ tipo, texto }) => (tipo === 'enlace' ? `${texto}\n${presentacion}` : texto)).join('');
+  return segmentosMensaje(mensaje).map(({ tipo, texto }) => {
+    if (tipo !== 'enlace') return texto;
+    return presentacion ? `${texto}\n${presentacion}` : `[${texto}]`;
+  }).join('');
 }
 
+/** `datos.tipo === 'compromisos'` no lleva entrega, lugar ni presentación. */
 export function validarConvocatoria(datos, pdf) {
-  if (!validarFecha(datos.fecha) || !validarFecha(datos.entrega) || datos.entrega > datos.fecha) {
-    throw new Error('Revisá la fecha de reunión y la fecha de entrega de la presentación.');
-  }
-  if (!datos.area?.trim() || !datos.lugar?.trim() || !datos.modalidad?.trim() || !/^([01]\d|2[0-3]):[0-5]\d$/.test(datos.hora ?? '')) {
-    throw new Error('Completá secretaría, hora, modalidad y lugar de la reunión.');
+  const esCompromisos = datos.tipo === 'compromisos';
+  if (!validarFecha(datos.fecha)) throw new Error('Revisá la fecha de la reunión.');
+  if (esCompromisos) {
+    if (!datos.area?.trim()) throw new Error('Completá la secretaría.');
+  } else {
+    if (!validarFecha(datos.entrega) || datos.entrega > datos.fecha) {
+      throw new Error('Revisá la fecha de reunión y la fecha de entrega de la presentación.');
+    }
+    if (!datos.area?.trim() || !datos.lugar?.trim() || !datos.modalidad?.trim() || !/^([01]\d|2[0-3]):[0-5]\d$/.test(datos.hora ?? '')) {
+      throw new Error('Completá secretaría, hora, modalidad y lugar de la reunión.');
+    }
   }
   const { lista, invalidos } = agregarMails([], datos.destinatarios ?? '');
   if (!lista.length || invalidos.length || lista.length > 200 || /(?:^|[\r\n])\s*(?:to|cc|bcc|from|subject):/i.test(datos.destinatarios)) {
@@ -190,12 +227,14 @@ export function validarConvocatoria(datos, pdf) {
   }
   if (!datos.asunto?.trim() || /[\r\n]/.test(datos.asunto) || datos.asunto.length > 500) throw new Error('Revisá el asunto del mail.');
   if (!datos.mensaje?.trim() || datos.mensaje.length > 50000) throw new Error('Revisá el mensaje del mail.');
-  if (!segmentosMensaje(datos.mensaje).some((s) => s.tipo === 'enlace')) {
-    throw new Error('El mensaje debe incluir el enlace a la presentación: escribí el texto del enlace entre corchetes.');
+  if (!esCompromisos) {
+    if (!segmentosMensaje(datos.mensaje).some((s) => s.tipo === 'enlace')) {
+      throw new Error('El mensaje debe incluir el enlace a la presentación: escribí el texto del enlace entre corchetes.');
+    }
+    let url;
+    try { url = new URL(datos.presentacion); } catch { throw new Error('Falta el enlace de la presentación.'); }
+    if (url.protocol !== 'https:' || !['docs.google.com', 'drive.google.com'].includes(url.hostname)) throw new Error('La presentación debe tener un enlace de Google Drive.');
   }
-  let url;
-  try { url = new URL(datos.presentacion); } catch { throw new Error('Falta el enlace de la presentación.'); }
-  if (url.protocol !== 'https:' || !['docs.google.com', 'drive.google.com'].includes(url.hostname)) throw new Error('La presentación debe tener un enlace de Google Drive.');
   validarPDF(pdf);
   return lista;
 }
