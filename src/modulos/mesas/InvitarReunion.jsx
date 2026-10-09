@@ -4,7 +4,7 @@ import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoCheck, CampoFecha, CampoHora, CampoSelect, CampoTexto } from '../../componentes/Campo.jsx';
 import { VistaPreviaMail } from '../../componentes/VistaPreviaMail.jsx';
-import { DURACIONES, agregarMails, armarInvitacion, horarioEvento, validarInvitacion } from '../../datos/invitaciones.js';
+import { CLAVE_EVENTOS, DURACIONES, agregarMails, armarInvitacion, horarioEvento, validarInvitacion } from '../../datos/invitaciones.js';
 import { GOOGLE_CLIENT_ID, conectarGoogleConvocatorias, prepararConexionGoogle } from '../../datos/repositorio.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { acciones } from '../../estado/tienda.js';
@@ -67,7 +67,12 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
     setPlantilla((p) => ({ ...p, [campo]: e.target.value }));
     setRevisado(false);
   };
-  const { titulo, cuerpo, tituloEvento } = armarInvitacion(plantilla, { nombre, fecha });
+  // La Mesa de Eventos no comparte presentación: la arma el equipo (JP,
+  // 09/10/2026). Sin el campo, un link viejo guardado en la plantilla tampoco
+  // puede colarse al pie del mail ni en la descripción del evento.
+  const usaPresentacion = clave !== CLAVE_EVENTOS;
+  const vigente = usaPresentacion ? plantilla : { ...plantilla, url_presentacion: '' };
+  const { titulo, cuerpo, tituloEvento } = armarInvitacion(vigente, { nombre, fecha });
 
   async function ejecutar(etiqueta, tarea) {
     if (operando.current || incierto) return;
@@ -107,7 +112,7 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
   }
 
   function validar() {
-    const faltan = validarInvitacion(plantilla, fecha, hoy);
+    const faltan = validarInvitacion(vigente, fecha, hoy);
     setErrores(faltan);
     return !Object.keys(faltan).length;
   }
@@ -121,7 +126,7 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
     if (!validar()) return;
     ejecutar('Creando el evento en Calendar…', async () => {
       if (!confirmaEnvio) throw new Error('Confirmá que Google les va a mandar la invitación a los invitados.');
-      const link = plantilla.url_presentacion.trim();
+      const link = vigente.url_presentacion.trim();
       const creado = await conexion.current.crearEvento(calendario, idEvento.current, {
         summary: tituloEvento,
         location: plantilla.lugar.trim() || undefined,
@@ -228,15 +233,17 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
             value={plantilla.lugar}
             onChange={cambiar('lugar')}
           />
-          <CampoTexto
-            etiqueta="Presentación para completar"
-            ayuda="opcional — link de Google Slides que completa cada área"
-            type="url"
-            placeholder="https://docs.google.com/presentation/..."
-            value={plantilla.url_presentacion}
-            onChange={cambiar('url_presentacion')}
-            error={errores.url_presentacion}
-          />
+          {usaPresentacion && (
+            <CampoTexto
+              etiqueta="Presentación para completar"
+              ayuda="opcional — link de Google Slides que completa cada área"
+              type="url"
+              placeholder="https://docs.google.com/presentation/..."
+              value={plantilla.url_presentacion}
+              onChange={cambiar('url_presentacion')}
+              error={errores.url_presentacion}
+            />
+          )}
           <CampoInvitados
             invitados={plantilla.invitados}
             alCambiar={(lista) => { setPlantilla((p) => ({ ...p, invitados: lista })); setRevisado(false); }}
@@ -284,7 +291,7 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
           <CampoTexto etiqueta="Asunto" requerido value={plantilla.asunto} onChange={cambiar('asunto')} error={errores.asunto} />
           <CampoArea
             etiqueta="Mensaje"
-            ayuda="**texto** va en negrita. Entre llaves se completa solo: {fecha_corta} {dia} {hora} {lugar} {mesa} {link}"
+            ayuda={`**texto** va en negrita. Entre llaves se completa solo: {fecha_corta} {dia} {hora} {lugar} {mesa}${usaPresentacion ? ' {link}' : ''}`}
             filas={9}
             value={plantilla.mensaje}
             onChange={cambiar('mensaje')}

@@ -78,6 +78,8 @@ try {
   await pagina.goto('http://127.0.0.1:5189/mesas');
   await pagina.getByRole('button', { name: 'Invitar a la reunión', exact: true }).click();
   const dialogo = pagina.getByRole('dialog', { name: 'Invitar a la reunión' });
+  // La Mesa de Eventos no comparte presentación: el campo no se ofrece.
+  assert.equal(await dialogo.getByLabel(/Presentación para completar/).count(), 0);
   await dialogo.getByLabel(/^Fecha/).fill('2030-10-09');
   const invitados = dialogo.getByLabel(/^Invitados/);
   await invitados.fill('area@example.test, otra@example.test');
@@ -98,6 +100,7 @@ try {
   assert.deepEqual(evento.end, { dateTime: '2030-10-09T16:00:00', timeZone: 'America/Argentina/Buenos_Aires' });
   assert.deepEqual(evento.attendees, [{ email: 'area@example.test' }, { email: 'otra@example.test' }]);
   assert.match(evento.id, /^[a-v0-9]{5,1024}$/);
+  assert.equal(evento.description, undefined);
   // El calendario de sólo lectura no se ofrece.
   assert.equal(consultas.filter((c) => c.url.includes('/calendars/feriados')).length, 0);
 
