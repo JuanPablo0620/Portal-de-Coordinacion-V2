@@ -40,9 +40,13 @@ El mensaje sale en HTML: `**texto**` va en negrita y `[texto]` enlaza a la PPT
 con la cuenta del equipo: tres APIs habilitadas, audiencia Externa en modo
 Prueba. JP lo probó en local con su cuenta: Calendar, Drive y preparación andan.
 
+**Activo en producción desde el 09/10:** `VITE_GOOGLE_CLIENT_ID` y
+`VITE_GOOGLE_SEGUIMIENTO_FOLDER_ID` cargadas en Vercel (tipo Config, Production)
+y verificadas dentro del bundle publicado.
+
 **Pendiente:**
-1. Cargar `VITE_GOOGLE_CLIENT_ID` en Vercel y redeploy **sin build cache**.
-   Mientras no esté, producción muestra «Conexión con Google pendiente».
+1. Probar una convocatoria completa desde producción y mirar el borrador en Gmail
+   (negrita y enlace a la PPT todavía no se vieron en un Gmail real).
 2. Agregar como usuarios de prueba (Google Auth Platform → Público) a cada
    integrante que vaya a preparar convocatorias. Sin eso, Google le niega el acceso.
 3. `node scripts/verificar-convocatoria.mjs` falla al final por un 400 de
