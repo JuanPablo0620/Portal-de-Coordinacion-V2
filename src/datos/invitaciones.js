@@ -1,21 +1,13 @@
 /**
- * Invitaciones a una reunión de mesa: la plantilla y los links a Google.
+ * Invitaciones a una reunión de mesa: la plantilla, el evento de Calendar y el
+ * texto de la convocatoria.
  *
- * El portal NO manda nada por su cuenta. Arma una URL de Google Calendar o de
- * Gmail con todo precargado y la abre en otra pestaña: como el navegador ya
- * tiene iniciada la sesión de Google de cada persona, el evento o el correo
- * salen de SU cuenta, y el último clic —«Guardar» o «Enviar»— lo da ella en
- * la pantalla de Google.
- *
- * Se eligió así y no la API de Google con OAuth porque `calendar.events` y
- * `gmail.send` son permisos que Google clasifica como sensibles: pedirlos
- * obliga a pasar su verificación o a quedarse en modo prueba, con los usuarios
- * cargados a mano y el cartel de «app no verificada». El costo es que el
- * portal no se entera de si la invitación efectivamente salió. Estas URLs
- * tampoco son una API documentada —son estables hace años, pero Google no las
- * garantiza—; si algún día se rompen o hace falta saber que se mandó, lo que
- * cambia es sólo la salida (`urlGoogleCalendar`, `urlGmail`): la plantilla y
- * el modal se reusan.
+ * Desde el 09/10/2026 el portal crea el evento en el Calendar de quien convoca
+ * (Google manda la invitación a los invitados en ese momento) y prepara la
+ * convocatoria como borrador de Gmail, con la misma conexión OAuth que las
+ * convocatorias de seguimiento (`googleConvocatorias.js`). Antes abría Calendar
+ * y Gmail en otra pestaña con links precargados, para no pedir permisos
+ * sensibles; esa razón dejó de valer cuando el portal pasó a pedirlos igual.
  */
 
 export const ZONA_HORARIA = 'America/Argentina/Buenos_Aires';
@@ -34,18 +26,38 @@ export const DURACIONES = [
 ];
 
 /**
- * Por encima de este largo Google responde «414 URI too long» en vez de abrir
- * el borrador, y el usuario ve una página de error que no explica nada. Se
- * corta antes, con un mensaje que dice qué acortar.
+ * Lo que se puede escribir entre llaves en el asunto, el mensaje y el título
+ * del evento. `{fecha}` es «miércoles 7 de octubre»; `{fecha_corta}`,
+ * «miércoles 07/10»; `{dia}`, «07/10».
  */
-export const LARGO_MAXIMO_URL = 8000;
+export const VARIABLES = ['mesa', 'fecha', 'fecha_corta', 'dia', 'hora', 'lugar', 'link'];
 
-/** Lo que se puede escribir entre llaves en el asunto y el mensaje. */
-export const VARIABLES = ['mesa', 'fecha', 'hora', 'lugar', 'link'];
-
-/** La plantilla con la que arranca una mesa que todavía no tiene una propia. */
-export function plantillaBase() {
+/**
+ * La plantilla con la que arranca una mesa que todavía no tiene una propia.
+ * La de la agenda de eventos reproduce la convocatoria que JP manda a mano
+ * (09/10/2026), con sus negritas: `**texto**` sale en negrita en el mail.
+ */
+export function plantillaBase(clave) {
+  if (clave === CLAVE_EVENTOS) {
+    return {
+      titulo_evento: 'Reunión Mesa Eventos',
+      asunto: 'Mesa Eventos | {dia}',
+      mensaje:
+        '¡Buenas tardes a todos!\n\n' +
+        'Espero que se encuentren muy bien.\n\n' +
+        'Los convocamos el día **{fecha_corta}** a las **{hora}hs**. ' +
+        'La modalidad de la misma será presencial en la **{lugar}**.\n\n' +
+        '**Les pedimos que confirmen su asistencia vía calendar**\n\n' +
+        'Desde ya, muchas gracias.',
+      invitados: [],
+      url_presentacion: '',
+      hora: '15:00',
+      duracion_min: 60,
+      lugar: 'Sala de Reuniones de la Privada',
+    };
+  }
   return {
+    titulo_evento: 'Reunión {mesa}',
     asunto: '{mesa}: reunión del {fecha}',
     mensaje:
       'Hola, ¿cómo están?\n\n' +
@@ -66,12 +78,13 @@ export function plantillaBase() {
  * esperada. Lo guardado viene del navegador y puede ser de una versión
  * anterior del formulario: mejor una plantilla por defecto que un modal roto.
  */
-export function normalizarPlantilla(guardada) {
-  const base = plantillaBase();
+export function normalizarPlantilla(guardada, clave) {
+  const base = plantillaBase(clave);
   if (!guardada || typeof guardada !== 'object') return base;
   const texto = (v, porDefecto) => (typeof v === 'string' ? v : porDefecto);
   const duracion = Number(guardada.duracion_min);
   return {
+    titulo_evento: texto(guardada.titulo_evento, base.titulo_evento),
     asunto: texto(guardada.asunto, base.asunto),
     mensaje: texto(guardada.mensaje, base.mensaje),
     invitados: Array.isArray(guardada.invitados) ? guardada.invitados.filter(esMailValido) : base.invitados,
@@ -137,6 +150,19 @@ export function fechaConvocatoria(iso) {
   return `${dia} ${d} de ${MESES[m - 1]}`;
 }
 
+/** «07/10» y «miércoles 07/10», como los escribe el equipo en asunto y cuerpo. */
+export function diaMes(iso) {
+  if (!iso) return '';
+  const [, m, d] = String(iso).slice(0, 10).split('-');
+  return `${d}/${m}`;
+}
+
+export function fechaCorta(iso) {
+  if (!iso) return '';
+  const [a, m, d] = String(iso).slice(0, 10).split('-').map(Number);
+  return `${DIAS[new Date(Date.UTC(a, m - 1, d)).getUTCDay()]} ${diaMes(iso)}`;
+}
+
 export function completarVariables(texto, valores) {
   return String(texto ?? '').replace(/\{(\w+)\}/g, (entero, clave) =>
     VARIABLES.includes(clave) ? (valores[clave] ?? '') : entero,
@@ -152,10 +178,17 @@ export function completarVariables(texto, valores) {
  */
 export function armarInvitacion(plantilla, { nombre, fecha }) {
   const link = plantilla.url_presentacion.trim();
-  const valores = { mesa: nombre, fecha: fechaConvocatoria(fecha), hora: plantilla.hora, lugar: plantilla.lugar.trim(), link };
+  const valores = {
+    mesa: nombre, fecha: fechaConvocatoria(fecha), fecha_corta: fechaCorta(fecha), dia: diaMes(fecha),
+    hora: plantilla.hora, lugar: plantilla.lugar.trim(), link,
+  };
   let cuerpo = completarVariables(plantilla.mensaje, valores).replace(/\n{3,}/g, '\n\n').trim();
   if (link && !cuerpo.includes(link)) cuerpo += `\n\nPresentación: ${link}`;
-  return { titulo: completarVariables(plantilla.asunto, valores).trim(), cuerpo };
+  return {
+    titulo: completarVariables(plantilla.asunto, valores).trim(),
+    cuerpo,
+    tituloEvento: completarVariables(plantilla.titulo_evento, valores).trim(),
+  };
 }
 
 /** Qué le falta a la invitación para poder abrirla. `{}` si está completa. */
@@ -166,6 +199,7 @@ export function validarInvitacion(plantilla, fecha, hoy) {
   if (!/^\d{2}:\d{2}$/.test(plantilla.hora)) errores.hora = 'Indicá la hora.';
   if (!plantilla.invitados.length) errores.invitados = 'Agregá al menos un invitado.';
   if (!plantilla.asunto.trim()) errores.asunto = 'El asunto no puede quedar vacío.';
+  if (!plantilla.titulo_evento.trim()) errores.titulo_evento = 'El evento necesita un título.';
   const link = plantilla.url_presentacion.trim();
   if (link && !/^https?:\/\/\S+$/.test(link)) {
     errores.url_presentacion = 'Tiene que ser un link completo, que empiece con https://';
@@ -175,71 +209,23 @@ export function validarInvitacion(plantilla, fecha, hoy) {
   return errores;
 }
 
-/* ── Links a Google ─────────────────────────────────────────────────── */
+/* ── Evento de Calendar ─────────────────────────────────────────────── */
 
 /**
- * La cuenta con la que se abre Google, para quien tiene varias iniciadas en el
- * navegador. Sólo se fuerza cuando el mail del portal ES una cuenta de Google
- * seguro: con un mail institucional que no lo es, Google pediría iniciar sesión
- * con él en lugar de usar la cuenta que la persona ya tiene abierta.
+ * Inicio y fin en hora de reloj con el huso aparte, como los acepta la API de
+ * Calendar. La cuenta se hace en UTC sólo para que sumar la duración cruce bien
+ * la medianoche; ningún valor se convierte de zona.
  */
-export function cuentaGoogleDe(email) {
-  const limpio = String(email ?? '').trim().toLowerCase();
-  return /@(gmail|googlemail)\.com$/.test(limpio) ? limpio : '';
-}
-
-/**
- * `encodeURIComponent` y no `URLSearchParams`: este último codifica los espacios
- * como «+», y no todas las pantallas de Google lo decodifican igual.
- */
-const consulta = (pares) =>
-  pares
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
-    .join('&');
-
-/**
- * «AAAAMMDDTHHMMSS» en hora de reloj, sin huso: el huso va aparte en `ctz`.
- * La cuenta se hace en UTC sólo para que sumar la duración cruce bien la
- * medianoche; ningún valor se convierte de zona.
- */
-function selloCalendar(fechaISO, hora, sumarMinutos = 0) {
+export function horarioEvento(fechaISO, hora, duracionMin) {
   const [a, m, d] = fechaISO.split('-').map(Number);
   const [h, mi] = hora.split(':').map(Number);
-  const t = new Date(Date.UTC(a, m - 1, d, h, mi + sumarMinutos));
   const dos = (n) => String(n).padStart(2, '0');
-  return (
-    `${t.getUTCFullYear()}${dos(t.getUTCMonth() + 1)}${dos(t.getUTCDate())}` +
-    `T${dos(t.getUTCHours())}${dos(t.getUTCMinutes())}00`
-  );
-}
-
-export function urlGoogleCalendar({ titulo, cuerpo, lugar, fecha, hora, duracionMin, invitados, cuenta }) {
-  return (
-    'https://calendar.google.com/calendar/render?' +
-    consulta([
-      ['action', 'TEMPLATE'],
-      ['text', titulo],
-      ['dates', `${selloCalendar(fecha, hora)}/${selloCalendar(fecha, hora, duracionMin)}`],
-      ['ctz', ZONA_HORARIA],
-      ['details', cuerpo],
-      ['location', lugar],
-      ['add', invitados.join(',')],
-      ['authuser', cuenta],
-    ])
-  );
-}
-
-export function urlGmail({ titulo, cuerpo, invitados, cuenta }) {
-  return (
-    'https://mail.google.com/mail/?' +
-    consulta([
-      ['view', 'cm'],
-      ['fs', '1'],
-      ['to', invitados.join(',')],
-      ['su', titulo],
-      ['body', cuerpo],
-      ['authuser', cuenta],
-    ])
-  );
+  const sello = (minutos) => {
+    const t = new Date(Date.UTC(a, m - 1, d, h, mi + minutos));
+    return `${t.getUTCFullYear()}-${dos(t.getUTCMonth() + 1)}-${dos(t.getUTCDate())}T${dos(t.getUTCHours())}:${dos(t.getUTCMinutes())}:00`;
+  };
+  return {
+    start: { dateTime: sello(0), timeZone: ZONA_HORARIA },
+    end: { dateTime: sello(Number(duracionMin)), timeZone: ZONA_HORARIA },
+  };
 }

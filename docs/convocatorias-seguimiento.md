@@ -60,6 +60,27 @@ compromisos a los mismos invitados. **Seguimiento → Enviar compromisos**.
 Comparte conexión, permisos y manejo de errores con la convocatoria: es el mismo
 diálogo con `tipo="compromisos"`.
 
+## Invitación a reuniones de mesa (desde el 09/10)
+
+Las reuniones de mesa (empezando por la Mesa de Eventos) no existen en Calendar
+hasta que el equipo las crea. **Mesas → Eventos → Invitar a la reunión**:
+
+1. **Agendar en Calendar:** el portal crea el evento («Reunión Mesa Eventos») en
+   el calendario de quien convoca, con hora, duración, lugar e invitados, y Google
+   les manda la invitación en ese momento (`sendUpdates=all`, decisión de JP). No
+   tiene borrador: se pide tildar una confirmación antes. El id del evento lo pone
+   el portal, así que reintentar tras una respuesta perdida no lo duplica.
+2. **Convocatoria por mail:** borrador de Gmail sin adjunto con el texto de la
+   plantilla de la mesa (negritas y firma de Gmail incluidas), para los mismos
+   invitados.
+
+La plantilla de cada mesa (título del evento, asunto, mensaje, invitados, hora,
+duración, lugar) se guarda en el navegador al usarla. La de Eventos arranca con
+el texto que JP usa a mano. Antes este modal abría Calendar y Gmail con links
+precargados; se reemplazó por la API porque los permisos ya se piden igual.
+
+Prueba sin cuentas reales: `node scripts/verificar-invitacion.mjs`.
+
 ## Activación de Google
 
 1. En el proyecto de Google Cloud destinado al portal, habilitar **Gmail API**,
@@ -91,7 +112,8 @@ Referencias de Google: [modelo de token](https://developers.google.com/identity/
 
 ## Permisos y manejo de errores
 
-1. Se piden `calendar.readonly`, `drive` y `gmail.compose` sólo al usar la función.
+1. Se piden `calendar.readonly`, `calendar.events` (desde el 09/10, para agendar
+   reuniones de mesa), `drive` y `gmail.compose` sólo al usar la función.
    Drive requiere escritura para copiar templates de las carpetas existentes y
    convertir Word. `gmail.compose` incluye capacidad de envío según Google;
    el código de esta función llama solamente a `users.drafts.create`.

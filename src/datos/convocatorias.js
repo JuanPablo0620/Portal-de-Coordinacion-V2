@@ -224,11 +224,18 @@ export function mensajePlano(mensaje, presentacion, firma = '') {
   return texto ? `${cuerpo}\n\n${texto}` : cuerpo;
 }
 
-/** `datos.tipo === 'compromisos'` no lleva entrega, lugar ni presentación. */
+/**
+ * `datos.tipo === 'compromisos'` no lleva entrega, lugar ni presentación.
+ * `datos.tipo === 'invitacion'` (reunión de mesa) tampoco lleva PDF: es sólo
+ * el texto de la convocatoria; la presentación, si hay, va escrita en él.
+ */
 export function validarConvocatoria(datos, pdf) {
   const esCompromisos = datos.tipo === 'compromisos';
+  const esInvitacion = datos.tipo === 'invitacion';
   if (!validarFecha(datos.fecha)) throw new Error('Revisá la fecha de la reunión.');
-  if (esCompromisos) {
+  if (esInvitacion) {
+    if (pdf) throw new Error('La invitación a la reunión no lleva adjunto.');
+  } else if (esCompromisos) {
     if (!datos.area?.trim()) throw new Error('Completá la secretaría.');
   } else {
     if (!validarFecha(datos.entrega) || datos.entrega > datos.fecha) {
@@ -244,7 +251,7 @@ export function validarConvocatoria(datos, pdf) {
   }
   if (!datos.asunto?.trim() || /[\r\n]/.test(datos.asunto) || datos.asunto.length > 500) throw new Error('Revisá el asunto del mail.');
   if (!datos.mensaje?.trim() || datos.mensaje.length > 50000) throw new Error('Revisá el mensaje del mail.');
-  if (!esCompromisos) {
+  if (!esCompromisos && !esInvitacion) {
     if (!segmentosMensaje(datos.mensaje).some((s) => s.tipo === 'enlace')) {
       throw new Error('El mensaje debe incluir el enlace a la presentación: escribí el texto del enlace entre corchetes.');
     }
@@ -253,7 +260,7 @@ export function validarConvocatoria(datos, pdf) {
     if (url.protocol !== 'https:' || !['docs.google.com', 'drive.google.com'].includes(url.hostname)) throw new Error('La presentación debe tener un enlace de Google Drive.');
   }
   if (datos.firma && (typeof datos.firma !== 'string' || datos.firma.length > 20000)) throw new Error('La firma de Gmail no es válida.');
-  validarPDF(pdf);
+  if (!esInvitacion) validarPDF(pdf);
   return lista;
 }
 
@@ -275,12 +282,12 @@ export function aBase64(bytes) {
 const codificarTexto = (texto) => aBase64(new TextEncoder().encode(texto));
 const lineasBase64 = (texto) => texto.match(/.{1,76}/g)?.join('\r\n') ?? '';
 
-/** MIME real: preserva acentos y PDF, y evita inyección de cabeceras. */
+/** MIME real: preserva acentos y PDF (si hay), y evita inyección de cabeceras. */
 export function mensajeMime(datos, pdf, remitente, limite = `convocatoria_${crypto.randomUUID()}`) {
   const destinatarios = validarConvocatoria(datos, pdf);
   const { lista, invalidos } = agregarMails([], remitente);
   if (lista.length !== 1 || invalidos.length || /[\r\n]/.test(remitente)) throw new Error('No se pudo verificar la cuenta de Gmail.');
-  const nombre = String(pdf.nombre ?? 'Compromisos.pdf').replace(/[\r\n"\\]/g, '_').slice(0, 180);
+  const nombre = String(pdf?.nombre ?? 'Compromisos.pdf').replace(/[\r\n"\\]/g, '_').slice(0, 180);
   const asunto = [...datos.asunto].reduce((grupos, letra) => {
     const ultimo = grupos.length - 1;
     if (new TextEncoder().encode(grupos[ultimo] + letra).length > 42) grupos.push(letra);
@@ -297,9 +304,12 @@ export function mensajeMime(datos, pdf, remitente, limite = `convocatoria_${cryp
     lineasBase64(codificarTexto(mensajePlano(datos.mensaje, datos.presentacion, datos.firma))), '',
     `--${alternativa}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
     lineasBase64(codificarTexto(mensajeHtml(datos.mensaje, datos.presentacion, datos.firma))), '', `--${alternativa}--`, '',
-    `--${limite}`, 'Content-Type: application/pdf',
-    'Content-Transfer-Encoding: base64', `Content-Disposition: attachment; filename="Compromisos.pdf"; filename*=UTF-8''${encodeURIComponent(nombre).replace(/'/g, '%27')}`, '',
-    lineasBase64(aBase64(pdf.bytes)), '', `--${limite}--`, '',
+    ...(pdf ? [
+      `--${limite}`, 'Content-Type: application/pdf',
+      'Content-Transfer-Encoding: base64', `Content-Disposition: attachment; filename="Compromisos.pdf"; filename*=UTF-8''${encodeURIComponent(nombre).replace(/'/g, '%27')}`, '',
+      lineasBase64(aBase64(pdf.bytes)), '',
+    ] : []),
+    `--${limite}--`, '',
   ].join('\r\n');
 }
 

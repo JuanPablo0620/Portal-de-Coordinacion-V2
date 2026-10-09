@@ -15,6 +15,8 @@ export const GOOGLE_CLIENT_ID = (import.meta.env?.VITE_GOOGLE_CLIENT_ID ?? '').t
 export const CARPETA_SEGUIMIENTOS = (import.meta.env?.VITE_GOOGLE_SEGUIMIENTO_FOLDER_ID ?? '').trim();
 export const PERMISOS_CONVOCATORIA = [
   'https://www.googleapis.com/auth/calendar.readonly',
+  // Para agendar las reuniones de mesa en el Calendar de quien convoca.
+  'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/drive',
   'https://www.googleapis.com/auth/gmail.compose',
   // Sólo para leer la firma predeterminada: un borrador creado por la API no la
@@ -61,7 +63,7 @@ export function conectarGoogleConvocatorias() {
       error_callback: () => rechazar(new Error('No se conectó la cuenta. Podés volver a intentarlo.')),
       callback: async (respuesta) => {
         if (respuesta.error || !respuesta.access_token || !oauth.hasGrantedAllScopes(respuesta, ...PERMISOS_CONVOCATORIA)) {
-          rechazar(new Error('Google necesita los permisos de Calendar, Drive, borradores y firma de Gmail para preparar el mail. Tildalos todos.'));
+          rechazar(new Error('Google necesita todos los permisos que pide —Calendar, Drive, borradores y firma de Gmail— para preparar el mail y agendar. Tildalos todos.'));
           return;
         }
         const duracion = Number(respuesta.expires_in);
@@ -116,6 +118,7 @@ export function crearClienteConvocatorias(tokenInicial, vence, consultar = globa
           : respuesta.status === 404 ? 'No se encontró el archivo o calendario con esta cuenta.'
             : 'Google no pudo completar la operación. Revisá la conexión y los permisos.');
       error.resultadoIncierto = metodo !== 'GET' && respuesta.status >= 500;
+      error.estado = respuesta.status;
       throw error;
     }
     if (respuesta.status === 204) return null;
@@ -177,6 +180,25 @@ export function crearClienteConvocatorias(tokenInicial, vence, consultar = globa
       singleEvents: 'true', orderBy: 'startTime', maxResults: '250', timeZone: 'America/Argentina/Buenos_Aires',
     }, 'items').then((items) => items.filter((e) => e.status !== 'cancelled' && e.start?.dateTime && /seguimiento/.test(normalizarNombre(e.summary)))),
     evento: (calendario, evento) => pedir('calendar', `calendars/${encodeURIComponent(calendario)}/events/${encodeURIComponent(evento)}`),
+    /**
+     * Crea la reunión y Google manda las invitaciones (`sendUpdates=all`).
+     * El id lo pone el portal: si la respuesta se pierde y se reintenta con el
+     * mismo id, Google contesta 409 y se devuelve el evento ya creado en vez de
+     * duplicarlo —y mandar dos invitaciones a todos—.
+     */
+    async crearEvento(calendario, id, evento) {
+      const ruta = `calendars/${encodeURIComponent(calendario)}/events`;
+      try {
+        return await pedir('calendar', `${ruta}?sendUpdates=all`, { metodo: 'POST', datos: { ...evento, id } });
+      } catch (error) {
+        if (error.estado === 409) return pedir('calendar', `${ruta}/${encodeURIComponent(id)}`);
+        if (error.resultadoIncierto) {
+          error.message = 'Google no confirmó si el evento se creó. Volvé a tocar «Agendar»: si ya existe, no se duplica.';
+          error.resultadoIncierto = false;
+        }
+        throw error;
+      }
+    },
     async carpetas(carpeta) {
       const raiz = await metadatos(carpeta);
       if (raiz.mimeType !== MIME_CARPETA) throw new Error('El enlace de Drive debe ser una carpeta.');
