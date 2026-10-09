@@ -35,6 +35,8 @@ como salas; no se inventan correos a partir de los nombres del portal.
 7. Revisar y editar destinatarios, asunto y mensaje. Abrir el PDF y la presentación;
    se puede reemplazar el PDF por uno corregido. Marcar la revisión y guardar el
    borrador. Luego abrir **Borradores de Gmail** para verificarlo y enviarlo.
+   En el mensaje, `**texto**` va en negrita y `[texto]` es el enlace a la PPT;
+   la vista previa muestra cómo queda. Sin un `[texto]` no se puede guardar.
 
 El borrador pertenece a la cuenta conectada. Otra persona del equipo debe preparar
 la convocatoria desde su propia cuenta si será quien la revise y envíe. Esta
@@ -103,5 +105,6 @@ Referencias de Google: [modelo de token](https://developers.google.com/identity/
    revisión obligatoria, MIME adjunto y un único borrador; captura escritorio y
    móvil. No consulta ni escribe cuentas reales. Los archivos temporales del
    build se retiran al finalizar.
-3. Falta prueba con Google real hasta configurar el cliente OAuth y autorizar
-   la cuenta que usará la función. Tampoco se desplegó este cambio en producción.
+3. Con Google real (09/10): cliente OAuth en `bot-coordinacion`, probado en local
+   con la cuenta de JP. En producción falta cargar `VITE_GOOGLE_CLIENT_ID` en
+   Vercel y redesplegar sin caché de build.

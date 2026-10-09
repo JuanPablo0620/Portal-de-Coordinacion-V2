@@ -107,17 +107,47 @@ export function materialesSugeridos(presentaciones, compromisos, fecha) {
   };
 }
 
-export function textoConvocatoria({ area, fecha, hora, lugar, modalidad, entrega, presentacion, firma }) {
+export function textoConvocatoria({ area, fecha, hora, lugar, modalidad, entrega, firma }) {
   return {
     asunto: `Convocatoria | Reunión de seguimiento ${area} ${fechaCorta(fecha)}`,
     mensaje: `¡¡Buenos días a todos!!\n\n` +
-      `Los convocamos el día ${fechaConDia(fecha)} a las ${hora} hs a la Reunión de Seguimiento de ${area}. ` +
-      `La modalidad de la misma será ${modalidad} en ${lugar}.\n` +
-      `Les pedimos que nos envíen la presentación el ${fechaConDia(entrega)} así contamos con el tiempo suficiente para adecuar el formato, realizar consultas y mostrarles la versión final de ser necesario.\n` +
+      `Los convocamos el día **${fechaConDia(fecha)} a las ${hora} hs** a la **Reunión de Seguimiento de ${area}**. ` +
+      `La modalidad de la misma será **${modalidad} en ${lugar}**.\n` +
+      `Les pedimos que nos envíen la presentación el **${fechaConDia(entrega)}** así contamos con el tiempo suficiente para adecuar el formato, realizar consultas y mostrarles la versión final de ser necesario.\n` +
       `En este mail les adjunto los compromisos de la reunión pasada y les comparto la presentación:\n` +
-      `PPT | Seguimiento ${fechaCorta(fecha)}\n${presentacion}\n\n` +
+      `[PPT | Seguimiento ${fechaCorta(fecha)}]\n\n` +
       `Cualquier duda, estoy a disposición.\n\n${firma}`,
   };
+}
+
+/**
+ * El mensaje se edita como texto plano con dos marcas: **texto** va en negrita
+ * y [texto] es el enlace a la presentación. No es un editor enriquecido ni
+ * Markdown completo a propósito: el único enlace legítimo de la convocatoria es
+ * la PPT, así que un corchete no puede apuntar a otra URL aunque se edite el texto.
+ */
+export function segmentosMensaje(mensaje = '') {
+  return String(mensaje).split(/(\*\*[^*\n]+\*\*|\[[^\]\n]+\])/).filter(Boolean).map((parte) => {
+    if (/^\*\*[^*\n]+\*\*$/.test(parte)) return { tipo: 'negrita', texto: parte.slice(2, -2) };
+    if (/^\[[^\]\n]+\]$/.test(parte)) return { tipo: 'enlace', texto: parte.slice(1, -1) };
+    return { tipo: 'texto', texto: parte };
+  });
+}
+
+const escaparHtml = (texto) => texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+export function mensajeHtml(mensaje, presentacion) {
+  const cuerpo = segmentosMensaje(mensaje).map(({ tipo, texto }) => {
+    if (tipo === 'negrita') return `<strong>${escaparHtml(texto)}</strong>`;
+    if (tipo === 'enlace') return `<a href="${escaparHtml(presentacion)}">${escaparHtml(texto)}</a>`;
+    return escaparHtml(texto);
+  }).join('').replace(/\r?\n/g, '<br>\r\n');
+  return `<div dir="ltr">${cuerpo}</div>`;
+}
+
+/** Versión sin formato para clientes que no muestran HTML: el enlace va escrito. */
+export function mensajePlano(mensaje, presentacion) {
+  return segmentosMensaje(mensaje).map(({ tipo, texto }) => (tipo === 'enlace' ? `${texto}\n${presentacion}` : texto)).join('');
 }
 
 export function validarConvocatoria(datos, pdf) {
@@ -133,6 +163,9 @@ export function validarConvocatoria(datos, pdf) {
   }
   if (!datos.asunto?.trim() || /[\r\n]/.test(datos.asunto) || datos.asunto.length > 500) throw new Error('Revisá el asunto del mail.');
   if (!datos.mensaje?.trim() || datos.mensaje.length > 50000) throw new Error('Revisá el mensaje del mail.');
+  if (!segmentosMensaje(datos.mensaje).some((s) => s.tipo === 'enlace')) {
+    throw new Error('El mensaje debe incluir el enlace a la presentación: escribí el texto del enlace entre corchetes.');
+  }
   let url;
   try { url = new URL(datos.presentacion); } catch { throw new Error('Falta el enlace de la presentación.'); }
   if (url.protocol !== 'https:' || !['docs.google.com', 'drive.google.com'].includes(url.hostname)) throw new Error('La presentación debe tener un enlace de Google Drive.');
@@ -170,11 +203,17 @@ export function mensajeMime(datos, pdf, remitente, limite = `convocatoria_${cryp
     else grupos[ultimo] += letra;
     return grupos;
   }, ['']).map((parte) => `=?UTF-8?B?${codificarTexto(parte)}?=`).join('\r\n ');
+  // HTML para la negrita y el enlace; el texto plano queda de respaldo.
+  const alternativa = `alt_${limite}`;
   return [
     `From: ${lista[0]}`, `To: ${destinatarios.join(',\r\n ')}`, `Subject: ${asunto}`,
     'MIME-Version: 1.0', `Content-Type: multipart/mixed; boundary="${limite}"`, '',
-    `--${limite}`, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
-    lineasBase64(codificarTexto(datos.mensaje)), '', `--${limite}`, 'Content-Type: application/pdf',
+    `--${limite}`, `Content-Type: multipart/alternative; boundary="${alternativa}"`, '',
+    `--${alternativa}`, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
+    lineasBase64(codificarTexto(mensajePlano(datos.mensaje, datos.presentacion))), '',
+    `--${alternativa}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
+    lineasBase64(codificarTexto(mensajeHtml(datos.mensaje, datos.presentacion))), '', `--${alternativa}--`, '',
+    `--${limite}`, 'Content-Type: application/pdf',
     'Content-Transfer-Encoding: base64', `Content-Disposition: attachment; filename="Compromisos.pdf"; filename*=UTF-8''${encodeURIComponent(nombre).replace(/'/g, '%27')}`, '',
     lineasBase64(aBase64(pdf.bytes)), '', `--${limite}--`, '',
   ].join('\r\n');

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MAX_PDF, MIME_DOC, MIME_DOCX, MIME_PPTX, datosDelEvento, fechaConDia, idDeDrive,
-  materialesSugeridos, mensajeMime, moverFecha, nombrePresentacion, rawGmail, textoConvocatoria, validarConvocatoria,
+  materialesSugeridos, mensajeHtml, mensajeMime, mensajePlano, moverFecha, nombrePresentacion, rawGmail, textoConvocatoria, validarConvocatoria,
 } from '../src/datos/convocatorias.js';
 import { crearClienteConvocatorias } from '../src/datos/googleConvocatorias.js';
 
@@ -56,8 +56,17 @@ test('la convocatoria reproduce el pedido de entrega, el enlace editable y la fi
   assert.match(datos.mensaje, /miércoles 14\/10 a las 14:30/);
   assert.match(datos.mensaje, /martes 13\/10/);
   assert.match(datos.mensaje, /presencial en Sala de prueba/);
-  assert.match(datos.mensaje, /PPT \| Seguimiento 14\/10/);
+  assert.match(datos.mensaje, /\[PPT \| Seguimiento 14\/10\]/);
+  assert.match(datos.mensaje, /\*\*Reunión de Seguimiento de Área de prueba\*\*/);
   assert.ok(datos.mensaje.endsWith('Equipo de prueba'));
+});
+
+test('el mensaje marca negrita y enlaza sólo a la presentación, sin inyectar HTML', () => {
+  const html = mensajeHtml('Hola **<b>equipo</b>** & [la PPT]\n[otra](https://ejemplo.test)', datos.presentacion);
+  assert.match(html, /<strong>&lt;b&gt;equipo&lt;\/b&gt;<\/strong> &amp; <a href="https:\/\/docs\.google\.com\/presentation\/d\/presentacion-prueba\/edit">la PPT<\/a><br>/);
+  assert.doesNotMatch(html, /ejemplo\.test"/);
+  assert.equal(mensajePlano('Ver **esto**: [PPT]', 'https://docs.google.com/x'), 'Ver esto: PPT\nhttps://docs.google.com/x');
+  assert.throws(() => validarConvocatoria({ ...datos, mensaje: 'Sin enlace a la presentación' }, pdf), /corchetes/);
 });
 
 test('validación bloquea cabeceras inyectadas, destinatarios inválidos y archivos falsos', () => {
@@ -78,7 +87,13 @@ test('MIME y base64url preservan acentos, cuerpo y bytes del adjunto sin habilit
   const asunto = [...mime.matchAll(/=\?UTF-8\?B\?([^?]+)\?=/g)].map((m) => Buffer.from(m[1], 'base64').toString('utf8')).join('');
   assert.equal(asunto, datos.asunto);
   const partes = mime.split('--limite_prueba');
-  assert.equal(Buffer.from(partes[1].split('\r\n\r\n')[1].trim(), 'base64').toString('utf8'), datos.mensaje);
+  const cuerpo = (parte) => Buffer.from(parte.split('\r\n\r\n')[1].trim(), 'base64').toString('utf8');
+  const [, plano, html] = partes[1].split('--alt_limite_prueba');
+  assert.match(partes[1], /Content-Type: multipart\/alternative/);
+  assert.equal(cuerpo(plano), mensajePlano(datos.mensaje, datos.presentacion));
+  assert.match(cuerpo(plano), /PPT \| Seguimiento 14\/10\nhttps:\/\/docs\.google\.com\/presentation\/d\/presentacion-prueba\/edit/);
+  assert.match(html, /Content-Type: text\/html; charset=UTF-8/);
+  assert.equal(cuerpo(html), mensajeHtml(datos.mensaje, datos.presentacion));
   assert.deepEqual(new Uint8Array(Buffer.from(partes[2].split('\r\n\r\n')[1].trim(), 'base64')), pdf.bytes);
   assert.throws(() => mensajeMime(datos, pdf, 'equipo@example.test\r\nBcc: tercero@example.test'));
 });

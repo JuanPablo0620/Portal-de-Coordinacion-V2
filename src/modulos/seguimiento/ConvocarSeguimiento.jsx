@@ -7,7 +7,8 @@ import {
   CARPETA_SEGUIMIENTOS, GOOGLE_CLIENT_ID, conectarGoogleConvocatorias, prepararConexionGoogle,
 } from '../../datos/repositorio.js';
 import {
-  datosDelEvento, fechaCorta, fechaDelArchivo, materialesSugeridos, moverFecha, normalizarNombre, textoConvocatoria, validarConvocatoria, validarPDF,
+  datosDelEvento, fechaCorta, fechaDelArchivo, materialesSugeridos, moverFecha, normalizarNombre, segmentosMensaje, textoConvocatoria,
+  validarConvocatoria, validarPDF,
 } from '../../datos/convocatorias.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { useSesion } from '../../estado/sesion.js';
@@ -285,7 +286,18 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
             <Boton className="self-start" onClick={invalidar}>Editar reunión o materiales</Boton>
             <CampoArea etiqueta="Destinatarios de Calendar" requerido filas={2} value={datos.destinatarios} onChange={cambiar('destinatarios')} />
             <CampoTexto etiqueta="Asunto" requerido value={datos.asunto} onChange={cambiar('asunto')} />
-            <CampoArea etiqueta="Mensaje" requerido filas={12} value={datos.mensaje} onChange={cambiar('mensaje')} />
+            <CampoArea etiqueta="Mensaje" requerido filas={12} value={datos.mensaje} onChange={cambiar('mensaje')}
+              ayuda="**texto** va en negrita; [texto] es el enlace a la presentación." />
+            <div>
+              <p className="mb-1 text-xs font-medium text-gris">Vista previa del mail</p>
+              <div className="whitespace-pre-line rounded-chip border border-borde bg-paper p-3 text-sm leading-relaxed text-tinta">
+                {segmentosMensaje(datos.mensaje).map((s, i) => (
+                  s.tipo === 'negrita' ? <strong key={i}>{s.texto}</strong>
+                    : s.tipo === 'enlace' ? <a key={i} href={datos.presentacion} target="_blank" rel="noopener noreferrer" className="text-acento underline">{s.texto}</a>
+                      : <span key={i}>{s.texto}</span>
+                ))}
+              </div>
+            </div>
             <Boton onClick={() => { setDatos((d) => ({ ...d, ...textoConvocatoria(d) })); setRevisado(false); }} className="self-start">
               Actualizar texto con los datos de la reunión
             </Boton>

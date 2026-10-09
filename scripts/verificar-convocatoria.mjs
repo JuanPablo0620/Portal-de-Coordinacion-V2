@@ -121,6 +121,7 @@ try {
   await dialogo.getByText('Convocatoria guardada en Borradores', { exact: true }).waitFor();
   assert.match(mailMime, /To: area@example.test/);
   assert.match(mailMime, /Content-Type: application\/pdf/);
+  assert.match(mailMime, /Content-Type: text\/html; charset=UTF-8/);
   assert.equal(consultasGoogle.filter((r) => r.metodo === 'POST' && r.url.endsWith('/drafts')).length, 1);
   assert.equal(consultasGoogle.some((r) => r.url.endsWith('/send')), false);
   assert.equal(await dialogo.getByRole('link', { name: 'Revisar y enviar en Gmail' }).getAttribute('href'), 'https://mail.google.com/mail/?authuser=equipo%40example.test#drafts');

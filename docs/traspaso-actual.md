@@ -19,7 +19,7 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 06/10/2026 · Codex, por pedido de JP
+**Última actualización:** 09/10/2026 · JP (con Claude)
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
@@ -27,23 +27,31 @@ que el otro no puede deducir leyendo el repo.
 
 ## 1. Dónde está parado el portal
 
-### Convocatorias de Seguimiento (06/10, rama `feat/invitaciones-mesas`)
+### Convocatorias de Seguimiento (06/10, mergeado a `main` el 09/10)
 
 «Enviar convocatoria» en Seguimiento prepara un borrador de Gmail con los invitados
 de una reunión elegida en Calendar, los compromisos anteriores como PDF y el enlace
 de la PPT que completará el área. Puede reutilizar una presentación o copiar su
 template con el número siguiente. Una persona revisa y envía desde Gmail.
+El mensaje sale en HTML: `**texto**` va en negrita y `[texto]` enlaza a la PPT
+(sólo a la PPT, a propósito); la revisión muestra una vista previa.
 
-**Pendiente de activación:** configurar el cliente OAuth de Google del portal
-(`VITE_GOOGLE_CLIENT_ID`), habilitar las tres APIs y autorizar las cuentas del equipo.
-La cuenta de servicio de los scripts no reemplaza la autorización de Gmail personal.
-Sin esa configuración la pantalla muestra que la conexión está pendiente.
+**Cliente OAuth creado (09/10)** en el proyecto `bot-coordinacion` de Google Cloud,
+con la cuenta del equipo: tres APIs habilitadas, audiencia Externa en modo
+Prueba. JP lo probó en local con su cuenta: Calendar, Drive y preparación andan.
 
-Validación: `npm run verificar` pasó con 436 pruebas, build, 130 comprobaciones
-de render y 29 rutas de accesibilidad. Chrome probó el circuito completo en
-escritorio y móvil con servicios ficticios. Falta probar con la cuenta real y
-desplegarlo. Circuito, configuración y límites en `docs/convocatorias-seguimiento.md`.
-La rama conserva las invitaciones manuales anteriores de Mesas y Eventos.
+**Pendiente:**
+1. Cargar `VITE_GOOGLE_CLIENT_ID` en Vercel y redeploy **sin build cache**.
+   Mientras no esté, producción muestra «Conexión con Google pendiente».
+2. Agregar como usuarios de prueba (Google Auth Platform → Público) a cada
+   integrante que vaya a preparar convocatorias. Sin eso, Google le niega el acceso.
+3. `node scripts/verificar-convocatoria.mjs` falla al final por un 400 de
+   Supabase en `GET /rest/v1/eventos` (el script no simula Supabase y usa el
+   `.env.local` real). No lo trae esta rama —no toca esa consulta—, pero hay que
+   ver si producción devuelve lo mismo.
+
+Circuito, configuración y límites en `docs/convocatorias-seguimiento.md`.
+La rama también trajo las invitaciones manuales de Mesas y Eventos.
 
 ### Inicio: acceso al organigrama (29/09)
 
