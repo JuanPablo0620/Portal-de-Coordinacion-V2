@@ -81,6 +81,30 @@ precargados; se reemplazó por la API porque los permisos ya se piden igual.
 
 Prueba sin cuentas reales: `node scripts/verificar-invitacion.mjs`.
 
+## Compromisos de reuniones de mesa (desde el 09/10)
+
+**Mesas → Eventos → Enviar compromisos.** El día siguiente a la reunión:
+
+1. Busca en Calendar las reuniones realizadas de los últimos 30 días con
+   «eventos» en el título y propone la más reciente; los destinatarios son sus
+   invitados (sin salas). Si no aparece, se carga la fecha y los destinatarios
+   salen de la plantilla de invitados de la mesa.
+2. En Drive baja de la carpeta Eventos (`VITE_GOOGLE_EVENTOS_FOLDER_ID`) a
+   **Cultura → Compromisos** y **Cultura → PPT**, y propone en cada una el
+   archivo de **número más alto** («18. Compromisos…», «17. Eventos»): los
+   nombres no siempre traen fecha. Se puede cambiar.
+3. Adjunta el documento en **PDF** y la presentación en **.pptx** (exportada si
+   es Google Slides; la presentación es opcional). Asunto
+   `Compromisos | Mesa Eventos dd/mm`, texto con negritas y firma de Gmail.
+
+Los borradores se suben por la vía de subida de Gmail (`upload/.../drafts`,
+mensaje crudo), que admite hasta 35 MB: el pedido JSON anterior no alcanzaba para
+un .pptx. Límites: PDF 8 MB, .pptx 15 MB, adjuntos juntos 18 MB (Gmail envía hasta
+25 MB y la codificación suma un tercio). Drive no exporta presentaciones de más de
+10 MB: en ese caso se manda sin la presentación.
+
+Prueba sin cuentas reales: `node scripts/verificar-compromisos-mesa.mjs`.
+
 ## Activación de Google
 
 1. En el proyecto de Google Cloud destinado al portal, habilitar **Gmail API**,

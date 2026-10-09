@@ -91,7 +91,7 @@ try {
       return ruta.fulfill({ json: { files } });
     }
     if (url.pathname.endsWith('/users/me/drafts')) {
-      mailMime = Buffer.from(peticion.postDataJSON().message.raw, 'base64url').toString('utf8');
+      mailMime = peticion.postData();
       return ruta.fulfill({ json: { id: 'borrador-prueba', message: { id: 'mensaje-prueba' } } });
     }
     throw new Error('Consulta de Google inesperada: ' + url.pathname);

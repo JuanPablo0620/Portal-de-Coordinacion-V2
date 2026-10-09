@@ -11,6 +11,13 @@ export const MIME_DOCX = 'application/vnd.openxmlformats-officedocument.wordproc
 export const MIME_PPT = 'application/vnd.google-apps.presentation';
 export const MIME_PPTX = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 export const MAX_PDF = 8 * 1024 * 1024;
+/**
+ * Un .pptx con imágenes pesa bastante más que un PDF de compromisos. 15 MB más
+ * el PDF, codificados en base64 (+33 %), quedan debajo de los 25 MB con los
+ * que Gmail deja enviar un mail.
+ */
+export const MAX_PPTX = 15 * 1024 * 1024;
+const MAX_ADJUNTOS = 18 * 1024 * 1024;
 const ZONA = 'America/Argentina/Buenos_Aires';
 
 export const normalizarNombre = (texto = '') => String(texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -180,6 +187,33 @@ export function reunionesRealizadas(eventos, ahora = new Date()) {
     .sort((a, b) => new Date(b.start.dateTime) - new Date(a.start.dateTime));
 }
 
+/**
+ * El último archivo de una carpeta numerada («18. Compromisos…», «17. Eventos»):
+ * el de número más alto. En las carpetas de mesa no todos los nombres llevan
+ * fecha, así que el número es lo único confiable. Si dos comparten el número
+ * más alto, '' y se elige a mano.
+ */
+export function ultimoNumerado(archivos) {
+  const numero = (a) => Number(a.name.match(/^\s*(\d+)\s*\./)?.[1] ?? -1);
+  const maximo = Math.max(-1, ...archivos.map(numero));
+  const ultimos = archivos.filter((a) => maximo >= 0 && numero(a) === maximo);
+  return ultimos.length === 1 ? ultimos[0].id : '';
+}
+
+/**
+ * Compromisos de una reunión de mesa: van el día siguiente a sus invitados,
+ * con el documento de compromisos en PDF y, si se elige, la presentación en .pptx.
+ */
+export function textoCompromisosMesa({ mesa, fecha, conPresentacion }) {
+  return {
+    asunto: `Compromisos | ${mesa} ${fechaCorta(fecha)}`,
+    mensaje: `¡Buenas tardes a todos!\n\n` +
+      `En este mail les adjunto los **compromisos** ${conPresentacion ? 'y la **presentación** ' : ''}` +
+      `de la reunión de la **${mesa.replace(/^Mesa /, 'mesa ')} del ${fechaConDia(fecha)}**.\n\n` +
+      `Cualquier duda o consulta estoy a disposición.`,
+  };
+}
+
 /** El documento de la misma fecha que la reunión; con cero o varios se elige a mano. */
 export function compromisoDeLaReunion(compromisos, fecha) {
   const delDia = compromisos.filter((a) => fechaDelArchivo(a, fecha.slice(0, 4)) === fecha);
@@ -228,13 +262,17 @@ export function mensajePlano(mensaje, presentacion, firma = '') {
  * `datos.tipo === 'compromisos'` no lleva entrega, lugar ni presentación.
  * `datos.tipo === 'invitacion'` (reunión de mesa) tampoco lleva PDF: es sólo
  * el texto de la convocatoria; la presentación, si hay, va escrita en él.
+ * `datos.tipo === 'compromisos-mesa'` recibe `[pdf, pptx?]` como adjuntos.
  */
-export function validarConvocatoria(datos, pdf) {
+export function validarConvocatoria(datos, adjunto) {
   const esCompromisos = datos.tipo === 'compromisos';
   const esInvitacion = datos.tipo === 'invitacion';
+  const esCompromisosMesa = datos.tipo === 'compromisos-mesa';
   if (!validarFecha(datos.fecha)) throw new Error('Revisá la fecha de la reunión.');
   if (esInvitacion) {
-    if (pdf) throw new Error('La invitación a la reunión no lleva adjunto.');
+    if (adjunto) throw new Error('La invitación a la reunión no lleva adjunto.');
+  } else if (esCompromisosMesa) {
+    if (!Array.isArray(adjunto) || !adjunto.length || adjunto.length > 2) throw new Error('Faltan los adjuntos de compromisos.');
   } else if (esCompromisos) {
     if (!datos.area?.trim()) throw new Error('Completá la secretaría.');
   } else {
@@ -251,7 +289,7 @@ export function validarConvocatoria(datos, pdf) {
   }
   if (!datos.asunto?.trim() || /[\r\n]/.test(datos.asunto) || datos.asunto.length > 500) throw new Error('Revisá el asunto del mail.');
   if (!datos.mensaje?.trim() || datos.mensaje.length > 50000) throw new Error('Revisá el mensaje del mail.');
-  if (!esCompromisos && !esInvitacion) {
+  if (!esCompromisos && !esInvitacion && !esCompromisosMesa) {
     if (!segmentosMensaje(datos.mensaje).some((s) => s.tipo === 'enlace')) {
       throw new Error('El mensaje debe incluir el enlace a la presentación: escribí el texto del enlace entre corchetes.');
     }
@@ -260,8 +298,22 @@ export function validarConvocatoria(datos, pdf) {
     if (url.protocol !== 'https:' || !['docs.google.com', 'drive.google.com'].includes(url.hostname)) throw new Error('La presentación debe tener un enlace de Google Drive.');
   }
   if (datos.firma && (typeof datos.firma !== 'string' || datos.firma.length > 20000)) throw new Error('La firma de Gmail no es válida.');
-  if (!esInvitacion) validarPDF(pdf);
+  if (esCompromisosMesa) {
+    validarPDF(adjunto[0]);
+    if (adjunto[1]) validarPPTX(adjunto[1]);
+    if (adjunto.reduce((total, a) => total + a.bytes.length, 0) > MAX_ADJUNTOS) {
+      throw new Error('Los adjuntos superan lo que Gmail deja enviar. Mandá el mail sin la presentación.');
+    }
+  } else if (!esInvitacion) validarPDF(adjunto);
   return lista;
+}
+
+/** Un .pptx es un ZIP: empieza con «PK». */
+export function validarPPTX(pptx) {
+  if (!(pptx?.bytes instanceof Uint8Array) || !pptx.bytes.length || pptx.bytes.length > MAX_PPTX ||
+      pptx.bytes[0] !== 0x50 || pptx.bytes[1] !== 0x4b) {
+    throw new Error('La presentación no es un .pptx válido de hasta 15 MB.');
+  }
 }
 
 export function validarPDF(pdf) {
@@ -282,12 +334,18 @@ export function aBase64(bytes) {
 const codificarTexto = (texto) => aBase64(new TextEncoder().encode(texto));
 const lineasBase64 = (texto) => texto.match(/.{1,76}/g)?.join('\r\n') ?? '';
 
-/** MIME real: preserva acentos y PDF (si hay), y evita inyección de cabeceras. */
-export function mensajeMime(datos, pdf, remitente, limite = `convocatoria_${crypto.randomUUID()}`) {
-  const destinatarios = validarConvocatoria(datos, pdf);
+/** El primer adjunto siempre es el PDF de compromisos; el segundo, la presentación. */
+const TIPOS_ADJUNTO = [
+  { tipo: 'application/pdf', respaldo: 'Compromisos.pdf' },
+  { tipo: MIME_PPTX, respaldo: 'Presentacion.pptx' },
+];
+
+/** MIME real: preserva acentos y adjuntos (si hay), y evita inyección de cabeceras. */
+export function mensajeMime(datos, adjunto, remitente, limite = `convocatoria_${crypto.randomUUID()}`) {
+  const destinatarios = validarConvocatoria(datos, adjunto);
   const { lista, invalidos } = agregarMails([], remitente);
   if (lista.length !== 1 || invalidos.length || /[\r\n]/.test(remitente)) throw new Error('No se pudo verificar la cuenta de Gmail.');
-  const nombre = String(pdf?.nombre ?? 'Compromisos.pdf').replace(/[\r\n"\\]/g, '_').slice(0, 180);
+  const adjuntos = (Array.isArray(adjunto) ? adjunto : adjunto ? [adjunto] : []).map((a, i) => ({ ...TIPOS_ADJUNTO[i], ...a }));
   const asunto = [...datos.asunto].reduce((grupos, letra) => {
     const ultimo = grupos.length - 1;
     if (new TextEncoder().encode(grupos[ultimo] + letra).length > 42) grupos.push(letra);
@@ -304,11 +362,14 @@ export function mensajeMime(datos, pdf, remitente, limite = `convocatoria_${cryp
     lineasBase64(codificarTexto(mensajePlano(datos.mensaje, datos.presentacion, datos.firma))), '',
     `--${alternativa}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
     lineasBase64(codificarTexto(mensajeHtml(datos.mensaje, datos.presentacion, datos.firma))), '', `--${alternativa}--`, '',
-    ...(pdf ? [
-      `--${limite}`, 'Content-Type: application/pdf',
-      'Content-Transfer-Encoding: base64', `Content-Disposition: attachment; filename="Compromisos.pdf"; filename*=UTF-8''${encodeURIComponent(nombre).replace(/'/g, '%27')}`, '',
-      lineasBase64(aBase64(pdf.bytes)), '',
-    ] : []),
+    ...adjuntos.flatMap((a) => {
+      const nombre = String(a.nombre ?? a.respaldo).replace(/[\r\n"\\]/g, '_').slice(0, 180);
+      return [
+        `--${limite}`, `Content-Type: ${a.tipo}`, 'Content-Transfer-Encoding: base64',
+        `Content-Disposition: attachment; filename="${a.respaldo}"; filename*=UTF-8''${encodeURIComponent(nombre).replace(/'/g, '%27')}`, '',
+        lineasBase64(aBase64(a.bytes)), '',
+      ];
+    }),
     `--${limite}--`, '',
   ].join('\r\n');
 }

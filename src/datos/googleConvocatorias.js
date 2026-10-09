@@ -5,14 +5,15 @@
  * Las consultas no eligen reuniones ni documentos ambiguos por el usuario.
  */
 import {
-  MIME_CARPETA, MIME_DOC, MIME_DOCX, MIME_PPT, MIME_PPTX, MAX_PDF,
-  aBase64, fechaDelArchivo, idDeDrive, mensajeMime, normalizarNombre, nombrePresentacion, rawGmail, validarPDF,
+  MIME_CARPETA, MIME_DOC, MIME_DOCX, MIME_PPT, MIME_PPTX, MAX_PDF, MAX_PPTX,
+  aBase64, fechaDelArchivo, idDeDrive, mensajeMime, normalizarNombre, nombrePresentacion, validarPDF, validarPPTX,
 } from './convocatorias.js';
 
 // Se recortan porque al pegarlas en Vercel es fácil arrastrar un salto de línea
 // (pasó el 09/10), y la carpeta se muestra tal cual en el formulario.
 export const GOOGLE_CLIENT_ID = (import.meta.env?.VITE_GOOGLE_CLIENT_ID ?? '').trim();
 export const CARPETA_SEGUIMIENTOS = (import.meta.env?.VITE_GOOGLE_SEGUIMIENTO_FOLDER_ID ?? '').trim();
+export const CARPETA_EVENTOS = (import.meta.env?.VITE_GOOGLE_EVENTOS_FOLDER_ID ?? '').trim();
 export const PERMISOS_CONVOCATORIA = [
   'https://www.googleapis.com/auth/calendar.readonly',
   // Para agendar las reuniones de mesa en el Calendar de quien convoca.
@@ -83,6 +84,8 @@ export function conectarGoogleConvocatorias() {
   });
 }
 
+const nombreDeCarpeta = (patron) => patron.source.replace(/[^a-z ]/gi, '').replace(/^./, (l) => l.toUpperCase());
+
 /** Inyección de fetch para probar el contrato sin tocar cuentas ni archivos reales. */
 export function crearClienteConvocatorias(tokenInicial, vence, consultar = globalThis.fetch) {
   let token = tokenInicial;
@@ -92,9 +95,12 @@ export function crearClienteConvocatorias(tokenInicial, vence, consultar = globa
     drive: 'https://www.googleapis.com/drive/v3/',
     upload: 'https://www.googleapis.com/upload/drive/v3/',
     gmail: 'https://gmail.googleapis.com/gmail/v1/users/me/',
+    // Subida del borrador como mensaje crudo: admite hasta 35 MB, contra los
+    // pocos MB del pedido JSON, y un .pptx adjunto los supera fácil.
+    gmailSubida: 'https://gmail.googleapis.com/upload/gmail/v1/users/me/',
   };
 
-  async function pedir(servicio, ruta, { metodo = 'GET', datos, binario = false, tipo = 'application/json' } = {}) {
+  async function pedir(servicio, ruta, { metodo = 'GET', datos, binario = false, tipo = 'application/json', maximo = MAX_PDF } = {}) {
     if (!token || Date.now() >= vence - 30000) throw new Error('La conexión con Google venció. Cerrá esta ventana y volvé a conectar.');
     let respuesta;
     try {
@@ -124,10 +130,10 @@ export function crearClienteConvocatorias(tokenInicial, vence, consultar = globa
     if (respuesta.status === 204) return null;
     try {
       if (binario) {
-        const longitud = Number(respuesta.headers.get('content-length'));
-        if (longitud > MAX_PDF) throw new Error('El archivo supera el límite de 8 MB.');
+        const excedido = new Error(`El archivo supera el límite de ${Math.round(maximo / 1024 / 1024)} MB.`);
+        if (Number(respuesta.headers.get('content-length')) > maximo) throw excedido;
         const bytes = new Uint8Array(await respuesta.arrayBuffer());
-        if (bytes.length > MAX_PDF) throw new Error('El archivo supera el límite de 8 MB.');
+        if (bytes.length > maximo) throw excedido;
         return bytes;
       }
       return await respuesta.json();
@@ -175,10 +181,10 @@ export function crearClienteConvocatorias(tokenInicial, vence, consultar = globa
       return typeof cuenta?.signature === 'string' ? cuenta.signature : '';
     },
     calendarios: () => paginas('calendar', 'users/me/calendarList', { maxResults: '100', minAccessRole: 'reader' }, 'items'),
-    reuniones: (calendario, fechaDesde, fechaHasta) => paginas('calendar', `calendars/${encodeURIComponent(calendario)}/events`, {
+    reuniones: (calendario, fechaDesde, fechaHasta, patron = /seguimiento/) => paginas('calendar', `calendars/${encodeURIComponent(calendario)}/events`, {
       timeMin: `${fechaDesde}T00:00:00-03:00`, timeMax: `${fechaHasta}T00:00:00-03:00`,
       singleEvents: 'true', orderBy: 'startTime', maxResults: '250', timeZone: 'America/Argentina/Buenos_Aires',
-    }, 'items').then((items) => items.filter((e) => e.status !== 'cancelled' && e.start?.dateTime && /seguimiento/.test(normalizarNombre(e.summary)))),
+    }, 'items').then((items) => items.filter((e) => e.status !== 'cancelled' && e.start?.dateTime && patron.test(normalizarNombre(e.summary)))),
     evento: (calendario, evento) => pedir('calendar', `calendars/${encodeURIComponent(calendario)}/events/${encodeURIComponent(evento)}`),
     /**
      * Crea la reunión y Google manda las invitaciones (`sendUpdates=all`).
@@ -198,6 +204,45 @@ export function crearClienteConvocatorias(tokenInicial, vence, consultar = globa
         }
         throw error;
       }
+    },
+    /**
+     * Carpetas de una mesa: desde la raíz (p. ej. «Eventos») se baja a la
+     * subcarpeta del área («Cultura») y de ahí a Compromisos y PPT. Cada tramo
+     * tiene que ser único; si no, se avisa en vez de adivinar.
+     */
+    async materialesMesa(raiz, subcarpeta) {
+      const unica = async (padre, patron, nombre) => {
+        const halladas = (await archivos(padre)).filter((a) => a.mimeType === MIME_CARPETA && patron.test(normalizarNombre(a.name)));
+        if (halladas.length !== 1) throw new Error(`No se encontró una única carpeta «${nombre}» en el Drive de la mesa.`);
+        return halladas[0].id;
+      };
+      const area = await unica(idDeDrive(raiz), subcarpeta, nombreDeCarpeta(subcarpeta));
+      const [compromisos, ppt] = await Promise.all([unica(area, /compromiso/, 'Compromisos'), unica(area, /^ppt|presentacion/, 'PPT')]);
+      const [documentos, presentaciones] = await Promise.all([archivos(compromisos), archivos(ppt)]);
+      return {
+        compromisos: documentos.filter((a) => [MIME_DOC, MIME_DOCX, 'application/pdf'].includes(a.mimeType)),
+        presentaciones: presentaciones.filter((a) => [MIME_PPT, MIME_PPTX].includes(a.mimeType)),
+      };
+    },
+    /** La presentación como .pptx: las de Google Slides se exportan, las subidas se bajan tal cual. */
+    async pptxPresentacion(id) {
+      const archivo = await metadatos(id);
+      const nombre = archivo.name.replace(/\.pptx$/i, '') + '.pptx';
+      let bytes;
+      try {
+        bytes = archivo.mimeType === MIME_PPTX
+          ? await pedir('drive', `files/${encodeURIComponent(archivo.id)}?alt=media&supportsAllDrives=true`, { binario: true, maximo: MAX_PPTX })
+          : await pedir('drive', `files/${encodeURIComponent(archivo.id)}/export?mimeType=${encodeURIComponent(MIME_PPTX)}`, { binario: true, maximo: MAX_PPTX });
+      } catch (error) {
+        // Drive no exporta archivos de más de 10 MB y lo informa como 403.
+        if (error.estado === 403 && archivo.mimeType !== MIME_PPTX) {
+          error.message = 'Google no pudo exportar la presentación: puede pesar más de 10 MB o tu cuenta no tiene permiso. Mandá el mail sin ella.';
+        }
+        throw error;
+      }
+      const pptx = { nombre, bytes };
+      validarPPTX(pptx);
+      return pptx;
     },
     async carpetas(carpeta) {
       const raiz = await metadatos(carpeta);
@@ -280,10 +325,10 @@ export function crearClienteConvocatorias(tokenInicial, vence, consultar = globa
     async crearBorrador(datos, pdf) {
       // Una respuesta perdida puede haber guardado el borrador: nunca reintentar a ciegas.
       if (borradorIntentado) throw new Error('Revisá Borradores de Gmail antes de volver a crear este borrador.');
-      const raw = rawGmail(mensajeMime(datos, pdf, cliente.email));
+      const mime = mensajeMime(datos, pdf, cliente.email);
       borradorIntentado = true;
       try {
-        const borrador = await pedir('gmail', 'drafts', { metodo: 'POST', datos: { message: { raw } } });
+        const borrador = await pedir('gmailSubida', 'drafts?uploadType=media', { metodo: 'POST', tipo: 'message/rfc822', datos: mime });
         if (!borrador?.id) {
           const error = new Error('Google no confirmó el borrador. Revisá Borradores de Gmail.');
           error.resultadoIncierto = true;
