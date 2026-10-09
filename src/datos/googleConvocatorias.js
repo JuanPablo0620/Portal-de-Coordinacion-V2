@@ -9,8 +9,10 @@ import {
   aBase64, fechaDelArchivo, idDeDrive, mensajeMime, normalizarNombre, nombrePresentacion, rawGmail, validarPDF,
 } from './convocatorias.js';
 
-export const GOOGLE_CLIENT_ID = import.meta.env?.VITE_GOOGLE_CLIENT_ID ?? '';
-export const CARPETA_SEGUIMIENTOS = import.meta.env?.VITE_GOOGLE_SEGUIMIENTO_FOLDER_ID ?? '';
+// Se recortan porque al pegarlas en Vercel es fácil arrastrar un salto de línea
+// (pasó el 09/10), y la carpeta se muestra tal cual en el formulario.
+export const GOOGLE_CLIENT_ID = (import.meta.env?.VITE_GOOGLE_CLIENT_ID ?? '').trim();
+export const CARPETA_SEGUIMIENTOS = (import.meta.env?.VITE_GOOGLE_SEGUIMIENTO_FOLDER_ID ?? '').trim();
 export const PERMISOS_CONVOCATORIA = [
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/drive',
