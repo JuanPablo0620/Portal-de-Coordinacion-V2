@@ -7,20 +7,24 @@ import {
   CARPETA_SEGUIMIENTOS, GOOGLE_CLIENT_ID, conectarGoogleConvocatorias, prepararConexionGoogle,
 } from '../../datos/repositorio.js';
 import {
-  datosDelEvento, fechaCorta, fechaDelArchivo, materialesSugeridos, moverFecha, normalizarNombre, segmentosMensaje, textoConvocatoria,
-  validarConvocatoria, validarPDF,
+  areaDelTitulo, coincidenciaUnica, datosDelEvento, fechaCorta, fechaDelArchivo, materialesSugeridos, moverFecha, nombreSinPrefijo,
+  normalizarNombre, segmentosMensaje, textoConvocatoria, validarConvocatoria, validarPDF,
 } from '../../datos/convocatorias.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { useSesion } from '../../estado/sesion.js';
+import { useBD } from '../../estado/tienda.js';
 
 /**
  * Una convocatoria termina en un borrador de Gmail, con el PDF y el enlace de
  * la PPT. El envío lo hace la persona después de revisarlo en Gmail.
- * La selección explícita evita asociar por inferencia una reunión o un archivo
- * de otra secretaría. Ningún mail ni token queda guardado en el navegador.
+ * La secretaría y su carpeta se proponen desde el título de Calendar sólo si la
+ * coincidencia es única; si no, se eligen a mano, y siempre quedan editables
+ * para no asociar una reunión a otra secretaría por inferencia.
+ * Ningún mail ni token queda guardado en el navegador.
  */
 export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
   const perfil = useSesion((s) => s.perfil);
+  const bd = useBD();
   const conexion = useRef(null);
   const activo = useRef(true);
   const operando = useRef(false);
@@ -125,7 +129,8 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
       }
       if (!activo.current) return;
       setEventoId(id);
-      setDatos((d) => ({ ...d, ...reunion, entrega: moverFecha(reunion.fecha, -1), asunto: '', mensaje: '', presentacion: '' }));
+      const deducida = areaDelTitulo(evento.summary ?? '', bd.areas ?? []);
+      setDatos((d) => ({ ...d, ...reunion, area: seguimiento ? d.area : deducida, entrega: moverFecha(reunion.fecha, -1), asunto: '', mensaje: '', presentacion: '' }));
     });
   }
 
@@ -133,21 +138,35 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null }) {
     invalidar(); setCarpeta(''); setMateriales(null); setCarpetas([]);
     ejecutar('Buscando las carpetas de secretarías…', async () => {
       const disponibles = await conexion.current.carpetas(carpetaRaiz);
-      if (activo.current) setCarpetas(disponibles);
+      if (!activo.current) return;
+      setCarpetas(disponibles);
+      const propuesta = datos.area.trim() && coincidenciaUnica(datos.area, disponibles, (c) => c.name);
+      if (propuesta) await leerMateriales(propuesta);
     });
   }
 
   function elegirCarpeta(id) {
     invalidar(); setMateriales(null); setCarpeta(id);
-    ejecutar('Buscando presentación y compromisos…', async () => {
-      const encontrados = await conexion.current.materiales(id);
-      if (!activo.current) return;
-      const sugeridos = materialesSugeridos(encontrados.presentaciones, encontrados.compromisos, datos.fecha);
-      const area = carpetas.find((c) => c.id === id)?.name.replace(/^\d+\.\s*/, '') ?? '';
-      setMateriales(encontrados);
-      setSeleccion({ ...sugeridos, modo: sugeridos.presentacion ? 'existente' : 'nueva' });
-      setDatos((d) => ({ ...d, area, asunto: '', mensaje: '', presentacion: '' }));
-    });
+    const elegida = carpetas.find((c) => c.id === id);
+    if (elegida) ejecutar('Buscando presentación y compromisos…', () => leerMateriales(elegida));
+  }
+
+  /**
+   * Si la carpeta corresponde a la secretaría ya escrita, se respeta ese nombre
+   * («Ambiente y Servicios Públicos» aunque la carpeta diga «Ambiente»); si es
+   * otra, manda la carpeta, porque de ahí salen la PPT y los compromisos.
+   */
+  async function leerMateriales(carpetaElegida) {
+    const encontrados = await conexion.current.materiales(carpetaElegida.id);
+    if (!activo.current) return;
+    const sugeridos = materialesSugeridos(encontrados.presentaciones, encontrados.compromisos, datos.fecha);
+    setCarpeta(carpetaElegida.id);
+    setMateriales(encontrados);
+    setSeleccion({ ...sugeridos, modo: sugeridos.presentacion ? 'existente' : 'nueva' });
+    setDatos((d) => ({
+      ...d, asunto: '', mensaje: '', presentacion: '',
+      area: coincidenciaUnica(d.area, [carpetaElegida], (c) => c.name) ? d.area : nombreSinPrefijo(carpetaElegida.name),
+    }));
   }
 
   function prepararMateriales() {

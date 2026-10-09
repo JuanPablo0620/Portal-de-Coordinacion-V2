@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_PDF, MIME_DOC, MIME_DOCX, MIME_PPTX, datosDelEvento, fechaConDia, idDeDrive,
+  MAX_PDF, MIME_DOC, MIME_DOCX, MIME_PPTX, areaDelTitulo, coincidenciaUnica, datosDelEvento, fechaConDia, idDeDrive,
   materialesSugeridos, mensajeHtml, mensajeMime, mensajePlano, moverFecha, nombrePresentacion, rawGmail, textoConvocatoria, validarConvocatoria,
 } from '../src/datos/convocatorias.js';
 import { crearClienteConvocatorias } from '../src/datos/googleConvocatorias.js';
@@ -59,6 +59,27 @@ test('la convocatoria reproduce el pedido de entrega, el enlace editable y la fi
   assert.match(datos.mensaje, /\[PPT \| Seguimiento 14\/10\]/);
   assert.match(datos.mensaje, /\*\*Reunión de Seguimiento de Área de prueba\*\*/);
   assert.ok(datos.mensaje.endsWith('Equipo de prueba'));
+});
+
+test('la secretaría sale del título de Calendar y la carpeta se propone sólo si es única', () => {
+  const areas = [
+    { nombre: 'Secretaría de Ambiente y Servicios Públicos' }, { nombre: 'Secretaría de Capital Humano' },
+    { nombre: 'Secretaría de Obras' }, { nombre: 'Secretaría de Salud' }, { nombre: 'Secretaría de Seguridad' },
+    { nombre: 'Secretaría de Trabajo y Producción' }, { nombre: 'Dirección de Capital Humano Joven' },
+    { nombre: 'Secretaría de Turismo', activo: false },
+  ];
+  assert.equal(areaDelTitulo('SEGUIMIENTO CAPITAL HUMANO', areas), 'Capital Humano');
+  assert.equal(areaDelTitulo('Seguimiento - Ambiente', areas), 'Ambiente y Servicios Públicos');
+  assert.equal(areaDelTitulo('Seguimiento Trabajo y Producción', areas), 'Trabajo y Producción');
+  assert.equal(areaDelTitulo('Seguimiento Turismo', areas), '');
+  assert.equal(areaDelTitulo('Seguimiento general', areas), '');
+  const carpetas = [{ id: 'a', name: '01. Ambiente' }, { id: 'c', name: '03. Capital Humano' }, { id: 'o', name: '04. Obras Públicas' }];
+  const carpeta = (area) => coincidenciaUnica(area, carpetas, (c) => c.name)?.id ?? null;
+  assert.equal(carpeta('Capital Humano'), 'c');
+  assert.equal(carpeta('Ambiente y Servicios Públicos'), 'a');
+  assert.equal(carpeta('Obras'), 'o');
+  assert.equal(carpeta('Salud'), null);
+  assert.equal(coincidenciaUnica('Capital', [{ name: 'Capital Humano' }, { name: 'Capital Social' }], (c) => c.name), null);
 });
 
 test('el mensaje marca negrita y enlaza sólo a la presentación, sin inyectar HTML', () => {

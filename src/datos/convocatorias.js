@@ -15,6 +15,33 @@ const ZONA = 'America/Argentina/Buenos_Aires';
 
 export const normalizarNombre = (texto = '') => String(texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
+const palabras = (texto) => normalizarNombre(texto).replace(/[^a-z0-9]+/g, ' ').split(' ').filter(Boolean);
+
+/** \u00ab03. Capital Humano\u00bb y \u00abSecretar\u00eda de Capital Humano\u00bb \u2192 \u00abCapital Humano\u00bb. */
+export const nombreSinPrefijo = (nombre = '') => String(nombre).replace(/^\s*\d+\.\s*/, '').replace(/^secretar[i\u00ed]a de\s+/i, '').trim();
+
+/**
+ * Calendar s\u00f3lo da el t\u00edtulo (\u00abSEGUIMIENTO CAPITAL HUMANO\u00bb) y Drive el nombre de
+ * carpeta (\u00ab03. Capital Humano\u00bb): se emparejan por palabras, primero con el nombre
+ * completo y si no con su primera palabra (\u00abObras\u00bb \u2194 \u00abObras P\u00fablicas\u00bb). S\u00f3lo vale
+ * una coincidencia \u00fanica; con cero o varias se devuelve null y se elige a mano,
+ * porque asociar una reuni\u00f3n a la secretar\u00eda equivocada es peor que un clic m\u00e1s.
+ */
+export function coincidenciaUnica(texto, candidatos, nombreDe) {
+  const buscado = ` ${palabras(texto).join(' ')} `;
+  const contiene = (frase) => frase.length > 0 && buscado.includes(` ${frase.join(' ')} `);
+  const completas = candidatos.filter((c) => contiene(palabras(nombreSinPrefijo(nombreDe(c)))));
+  if (completas.length) return completas.length === 1 ? completas[0] : null;
+  const parciales = candidatos.filter((c) => contiene(palabras(nombreSinPrefijo(nombreDe(c))).slice(0, 1)));
+  return parciales.length === 1 ? parciales[0] : null;
+}
+
+export function areaDelTitulo(titulo, areas) {
+  const secretarias = areas.filter((a) => a.activo !== false && /^secretar[i\u00ed]a/i.test(a.nombre ?? ''));
+  const area = coincidenciaUnica(titulo, secretarias, (a) => a.nombre);
+  return area ? nombreSinPrefijo(area.nombre) : '';
+}
+
 export function validarFecha(fecha) {
   return /^\d{4}-\d{2}-\d{2}$/.test(fecha ?? '') &&
     !Number.isNaN(Date.parse(fecha)) && new Date(`${fecha}T12:00:00Z`).toISOString().slice(0, 10) === fecha;
