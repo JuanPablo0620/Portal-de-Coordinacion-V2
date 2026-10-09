@@ -54,6 +54,16 @@ y verificadas dentro del bundle publicado.
    `.env.local` real). No lo trae esta rama —no toca esa consulta—, pero hay que
    ver si producción devuelve lo mismo.
 
+**Envío de compromisos (09/10):** botón «Enviar compromisos» en Seguimiento. Mismo
+diálogo con `tipo="compromisos"`: toma la última reunión realizada, adjunta el
+documento de Compromisos de esa fecha y arma «Compromisos | Seguimiento <Secretaría>
+<dd/mm>». JP lo probó con su cuenta y quedó bien.
+
+**Firma:** los dos mails llevan la firma predeterminada de Gmail de quien prepara el
+borrador (permiso nuevo `gmail.settings.basic`, ya agregado en Google Auth Platform).
+El portal no escribe firma propia; las palabras clave van en negrita. Quien ya se
+había conectado tiene que volver a aceptar los permisos.
+
 Circuito, configuración y límites en `docs/convocatorias-seguimiento.md`.
 La rama también trajo las invitaciones manuales de Mesas y Eventos.
 
