@@ -38,7 +38,16 @@ import {
  * listando los módulos y las vistas siguen siendo pestañas de cada pantalla
  * —decisión de JP, para no cambiar cómo navega el equipo—.
  *
- * Por debajo de 1024 px el lateral se esconde y se abre con el botón de menú.
+ * En escritorio el lateral es un riel de íconos que se despliega al pasar el
+ * cursor y se pliega al sacarlo (pedido de JP, 09/10/2026). Se despliega POR
+ * ENCIMA del contenido —el riel reserva su ancho fijo— para que la pantalla no
+ * se reacomode cada vez que el cursor cruza el borde. Abre con un retardo
+ * corto para no dispararse al pasar de largo. Con teclado se abre por
+ * `:focus-visible` y no por `:focus-within`: con el mouse, el enlace cliqueado
+ * conserva el foco y el lateral quedaba trabado abierto.
+ *
+ * Por debajo de 1024 px no hay cursor que pasar: el lateral se esconde y se
+ * abre entero con el botón de menú.
  */
 const GRUPOS = [
   {
@@ -79,53 +88,70 @@ const GRUPOS = [
 ];
 
 const claseItem = (activo) =>
-  `flex min-h-11 w-full items-center gap-2.5 rounded-chip px-3 py-2 text-sm transition lg:min-h-10 ${
+  `flex min-h-11 w-full items-center gap-2.5 overflow-hidden rounded-chip px-3 py-2 text-sm whitespace-nowrap transition lg:min-h-10 ${
     activo
       ? 'bg-lateral-activo font-semibold text-lateral-activo-texto shadow-[inset_3px_0_var(--color-filete)] [&_svg]:text-lateral-activo-texto'
       : 'font-medium text-lateral-texto hover:bg-lateral-hover hover:text-lateral-activo-texto [&_svg]:text-lateral-icono'
   }`;
 
+/**
+ * Lo que sólo se ve con el lateral desplegado. Queda en el DOM —transparente,
+ * no oculto—: el lector de pantalla sigue leyendo el nombre de cada módulo
+ * aunque el riel muestre sólo el ícono.
+ */
+const SOLO_DESPLEGADO = 'lg:opacity-0 lg:transition-opacity lg:duration-150 lg:group-hover/lateral:opacity-100 lg:group-has-[:focus-visible]/lateral:opacity-100';
+
 function Rotulo({ children }) {
-  return <p className="px-3 pt-4 pb-1.5 text-[11px] font-semibold tracking-[0.08em] text-gris uppercase">{children}</p>;
+  return (
+    <p className={`truncate px-3 pt-4 pb-1.5 text-[11px] font-semibold tracking-[0.08em] text-gris uppercase ${SOLO_DESPLEGADO}`}>
+      {children}
+    </p>
+  );
 }
 
 function Lateral({ abierto, alNavegar }) {
   return (
-    <aside
-      id="lateral"
-      aria-label="Módulos del portal"
-      // `invisible` cuando está cerrado en pantallas chicas: fuera de la
-      // pantalla igual recibiría el foco con Tab, y el teclado se perdería en
-      // enlaces que no se ven. La visibilidad cambia al final del
-      // deslizamiento, así que la animación de salida se ve entera.
-      className={`no-imprimir fixed top-14 bottom-0 left-0 z-30 flex w-[260px] flex-col border-r border-borde bg-lateral
-        transition-[translate,visibility] duration-200 lg:visible lg:static lg:w-60 lg:shrink-0 lg:translate-x-0 lg:transition-none ${
-          abierto ? 'visible translate-x-0 shadow-flotante' : 'invisible -translate-x-full'
-        }`}
-    >
-      <nav aria-label="Módulos" className="scroll-fino flex-1 overflow-y-auto px-2.5 pt-2 pb-3">
-        {GRUPOS.map((grupo) => (
-          <div key={grupo.titulo ?? 'principal'}>
-            {grupo.titulo && <Rotulo>{grupo.titulo}</Rotulo>}
-            <div className="flex flex-col gap-0.5">
-              {grupo.modulos.map((m) => (
-                <NavLink key={m.ruta} to={m.ruta} end={m.exacta} onClick={alNavegar} className={({ isActive }) => claseItem(isActive)}>
-                  <m.icono size={17} className="shrink-0" aria-hidden="true" />
-                  {m.titulo}
-                </NavLink>
-              ))}
+    // El contenedor reserva el ancho del riel; el lateral se despliega encima.
+    <div className="relative shrink-0 lg:w-16">
+      <aside
+        id="lateral"
+        aria-label="Módulos del portal"
+        // `invisible` cuando está cerrado en pantallas chicas: fuera de la
+        // pantalla igual recibiría el foco con Tab, y el teclado se perdería en
+        // enlaces que no se ven. La visibilidad cambia al final del
+        // deslizamiento, así que la animación de salida se ve entera.
+        className={`group/lateral no-imprimir fixed top-14 bottom-0 left-0 z-30 flex w-[260px] flex-col overflow-hidden border-r border-borde
+          bg-lateral transition-[translate,visibility] duration-200
+          lg:visible lg:absolute lg:top-0 lg:w-16 lg:translate-x-0 lg:transition-[width,box-shadow] lg:delay-100
+          lg:hover:w-60 lg:hover:shadow-flotante lg:hover:delay-150
+          lg:has-[:focus-visible]:w-60 lg:has-[:focus-visible]:shadow-flotante lg:has-[:focus-visible]:delay-0 ${
+            abierto ? 'visible translate-x-0 shadow-flotante' : 'invisible -translate-x-full'
+          }`}
+      >
+        <nav aria-label="Módulos" className="scroll-fino flex-1 overflow-y-auto px-2.5 pt-2 pb-3">
+          {GRUPOS.map((grupo) => (
+            <div key={grupo.titulo ?? 'principal'}>
+              {grupo.titulo && <Rotulo>{grupo.titulo}</Rotulo>}
+              <div className="flex flex-col gap-0.5">
+                {grupo.modulos.map((m) => (
+                  <NavLink key={m.ruta} to={m.ruta} end={m.exacta} onClick={alNavegar} className={({ isActive }) => claseItem(isActive)}>
+                    <m.icono size={17} className="shrink-0" aria-hidden="true" />
+                    <span className={`truncate ${SOLO_DESPLEGADO}`}>{m.titulo}</span>
+                  </NavLink>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </nav>
-      <div className="flex flex-col gap-0.5 border-t border-borde px-2.5 pt-2.5 pb-3">
-        <SelectorTema />
-        <NavLink to="/configuracion" onClick={alNavegar} className={({ isActive }) => claseItem(isActive)}>
-          <Settings size={17} className="shrink-0" aria-hidden="true" />
-          Configuración
-        </NavLink>
-      </div>
-    </aside>
+          ))}
+        </nav>
+        <div className="flex flex-col gap-0.5 border-t border-borde px-2.5 pt-2.5 pb-3">
+          <SelectorTema />
+          <NavLink to="/configuracion" onClick={alNavegar} className={({ isActive }) => claseItem(isActive)}>
+            <Settings size={17} className="shrink-0" aria-hidden="true" />
+            <span className={`truncate ${SOLO_DESPLEGADO}`}>Configuración</span>
+          </NavLink>
+        </div>
+      </aside>
+    </div>
   );
 }
 
@@ -145,8 +171,8 @@ function SelectorTema() {
       className={`interruptor-tema ${claseItem(false)}`}
     >
       {activo ? <Moon size={17} className="shrink-0" aria-hidden="true" /> : <Sun size={17} className="shrink-0" aria-hidden="true" />}
-      <span className="flex-1 text-left">BlueNight</span>
-      <span className="interruptor-tema-pista" aria-hidden="true">
+      <span className={`flex-1 text-left ${SOLO_DESPLEGADO}`}>BlueNight</span>
+      <span className={`interruptor-tema-pista ${SOLO_DESPLEGADO}`} aria-hidden="true">
         <span className="interruptor-tema-perilla" />
       </span>
     </button>
