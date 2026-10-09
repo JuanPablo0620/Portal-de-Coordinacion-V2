@@ -23,6 +23,7 @@ import { bdVacia } from '../../src/datos/esquema.js';
 import { hoyISO, proyectoPorId } from '../../src/datos/selectores.js';
 import { auditarAccesibilidad } from './accesibilidad.js';
 import { ConvocarSeguimiento } from '../../src/modulos/seguimiento/ConvocarSeguimiento.jsx';
+import { EnviarCompromisosMesa } from '../../src/modulos/mesas/EnviarCompromisosMesa.jsx';
 
 /**
  * Componentes que no se alcanzan por URL porque viven detrás de estado local
@@ -33,6 +34,7 @@ const CATEGORIAS = CATALOGOS_SEMILLA.categorias_tema.map((c) => ({ valor: c.nomb
 const COMPONENTES = {
   ConvocarSeguimiento: () => <ConvocarSeguimiento alCerrar={() => {}} />,
   EnviarCompromisos: () => <ConvocarSeguimiento tipo="compromisos" alCerrar={() => {}} />,
+  EnviarCompromisosMesa: () => <EnviarCompromisosMesa alCerrar={() => {}} mesa="Mesa Eventos" clave="eventos" area={/cultura/} patronReunion={/eventos/} />,
   HistorialProyecto: (bd, proyecto) => <HistorialProyecto bd={bd} proyecto={proyecto} />,
 
   /**

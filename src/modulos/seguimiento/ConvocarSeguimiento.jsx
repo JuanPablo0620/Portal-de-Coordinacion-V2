@@ -2,13 +2,14 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ExternalLink, FileCheck, Mail } from 'lucide-react';
 import { Aviso, Boton } from '../../componentes/Basicos.jsx';
 import { Modal } from '../../componentes/Modal.jsx';
+import { VistaPreviaMail } from '../../componentes/VistaPreviaMail.jsx';
 import { CampoArea, CampoCheck, CampoFecha, CampoSelect, CampoTexto, GrillaCampos } from '../../componentes/Campo.jsx';
 import {
   CARPETA_SEGUIMIENTOS, GOOGLE_CLIENT_ID, conectarGoogleConvocatorias, prepararConexionGoogle,
 } from '../../datos/repositorio.js';
 import {
   areaDelTitulo, coincidenciaUnica, compromisoDeLaReunion, datosDelEvento, fechaCorta, fechaDelArchivo, materialesSugeridos, moverFecha,
-  nombreSinPrefijo, normalizarNombre, reunionesRealizadas, segmentosMensaje, textoCompromisos, textoConvocatoria, validarConvocatoria, validarPDF,
+  nombreSinPrefijo, normalizarNombre, reunionesRealizadas, textoCompromisos, textoConvocatoria, validarConvocatoria, validarPDF,
 } from '../../datos/convocatorias.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { useBD } from '../../estado/tienda.js';
@@ -352,21 +353,7 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null, tipo = 'conv
             <CampoTexto etiqueta="Asunto" requerido value={datos.asunto} onChange={cambiar('asunto')} />
             <CampoArea etiqueta="Mensaje" requerido filas={esCompromisos ? 8 : 12} value={datos.mensaje} onChange={cambiar('mensaje')}
               ayuda={esCompromisos ? '**texto** va en negrita.' : '**texto** va en negrita; [texto] es el enlace a la presentación.'} />
-            <div>
-              <p className="mb-1 text-xs font-medium text-gris">Vista previa del mail</p>
-              <div className="whitespace-pre-line rounded-chip border border-borde bg-paper p-3 text-sm leading-relaxed text-tinta">
-                {segmentosMensaje(datos.mensaje).map((s, i) => (
-                  s.tipo === 'negrita' ? <strong key={i}>{s.texto}</strong>
-                    : s.tipo === 'enlace' && datos.presentacion ? <a key={i} href={datos.presentacion} target="_blank" rel="noopener noreferrer" className="text-acento underline">{s.texto}</a>
-                      : <span key={i}>{s.tipo === 'enlace' ? `[${s.texto}]` : s.texto}</span>
-                ))}
-                {/* La firma es HTML de Gmail: se muestra aislada, sin scripts ni acceso a la página. */}
-                {datos.firma && <iframe title="Firma de Gmail" sandbox="" srcDoc={datos.firma} className="mt-3 block h-36 w-full rounded-chip border-0 bg-white" />}
-              </div>
-              <p className="mt-1 text-xs text-gris">{datos.firma ? 'Al final va tu firma predeterminada de Gmail.'
-                : firmaLeida === '' ? 'Tu cuenta de Gmail no tiene firma predeterminada: el borrador sale sin firma.'
-                  : 'No se pudo leer tu firma de Gmail: el borrador sale sin firma y podés agregarla en Gmail antes de enviar.'}</p>
-            </div>
+            <VistaPreviaMail mensaje={datos.mensaje} presentacion={datos.presentacion} firma={datos.firma} firmaLeida={firmaLeida} />
             <Boton onClick={() => { setDatos((d) => ({ ...d, ...redactar(d) })); setRevisado(false); }} className="self-start">
               Actualizar texto con los datos de la reunión
             </Boton>

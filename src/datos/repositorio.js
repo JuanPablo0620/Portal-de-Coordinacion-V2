@@ -20,6 +20,7 @@ import {
 import { normalizarPlantilla } from './invitaciones.js';
 export {
   CARPETA_SEGUIMIENTOS,
+  CARPETA_EVENTOS,
   GOOGLE_CLIENT_ID,
   prepararConexionGoogle,
   conectarGoogleConvocatorias,
@@ -1324,9 +1325,9 @@ export async function actualizarTema(id, cambios) {
  * navegador (ver la nota en `almacenamiento.js`). Al pasarlas a Supabase se
  * vuelven async y el único consumidor es `InvitarReunion.jsx`.
  */
-export const plantillaInvitacion = (clave) => normalizarPlantilla(leerPlantillaInvitacion(clave));
+export const plantillaInvitacion = (clave) => normalizarPlantilla(leerPlantillaInvitacion(clave), clave);
 export const guardarPlantillaInvitacion = (clave, plantilla) =>
-  escribirPlantillaInvitacion(clave, normalizarPlantilla(plantilla));
+  escribirPlantillaInvitacion(clave, normalizarPlantilla(plantilla, clave));
 
 export const leerBorradoresCompromisos = (idMonitoreo) => leerBorradoresMonitoreo(idMonitoreo) ?? {};
 export const guardarBorradoresCompromisos = (idMonitoreo, borradores) =>

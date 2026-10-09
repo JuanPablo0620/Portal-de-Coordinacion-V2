@@ -65,6 +65,29 @@ borrador (permiso nuevo `gmail.settings.basic`, ya agregado en Google Auth Platf
 El portal no escribe firma propia; las palabras clave van en negrita. Quien ya se
 había conectado tiene que volver a aceptar los permisos.
 
+**Mesa de Eventos: agendar y convocar (09/10).** «Invitar a la reunión» ya no abre
+links precargados: crea el evento «Reunión Mesa Eventos» en el Calendar de quien
+convoca —Google avisa a los invitados al crearlo, con confirmación previa— y arma
+la convocatoria «Mesa Eventos | dd/mm» como borrador de Gmail, con el texto que JP
+manda a mano. Sin campo de presentación en Eventos. Las demás mesas usan el mismo
+modal con su plantilla genérica. Permiso nuevo `calendar.events`: hay que sumarlo
+en Google Auth Platform → Acceso a los datos, y el equipo vuelve a aceptar
+permisos. La plantilla (invitados incluidos) sigue en el navegador de cada uno.
+Prueba sin cuentas reales: `node scripts/verificar-invitacion.mjs`.
+
+**Mesa de Eventos: enviar compromisos (09/10).** Botón «Enviar compromisos» en
+Eventos: borrador para los invitados de la última reunión realizada, con el último
+documento de Drive Eventos → Cultura → Compromisos en PDF y la última PPT de
+Cultura → PPT en .pptx («último» = número más alto del nombre). Variable
+`VITE_GOOGLE_EVENTOS_FOLDER_ID` ya cargada en Vercel (el ID está en
+`contexto/drive/00-general.md`, no en el repo). Los borradores ahora suben por
+`upload/gmail/.../drafts` (hasta 35 MB) para que entre el .pptx.
+Prueba: `node scripts/verificar-compromisos-mesa.mjs`.
+**Sigue:** barrios (invitación y compromisos con su carpeta y su texto).
+
+**Rama sin mergear:** `feat/interfaz-estilo-flota` (barra navy y lateral que se
+despliega con el cursor), esperando el visto bueno de JP.
+
 Circuito, configuración y límites en `docs/convocatorias-seguimiento.md`.
 La rama también trajo las invitaciones manuales de Mesas y Eventos.
 

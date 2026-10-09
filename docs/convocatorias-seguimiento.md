@@ -60,6 +60,51 @@ compromisos a los mismos invitados. **Seguimiento → Enviar compromisos**.
 Comparte conexión, permisos y manejo de errores con la convocatoria: es el mismo
 diálogo con `tipo="compromisos"`.
 
+## Invitación a reuniones de mesa (desde el 09/10)
+
+Las reuniones de mesa (empezando por la Mesa de Eventos) no existen en Calendar
+hasta que el equipo las crea. **Mesas → Eventos → Invitar a la reunión**:
+
+1. **Agendar en Calendar:** el portal crea el evento («Reunión Mesa Eventos») en
+   el calendario de quien convoca, con hora, duración, lugar e invitados, y Google
+   les manda la invitación en ese momento (`sendUpdates=all`, decisión de JP). No
+   tiene borrador: se pide tildar una confirmación antes. El id del evento lo pone
+   el portal, así que reintentar tras una respuesta perdida no lo duplica.
+2. **Convocatoria por mail:** borrador de Gmail sin adjunto con el texto de la
+   plantilla de la mesa (negritas y firma de Gmail incluidas), para los mismos
+   invitados.
+
+La plantilla de cada mesa (título del evento, asunto, mensaje, invitados, hora,
+duración, lugar) se guarda en el navegador al usarla. La de Eventos arranca con
+el texto que JP usa a mano. Antes este modal abría Calendar y Gmail con links
+precargados; se reemplazó por la API porque los permisos ya se piden igual.
+
+Prueba sin cuentas reales: `node scripts/verificar-invitacion.mjs`.
+
+## Compromisos de reuniones de mesa (desde el 09/10)
+
+**Mesas → Eventos → Enviar compromisos.** El día siguiente a la reunión:
+
+1. Busca en Calendar las reuniones realizadas de los últimos 30 días con
+   «eventos» en el título y propone la más reciente; los destinatarios son sus
+   invitados (sin salas). Si no aparece, se carga la fecha y los destinatarios
+   salen de la plantilla de invitados de la mesa.
+2. En Drive baja de la carpeta Eventos (`VITE_GOOGLE_EVENTOS_FOLDER_ID`) a
+   **Cultura → Compromisos** y **Cultura → PPT**, y propone en cada una el
+   archivo de **número más alto** («18. Compromisos…», «17. Eventos»): los
+   nombres no siempre traen fecha. Se puede cambiar.
+3. Adjunta el documento en **PDF** y la presentación en **.pptx** (exportada si
+   es Google Slides; la presentación es opcional). Asunto
+   `Compromisos | Mesa Eventos dd/mm`, texto con negritas y firma de Gmail.
+
+Los borradores se suben por la vía de subida de Gmail (`upload/.../drafts`,
+mensaje crudo), que admite hasta 35 MB: el pedido JSON anterior no alcanzaba para
+un .pptx. Límites: PDF 8 MB, .pptx 15 MB, adjuntos juntos 18 MB (Gmail envía hasta
+25 MB y la codificación suma un tercio). Drive no exporta presentaciones de más de
+10 MB: en ese caso se manda sin la presentación.
+
+Prueba sin cuentas reales: `node scripts/verificar-compromisos-mesa.mjs`.
+
 ## Activación de Google
 
 1. En el proyecto de Google Cloud destinado al portal, habilitar **Gmail API**,
@@ -91,7 +136,8 @@ Referencias de Google: [modelo de token](https://developers.google.com/identity/
 
 ## Permisos y manejo de errores
 
-1. Se piden `calendar.readonly`, `drive` y `gmail.compose` sólo al usar la función.
+1. Se piden `calendar.readonly`, `calendar.events` (desde el 09/10, para agendar
+   reuniones de mesa), `drive` y `gmail.compose` sólo al usar la función.
    Drive requiere escritura para copiar templates de las carpetas existentes y
    convertir Word. `gmail.compose` incluye capacidad de envío según Google;
    el código de esta función llama solamente a `users.drafts.create`.

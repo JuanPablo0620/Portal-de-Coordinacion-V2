@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_PDF, MIME_DOC, MIME_DOCX, MIME_PPTX, areaDelTitulo, coincidenciaUnica, compromisoDeLaReunion, datosDelEvento, fechaConDia, idDeDrive,
+  MAX_PDF, MAX_PPTX, MIME_DOC, MIME_DOCX, MIME_PPTX, areaDelTitulo, coincidenciaUnica, compromisoDeLaReunion, datosDelEvento, fechaConDia, idDeDrive,
   materialesSugeridos, mensajeHtml, mensajeMime, mensajePlano, moverFecha, nombrePresentacion, rawGmail, reunionesRealizadas,
-  textoCompromisos, textoConvocatoria, validarConvocatoria,
+  textoCompromisos, textoCompromisosMesa, textoConvocatoria, ultimoNumerado, validarConvocatoria,
 } from '../src/datos/convocatorias.js';
 import { crearClienteConvocatorias } from '../src/datos/googleConvocatorias.js';
 
@@ -178,9 +178,60 @@ test('drafts.create recibe MIME con adjunto: un segundo clic no duplica ni manda
   assert.match(creado.url, /#drafts$/);
   await assert.rejects(c.crearBorrador(datos, pdf), /Revisá Borradores/);
   assert.equal(llamadas.length, 1);
-  assert.equal(llamadas[0].url, 'https://gmail.googleapis.com/gmail/v1/users/me/drafts');
+  // Por la vía de subida y como mensaje crudo: admite adjuntos de varios MB.
+  assert.equal(llamadas[0].url, 'https://gmail.googleapis.com/upload/gmail/v1/users/me/drafts?uploadType=media');
   assert.equal(llamadas[0].opciones.method, 'POST');
-  assert.match(Buffer.from(JSON.parse(llamadas[0].opciones.body).message.raw, 'base64url').toString('utf8'), /application\/pdf/);
+  assert.equal(llamadas[0].opciones.headers['Content-Type'], 'message/rfc822');
+  assert.match(llamadas[0].opciones.body, /Content-Type: application\/pdf/);
+});
+
+test('compromisos de mesa: último archivo por número, texto, PDF y .pptx adjuntos', async () => {
+  const archivos = [
+    { id: 'a', name: '9. Compromisos viejos' }, { id: 'b', name: '18. Compromisos Reunión Eventos 07/10.docx' },
+    { id: 'c', name: '17. Compromisos' }, { id: 'd', name: 'Sin número' },
+  ];
+  assert.equal(ultimoNumerado(archivos), 'b');
+  assert.equal(ultimoNumerado([...archivos, { id: 'e', name: '18. Otro' }]), '');
+  assert.equal(ultimoNumerado([{ id: 'd', name: 'Sin número' }]), '');
+
+  const texto = textoCompromisosMesa({ mesa: 'Mesa Eventos', fecha: '2026-10-07', conPresentacion: true });
+  assert.equal(texto.asunto, 'Compromisos | Mesa Eventos 07/10');
+  assert.match(texto.mensaje, /les adjunto los \*\*compromisos\*\* y la \*\*presentación\*\* de la reunión de la \*\*mesa Eventos del miércoles 07\/10\*\*\./);
+  assert.doesNotMatch(textoCompromisosMesa({ mesa: 'Mesa Eventos', fecha: '2026-10-07' }).mensaje, /presentación/);
+
+  const pptx = { nombre: '17. Eventos .pptx', bytes: new Uint8Array([0x50, 0x4b, 3, 4, 5]) };
+  const envio = { tipo: 'compromisos-mesa', fecha: '2026-10-07', destinatarios: 'ana@example.test', firma: '', ...texto };
+  const mime = mensajeMime(envio, [pdf, pptx], 'equipo@example.test', 'limite_mesa');
+  assert.match(mime, /Content-Type: application\/pdf/);
+  assert.match(mime, /Content-Type: application\/vnd\.openxmlformats-officedocument\.presentationml\.presentation\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename="Presentacion\.pptx"; filename\*=UTF-8''17\.%20Eventos%20\.pptx/);
+  assert.equal(validarConvocatoria(envio, [pdf]).length, 1);
+  assert.throws(() => validarConvocatoria(envio, [pdf, { nombre: 'x.pptx', bytes: new Uint8Array([1, 2]) }]), /pptx/);
+  assert.throws(() => validarConvocatoria(envio, []), /adjuntos/);
+  assert.throws(() => validarConvocatoria(envio, [pdf, { nombre: 'x.pptx', bytes: new Uint8Array(MAX_PPTX + 1).fill(0x50) }]), /pptx/);
+});
+
+test('materiales de la mesa: baja de la raíz al área y exporta la PPT de Google Slides a .pptx', async () => {
+  const carpeta = (id, name) => ({ id, name, mimeType: 'application/vnd.google-apps.folder' });
+  const consultas = [];
+  const c = cliente(async (url) => {
+    consultas.push(url);
+    const q = decodeURIComponent(new URL(url).searchParams.get('q') ?? '');
+    if (q.includes("'raiz-eventos-123'")) return respuesta({ files: [carpeta('cultura-123', 'Cultura'), carpeta('migrantes-1234', 'Migrantes')] });
+    if (q.includes("'cultura-123'")) return respuesta({ files: [carpeta('compromisos-123', 'Compromisos'), carpeta('presentaciones-123', 'PPT'), carpeta('temario-123', 'Temario')] });
+    if (q.includes("'compromisos-123'")) return respuesta({ files: [{ id: 'doc', name: '18. Compromisos', mimeType: MIME_DOC }] });
+    if (q.includes("'presentaciones-123'")) return respuesta({ files: [{ id: 'slides-prueba-123', name: '17. Eventos', mimeType: 'application/vnd.google-apps.presentation' }] });
+    if (url.includes('/files/slides-prueba-123?')) return respuesta({ id: 'slides-prueba-123', name: '17. Eventos', mimeType: 'application/vnd.google-apps.presentation' });
+    if (url.includes('/files/slides-prueba-123/export')) return new Response(new Uint8Array([0x50, 0x4b, 1]), { status: 200 });
+    throw new Error('consulta inesperada ' + url);
+  });
+  const materiales = await c.materialesMesa('raiz-eventos-123', /cultura/);
+  assert.deepEqual(materiales.compromisos.map((a) => a.id), ['doc']);
+  assert.deepEqual(materiales.presentaciones.map((a) => a.id), ['slides-prueba-123']);
+  const pptx = await c.pptxPresentacion('slides-prueba-123');
+  assert.equal(pptx.nombre, '17. Eventos.pptx');
+  assert.ok(consultas.some((u) => u.includes('export?mimeType=application%2Fvnd.openxmlformats-officedocument.presentationml.presentation')));
+  const sinArea = cliente(async () => respuesta({ files: [] }));
+  await assert.rejects(sinArea.materialesMesa('raiz-eventos-123', /cultura/), /Cultura/);
 });
 
 test('respuesta perdida de Gmail bloquea el reintento; un rechazo explícito permite corregir', async () => {

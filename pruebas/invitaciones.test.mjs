@@ -1,24 +1,23 @@
 /**
- * Invitaciones a reuniones de mesa: la plantilla, los invitados y los links a
- * Google. Lo que se prueba acá es lo que no se ve hasta que la invitación ya
- * salió: un mail que se perdió al pegar la lista, una hora corrida, un link que
- * no llegó al cuerpo del correo.
+ * Invitaciones a reuniones de mesa: la plantilla, los invitados, el evento de
+ * Calendar y el mail. Lo que se prueba acá es lo que no se ve hasta que la
+ * invitación ya salió: un mail que se perdió al pegar la lista, una hora
+ * corrida, un link que no llegó al cuerpo del correo.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  LARGO_MAXIMO_URL,
+  CLAVE_EVENTOS,
   agregarMails,
   armarInvitacion,
   completarVariables,
-  cuentaGoogleDe,
   fechaConvocatoria,
+  horarioEvento,
   normalizarPlantilla,
   plantillaBase,
-  urlGmail,
-  urlGoogleCalendar,
   validarInvitacion,
 } from '../src/datos/invitaciones.js';
+import { mensajeHtml, mensajeMime, validarConvocatoria } from '../src/datos/convocatorias.js';
 
 const plantilla = (cambios = {}) => ({ ...plantillaBase(), invitados: ['ana@x.com'], ...cambios });
 
@@ -39,6 +38,7 @@ test('lo que no es un mail no se agrega ni se pierde', () => {
 
 test('una plantilla guardada rota o vieja vuelve a la base en lo que falle', () => {
   assert.deepEqual(normalizarPlantilla(null), plantillaBase());
+  assert.equal(normalizarPlantilla({ asunto: 'Viejo' }).titulo_evento, plantillaBase().titulo_evento);
   const n = normalizarPlantilla({ asunto: 'Propio', invitados: ['ok@x.com', 'roto'], hora: '9', duracion_min: 45 });
   assert.equal(n.asunto, 'Propio');
   assert.deepEqual(n.invitados, ['ok@x.com']);
@@ -84,52 +84,35 @@ test('validar: faltantes, fecha pasada y {link} sin presentación', () => {
   assert.ok(validarInvitacion({ ...completa, url_presentacion: 'docs.google.com/p/1' }, '2026-10-01').url_presentacion);
 });
 
-test('Google Calendar: hora de reloj con huso aparte, invitados y cuenta', () => {
-  const url = urlGoogleCalendar({
-    titulo: 'Mesa: reunión',
-    cuerpo: 'Hola a todos',
-    lugar: '',
-    fecha: '2026-10-01',
-    hora: '23:30',
-    duracionMin: 60,
-    invitados: ['ana@x.com', 'luis@y.com'],
-    cuenta: 'coordinacion@gmail.com',
+test('Calendar: hora de reloj con huso aparte, y el fin cruza la medianoche', () => {
+  assert.deepEqual(horarioEvento('2026-10-01', '23:30', 60), {
+    start: { dateTime: '2026-10-01T23:30:00', timeZone: 'America/Argentina/Buenos_Aires' },
+    end: { dateTime: '2026-10-02T00:30:00', timeZone: 'America/Argentina/Buenos_Aires' },
   });
-  const p = new URL(url).searchParams;
-  assert.equal(p.get('action'), 'TEMPLATE');
-  // Cruza la medianoche: el fin cae al día siguiente.
-  assert.equal(p.get('dates'), '20261001T233000/20261002T003000');
-  assert.equal(p.get('ctz'), 'America/Argentina/Buenos_Aires');
-  assert.equal(p.get('add'), 'ana@x.com,luis@y.com');
-  assert.equal(p.get('authuser'), 'coordinacion@gmail.com');
-  assert.equal(p.has('location'), false);
-  // Espacios como %20: el «+» no lo decodifican igual todas las pantallas de Google.
-  assert.ok(url.includes('Hola%20a%20todos'));
-  assert.ok(!url.includes('+'));
 });
 
-test('Gmail: destinatarios, asunto y cuerpo; sin cuenta forzada si no es de Google', () => {
-  const url = urlGmail({ titulo: 'Asunto', cuerpo: 'Línea 1\nLínea 2', invitados: ['ana@x.com'], cuenta: '' });
-  const p = new URL(url).searchParams;
-  assert.equal(p.get('view'), 'cm');
-  assert.equal(p.get('to'), 'ana@x.com');
-  assert.equal(p.get('su'), 'Asunto');
-  assert.equal(p.get('body'), 'Línea 1\nLínea 2');
-  assert.equal(p.has('authuser'), false);
+test('la agenda de eventos arranca con la convocatoria de JP, con negritas y su título', () => {
+  const base = normalizarPlantilla(null, CLAVE_EVENTOS);
+  assert.equal(base.titulo_evento, 'Reunión Mesa Eventos');
+  const { titulo, cuerpo, tituloEvento } = armarInvitacion(base, { nombre: 'Agenda de eventos', fecha: '2026-10-07' });
+  assert.equal(titulo, 'Mesa Eventos | 07/10');
+  assert.equal(tituloEvento, 'Reunión Mesa Eventos');
+  assert.match(cuerpo, /Los convocamos el día \*\*miércoles 07\/10\*\* a las \*\*15:00hs\*\*\./);
+  assert.match(cuerpo, /presencial en la \*\*Sala de Reuniones de la Privada\*\*/);
+  assert.match(mensajeHtml(cuerpo, ''), /<strong>Les pedimos que confirmen su asistencia vía calendar<\/strong>/);
+  // Una mesa común sigue con su plantilla genérica.
+  assert.equal(normalizarPlantilla(null, 'mesa-1').titulo_evento, 'Reunión {mesa}');
 });
 
-test('la cuenta sólo se fuerza con un mail que seguro es de Google', () => {
-  assert.equal(cuentaGoogleDe(' Coordinacion@Gmail.com '), 'coordinacion@gmail.com');
-  assert.equal(cuentaGoogleDe('alguien@tresdefebrero.gov.ar'), '');
-  assert.equal(cuentaGoogleDe(undefined), '');
-});
-
-test('una invitación normal entra holgada en el largo máximo de URL', () => {
-  const invitados = Array.from({ length: 30 }, (_, i) => `integrante${i}@tresdefebrero.gov.ar`);
-  const { titulo, cuerpo } = armarInvitacion(plantilla({ invitados, url_presentacion: 'https://docs.google.com/p/1' }), {
-    nombre: 'Mesa Barrial Norte',
-    fecha: '2026-10-01',
-  });
-  const url = urlGmail({ titulo, cuerpo, invitados, cuenta: '' });
-  assert.ok(url.length < LARGO_MAXIMO_URL / 2, `largo ${url.length}`);
+test('el mail de invitación sale sin adjunto y con los invitados como destinatarios', () => {
+  const datos = {
+    tipo: 'invitacion', fecha: '2026-10-07', destinatarios: 'ana@x.com, luis@y.com',
+    asunto: 'Mesa Eventos | 07/10', mensaje: 'Hola **a todos**', presentacion: '', firma: '<div>Firma</div>',
+  };
+  assert.equal(validarConvocatoria(datos, null).length, 2);
+  const mime = mensajeMime(datos, null, 'equipo@x.com', 'limite_inv');
+  assert.doesNotMatch(mime, /application\/pdf/);
+  assert.match(mime, /To: ana@x\.com,\r\n luis@y\.com/);
+  assert.ok(mime.trimEnd().endsWith('--limite_inv--'));
+  assert.throws(() => validarConvocatoria(datos, { bytes: new Uint8Array([1]) }), /adjunto/);
 });
