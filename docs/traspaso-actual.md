@@ -47,8 +47,9 @@ y verificadas dentro del bundle publicado.
 **Pendiente:**
 1. Probar una convocatoria completa desde producción y mirar el borrador en Gmail
    (negrita y enlace a la PPT todavía no se vieron en un Gmail real).
-2. Agregar como usuarios de prueba (Google Auth Platform → Público) a cada
-   integrante que vaya a preparar convocatorias. Sin eso, Google le niega el acceso.
+2. ~~Usuarios de prueba~~ — hecho el 09/10: el equipo está cargado en Google Auth
+   Platform → Público (cuenta del equipo). Quien se sume después va ahí; sin eso,
+   Google le niega el acceso.
 3. `node scripts/verificar-convocatoria.mjs` falla al final por un 400 de
    Supabase en `GET /rest/v1/eventos` (el script no simula Supabase y usa el
    `.env.local` real). No lo trae esta rama —no toca esa consulta—, pero hay que
