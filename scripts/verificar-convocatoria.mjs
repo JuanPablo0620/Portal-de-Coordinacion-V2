@@ -61,6 +61,9 @@ try {
     const url = new URL(peticion.url());
     consultasGoogle.push({ url: url.pathname, metodo: peticion.method() });
     if (url.pathname.endsWith('/profile')) return ruta.fulfill({ json: { emailAddress: 'equipo@example.test' } });
+    if (url.pathname.endsWith('/settings/sendAs')) {
+      return ruta.fulfill({ json: { sendAs: [{ sendAsEmail: 'equipo@example.test', isPrimary: true, isDefault: true, signature: '<div>Firma de prueba</div>' }] } });
+    }
     if (url.pathname.endsWith('/calendarList')) return ruta.fulfill({ json: { items: [{ id: 'calendario-prueba', summary: 'Calendario de prueba', primary: true }] } });
     if (url.pathname.endsWith('/events')) return ruta.fulfill({ json: { items: [evento] } });
     if (url.pathname.endsWith('/events/reunion-prueba')) return ruta.fulfill({ json: evento });
@@ -122,6 +125,9 @@ try {
   assert.match(mailMime, /To: area@example.test/);
   assert.match(mailMime, /Content-Type: application\/pdf/);
   assert.match(mailMime, /Content-Type: text\/html; charset=UTF-8/);
+  const cuerposMime = [...mailMime.matchAll(/Content-Transfer-Encoding: base64\r\n\r\n([\s\S]*?)\r\n\r\n--/g)]
+    .map((m) => Buffer.from(m[1], 'base64').toString('utf8'));
+  assert.ok(cuerposMime.some((c) => c.includes('class="gmail_signature"><div>Firma de prueba</div>')), 'falta la firma de Gmail');
   assert.equal(consultasGoogle.filter((r) => r.metodo === 'POST' && r.url.endsWith('/drafts')).length, 1);
   assert.equal(consultasGoogle.some((r) => r.url.endsWith('/send')), false);
   assert.equal(await dialogo.getByRole('link', { name: 'Revisar y enviar en Gmail' }).getAttribute('href'), 'https://mail.google.com/mail/?authuser=equipo%40example.test#drafts');

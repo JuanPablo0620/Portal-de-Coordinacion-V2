@@ -134,7 +134,12 @@ export function materialesSugeridos(presentaciones, compromisos, fecha) {
   };
 }
 
-export function textoConvocatoria({ area, fecha, hora, lugar, modalidad, entrega, firma }) {
+/**
+ * Los textos no llevan firma: se agrega al armar el mail la firma predeterminada
+ * de Gmail de quien prepara el borrador (ver `firmaPredeterminada`), la misma que
+ * pondría Gmail a mano, con logo incluido. Una firma escrita acá la duplicaba.
+ */
+export function textoConvocatoria({ area, fecha, hora, lugar, modalidad, entrega }) {
   return {
     asunto: `Convocatoria | Reunión de seguimiento ${area} ${fechaCorta(fecha)}`,
     mensaje: `¡¡Buenos días a todos!!\n\n` +
@@ -143,7 +148,7 @@ export function textoConvocatoria({ area, fecha, hora, lugar, modalidad, entrega
       `Les pedimos que nos envíen la presentación el **${fechaConDia(entrega)}** así contamos con el tiempo suficiente para adecuar el formato, realizar consultas y mostrarles la versión final de ser necesario.\n` +
       `En este mail les adjunto los compromisos de la reunión pasada y les comparto la presentación:\n` +
       `[PPT | Seguimiento ${fechaCorta(fecha)}]\n\n` +
-      `Cualquier duda, estoy a disposición.\n\n${firma}`,
+      `Cualquier duda, estoy a disposición.`,
   };
 }
 
@@ -152,13 +157,21 @@ export function textoConvocatoria({ area, fecha, hora, lugar, modalidad, entrega
  * Va el día siguiente a la reunión, a sus mismos invitados, con el documento de
  * compromisos de ESA reunión (no de la anterior) y sin presentación.
  */
-export function textoCompromisos({ area, fecha, firma }) {
+export function textoCompromisos({ area, fecha }) {
   return {
     asunto: `Compromisos | Seguimiento ${area} ${fechaCorta(fecha)}`,
     mensaje: `¡Buenas tardes a todos!\n\n` +
-      `En este mail les adjunto los compromisos de la reunión de seguimiento del ${fechaConDia(fecha)}.\n` +
-      `Cualquier duda o consulta estoy a disposición\n\n${firma}`,
+      `En este mail les adjunto los **compromisos** de la **reunión de seguimiento del ${fechaConDia(fecha)}**.\n` +
+      `Cualquier duda o consulta estoy a disposición`,
   };
+}
+
+/** Texto plano de la firma HTML de Gmail, para la versión sin formato del mail. */
+export function firmaEnTexto(html = '') {
+  return String(html)
+    .replace(/<br\s*\/?>/gi, '\n').replace(/<\/(div|p|tr|li)>/gi, '\n').replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+    .split('\n').map((l) => l.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 /** Reuniones que ya empezaron, la más reciente primero: la de arriba es la que se propone. */
@@ -190,21 +203,25 @@ export function segmentosMensaje(mensaje = '') {
 const escaparHtml = (texto) => texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // Sin presentación (envío de compromisos) un corchete queda como texto: no hay a dónde enlazar.
-export function mensajeHtml(mensaje, presentacion) {
+// La firma es el HTML que la persona configuró en su Gmail: va tal cual, como la pondría Gmail.
+export function mensajeHtml(mensaje, presentacion, firma = '') {
   const cuerpo = segmentosMensaje(mensaje).map(({ tipo, texto }) => {
     if (tipo === 'negrita') return `<strong>${escaparHtml(texto)}</strong>`;
     if (tipo === 'enlace') return presentacion ? `<a href="${escaparHtml(presentacion)}">${escaparHtml(texto)}</a>` : escaparHtml(`[${texto}]`);
     return escaparHtml(texto);
   }).join('').replace(/\r?\n/g, '<br>\r\n');
-  return `<div dir="ltr">${cuerpo}</div>`;
+  const conFirma = firma ? `<br>\r\n<br>\r\n<div dir="ltr" class="gmail_signature">${firma}</div>` : '';
+  return `<div dir="ltr">${cuerpo}${conFirma}</div>`;
 }
 
 /** Versión sin formato para clientes que no muestran HTML: el enlace va escrito. */
-export function mensajePlano(mensaje, presentacion) {
-  return segmentosMensaje(mensaje).map(({ tipo, texto }) => {
+export function mensajePlano(mensaje, presentacion, firma = '') {
+  const cuerpo = segmentosMensaje(mensaje).map(({ tipo, texto }) => {
     if (tipo !== 'enlace') return texto;
     return presentacion ? `${texto}\n${presentacion}` : `[${texto}]`;
   }).join('');
+  const texto = firmaEnTexto(firma);
+  return texto ? `${cuerpo}\n\n${texto}` : cuerpo;
 }
 
 /** `datos.tipo === 'compromisos'` no lleva entrega, lugar ni presentación. */
@@ -235,6 +252,7 @@ export function validarConvocatoria(datos, pdf) {
     try { url = new URL(datos.presentacion); } catch { throw new Error('Falta el enlace de la presentación.'); }
     if (url.protocol !== 'https:' || !['docs.google.com', 'drive.google.com'].includes(url.hostname)) throw new Error('La presentación debe tener un enlace de Google Drive.');
   }
+  if (datos.firma && (typeof datos.firma !== 'string' || datos.firma.length > 20000)) throw new Error('La firma de Gmail no es válida.');
   validarPDF(pdf);
   return lista;
 }
@@ -276,9 +294,9 @@ export function mensajeMime(datos, pdf, remitente, limite = `convocatoria_${cryp
     'MIME-Version: 1.0', `Content-Type: multipart/mixed; boundary="${limite}"`, '',
     `--${limite}`, `Content-Type: multipart/alternative; boundary="${alternativa}"`, '',
     `--${alternativa}`, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
-    lineasBase64(codificarTexto(mensajePlano(datos.mensaje, datos.presentacion))), '',
+    lineasBase64(codificarTexto(mensajePlano(datos.mensaje, datos.presentacion, datos.firma))), '',
     `--${alternativa}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
-    lineasBase64(codificarTexto(mensajeHtml(datos.mensaje, datos.presentacion))), '', `--${alternativa}--`, '',
+    lineasBase64(codificarTexto(mensajeHtml(datos.mensaje, datos.presentacion, datos.firma))), '', `--${alternativa}--`, '',
     `--${limite}`, 'Content-Type: application/pdf',
     'Content-Transfer-Encoding: base64', `Content-Disposition: attachment; filename="Compromisos.pdf"; filename*=UTF-8''${encodeURIComponent(nombre).replace(/'/g, '%27')}`, '',
     lineasBase64(aBase64(pdf.bytes)), '', `--${limite}--`, '',

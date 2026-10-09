@@ -11,7 +11,8 @@ const pdf = { nombre: 'Compromisos anteriores.pdf', bytes: new TextEncoder().enc
 const datos = {
   area: 'Área de prueba', fecha: '2026-10-14', hora: '14:30', lugar: 'Sala de prueba', modalidad: 'presencial',
   entrega: '2026-10-13', destinatarios: 'ana@example.test, otro@example.test',
-  presentacion: 'https://docs.google.com/presentation/d/presentacion-prueba/edit', firma: 'Equipo de prueba',
+  presentacion: 'https://docs.google.com/presentation/d/presentacion-prueba/edit',
+  firma: '<div>Equipo de prueba<br><img src="https://example.test/logo.png" alt="Logo"></div>',
 };
 Object.assign(datos, textoConvocatoria(datos));
 const respuesta = (json, estado = 200) => new Response(JSON.stringify(json), { status: estado, headers: { 'Content-Type': 'application/json' } });
@@ -52,14 +53,24 @@ test('materiales: la última edición no define cuál fue la última reunión', 
   assert.equal(materialesSugeridos(ppts, [...documentos, { id: 'duplicado', name: '04. Compromisos área 14/09.pdf' }], '2026-10-14').compromiso, '');
 });
 
-test('la convocatoria reproduce el pedido de entrega, el enlace editable y la firma', () => {
+test('la convocatoria reproduce el pedido de entrega y el enlace editable; la firma no va en el texto', () => {
   assert.equal(datos.asunto, 'Convocatoria | Reunión de seguimiento Área de prueba 14/10');
   assert.match(datos.mensaje, /miércoles 14\/10 a las 14:30/);
   assert.match(datos.mensaje, /martes 13\/10/);
   assert.match(datos.mensaje, /presencial en Sala de prueba/);
   assert.match(datos.mensaje, /\[PPT \| Seguimiento 14\/10\]/);
   assert.match(datos.mensaje, /\*\*Reunión de Seguimiento de Área de prueba\*\*/);
-  assert.ok(datos.mensaje.endsWith('Equipo de prueba'));
+  assert.ok(datos.mensaje.endsWith('Cualquier duda, estoy a disposición.'));
+  assert.doesNotMatch(datos.mensaje, /Equipo de prueba|Control de Gestión/);
+});
+
+test('la firma de Gmail va al final tal cual en HTML y como texto en la versión plana', () => {
+  const html = mensajeHtml('Hola', '', datos.firma);
+  assert.ok(html.endsWith(`<div dir="ltr" class="gmail_signature">${datos.firma}</div></div>`));
+  assert.equal(mensajePlano('Hola', '', datos.firma), 'Hola\n\nEquipo de prueba');
+  assert.equal(mensajePlano('Hola', '', ''), 'Hola');
+  assert.equal(mensajeHtml('Hola', ''), '<div dir="ltr">Hola</div>');
+  assert.throws(() => validarConvocatoria({ ...datos, firma: 'x'.repeat(20001) }, pdf), /firma/);
 });
 
 test('la secretaría sale del título de Calendar y la carpeta se propone sólo si es única', () => {
@@ -100,11 +111,12 @@ test('envío de compromisos: última reunión realizada, documento del mismo dí
   assert.equal(compromisoDeLaReunion(documentos, '2026-10-21'), '');
   assert.equal(compromisoDeLaReunion([...documentos, { id: 'otro', name: 'Compromisos 07/10.pdf' }], '2026-10-07'), '');
 
-  const envio = { tipo: 'compromisos', area: 'Capital Humano', fecha: '2026-10-07', destinatarios: 'ana@example.test', firma: 'Equipo de prueba' };
+  const envio = { tipo: 'compromisos', area: 'Capital Humano', fecha: '2026-10-07', destinatarios: 'ana@example.test', firma: '' };
   Object.assign(envio, textoCompromisos(envio));
   assert.equal(envio.asunto, 'Compromisos | Seguimiento Capital Humano 07/10');
-  assert.match(envio.mensaje, /^¡Buenas tardes a todos!\n\nEn este mail les adjunto los compromisos de la reunión de seguimiento del miércoles 07\/10\./);
-  assert.ok(envio.mensaje.endsWith('Equipo de prueba'));
+  assert.equal(envio.mensaje, '¡Buenas tardes a todos!\n\n' +
+    'En este mail les adjunto los **compromisos** de la **reunión de seguimiento del miércoles 07/10**.\n' +
+    'Cualquier duda o consulta estoy a disposición');
   // Sin lugar, entrega ni enlace a la PPT: igual es válido.
   assert.equal(validarConvocatoria(envio, pdf).length, 1);
   assert.throws(() => validarConvocatoria({ ...envio, area: '' }, pdf));
@@ -142,10 +154,10 @@ test('MIME y base64url preservan acentos, cuerpo y bytes del adjunto sin habilit
   const cuerpo = (parte) => Buffer.from(parte.split('\r\n\r\n')[1].trim(), 'base64').toString('utf8');
   const [, plano, html] = partes[1].split('--alt_limite_prueba');
   assert.match(partes[1], /Content-Type: multipart\/alternative/);
-  assert.equal(cuerpo(plano), mensajePlano(datos.mensaje, datos.presentacion));
+  assert.equal(cuerpo(plano), mensajePlano(datos.mensaje, datos.presentacion, datos.firma));
   assert.match(cuerpo(plano), /PPT \| Seguimiento 14\/10\nhttps:\/\/docs\.google\.com\/presentation\/d\/presentacion-prueba\/edit/);
   assert.match(html, /Content-Type: text\/html; charset=UTF-8/);
-  assert.equal(cuerpo(html), mensajeHtml(datos.mensaje, datos.presentacion));
+  assert.equal(cuerpo(html), mensajeHtml(datos.mensaje, datos.presentacion, datos.firma));
   assert.deepEqual(new Uint8Array(Buffer.from(partes[2].split('\r\n\r\n')[1].trim(), 'base64')), pdf.bytes);
   assert.throws(() => mensajeMime(datos, pdf, 'equipo@example.test\r\nBcc: tercero@example.test'));
 });

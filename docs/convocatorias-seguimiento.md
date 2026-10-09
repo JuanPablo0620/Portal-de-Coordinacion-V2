@@ -95,6 +95,10 @@ Referencias de Google: [modelo de token](https://developers.google.com/identity/
    Drive requiere escritura para copiar templates de las carpetas existentes y
    convertir Word. `gmail.compose` incluye capacidad de envío según Google;
    el código de esta función llama solamente a `users.drafts.create`.
+   `gmail.settings.basic` (desde el 09/10) sólo se usa para leer la firma
+   predeterminada (`settings.sendAs`): un borrador creado por la API no la recibe
+   sola. Los textos del portal no llevan firma propia; si la cuenta no tiene,
+   el borrador sale sin firma. En la vista previa se muestra en un iframe aislado.
 2. El token queda en memoria mientras el diálogo está abierto y se descarta al
    cerrarlo. No se almacena en Supabase, el navegador ni el repositorio. No se
    solicitan refresh tokens ni se renuevan autorizaciones en segundo plano.

@@ -11,7 +11,6 @@ import {
   nombreSinPrefijo, normalizarNombre, reunionesRealizadas, segmentosMensaje, textoCompromisos, textoConvocatoria, validarConvocatoria, validarPDF,
 } from '../../datos/convocatorias.js';
 import { hoyISO } from '../../datos/selectores.js';
-import { useSesion } from '../../estado/sesion.js';
 import { useBD } from '../../estado/tienda.js';
 
 /**
@@ -29,7 +28,6 @@ import { useBD } from '../../estado/tienda.js';
 export function ConvocarSeguimiento({ alCerrar, seguimiento = null, tipo = 'convocatoria' }) {
   const esCompromisos = tipo === 'compromisos';
   const redactar = esCompromisos ? textoCompromisos : textoConvocatoria;
-  const perfil = useSesion((s) => s.perfil);
   const bd = useBD();
   const conexion = useRef(null);
   const activo = useRef(true);
@@ -57,8 +55,10 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null, tipo = 'conv
   const [datos, setDatos] = useState({
     tipo, area: seguimiento?.area?.replace(/^Secretaría de /i, '') ?? '', fecha: '', hora: '', lugar: '',
     modalidad: 'presencial', entrega: '', destinatarios: '', asunto: '', mensaje: '', presentacion: '',
-    firma: [perfil?.nombre ?? '', 'Dirección de Control de Gestión', 'Secretaría de Coordinación'].filter(Boolean).join('\n'),
+    firma: '',
   });
+  // null: todavía no se consultó o Google no la devolvió; '' : la cuenta no tiene firma.
+  const [firmaLeida, setFirmaLeida] = useState(null);
 
   useEffect(() => {
     activo.current = true;
@@ -109,6 +109,11 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null, tipo = 'conv
       if (!activo.current) { sesion.cerrar(); return; }
       conexion.current = sesion;
       setCuenta(sesion.email);
+      // Sin firma el borrador igual sirve: un error al leerla no bloquea la preparación.
+      const firma = await sesion.firmaPredeterminada().catch(() => null);
+      if (!activo.current) return;
+      setFirmaLeida(firma);
+      setDatos((d) => ({ ...d, firma: firma ?? '' }));
       const disponibles = await sesion.calendarios();
       if (!activo.current) return;
       setCalendarios(disponibles);
@@ -355,7 +360,12 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null, tipo = 'conv
                     : s.tipo === 'enlace' && datos.presentacion ? <a key={i} href={datos.presentacion} target="_blank" rel="noopener noreferrer" className="text-acento underline">{s.texto}</a>
                       : <span key={i}>{s.tipo === 'enlace' ? `[${s.texto}]` : s.texto}</span>
                 ))}
+                {/* La firma es HTML de Gmail: se muestra aislada, sin scripts ni acceso a la página. */}
+                {datos.firma && <iframe title="Firma de Gmail" sandbox="" srcDoc={datos.firma} className="mt-3 block h-36 w-full rounded-chip border-0 bg-white" />}
               </div>
+              <p className="mt-1 text-xs text-gris">{datos.firma ? 'Al final va tu firma predeterminada de Gmail.'
+                : firmaLeida === '' ? 'Tu cuenta de Gmail no tiene firma predeterminada: el borrador sale sin firma.'
+                  : 'No se pudo leer tu firma de Gmail: el borrador sale sin firma y podés agregarla en Gmail antes de enviar.'}</p>
             </div>
             <Boton onClick={() => { setDatos((d) => ({ ...d, ...redactar(d) })); setRevisado(false); }} className="self-start">
               Actualizar texto con los datos de la reunión

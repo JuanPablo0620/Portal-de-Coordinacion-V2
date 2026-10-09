@@ -17,6 +17,9 @@ export const PERMISOS_CONVOCATORIA = [
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/drive',
   'https://www.googleapis.com/auth/gmail.compose',
+  // Sólo para leer la firma predeterminada: un borrador creado por la API no la
+  // recibe sola, y gmail.compose no alcanza para consultarla.
+  'https://www.googleapis.com/auth/gmail.settings.basic',
 ];
 let cargaBiblioteca;
 
@@ -58,7 +61,7 @@ export function conectarGoogleConvocatorias() {
       error_callback: () => rechazar(new Error('No se conectó la cuenta. Podés volver a intentarlo.')),
       callback: async (respuesta) => {
         if (respuesta.error || !respuesta.access_token || !oauth.hasGrantedAllScopes(respuesta, ...PERMISOS_CONVOCATORIA)) {
-          rechazar(new Error('Google necesita los permisos de Calendar, Drive y borradores de Gmail para preparar la convocatoria.'));
+          rechazar(new Error('Google necesita los permisos de Calendar, Drive, borradores y firma de Gmail para preparar el mail. Tildalos todos.'));
           return;
         }
         const duracion = Number(respuesta.expires_in);
@@ -162,6 +165,12 @@ export function crearClienteConvocatorias(tokenInicial, vence, consultar = globa
     email: '',
     cerrar() { token = ''; },
     perfil: () => pedir('gmail', 'profile'),
+    /** La firma que Gmail usa por defecto (HTML), o '' si la cuenta no tiene. */
+    async firmaPredeterminada() {
+      const { sendAs = [] } = await pedir('gmail', 'settings/sendAs');
+      const cuenta = sendAs.find((s) => s.isDefault) ?? sendAs.find((s) => s.isPrimary);
+      return typeof cuenta?.signature === 'string' ? cuenta.signature : '';
+    },
     calendarios: () => paginas('calendar', 'users/me/calendarList', { maxResults: '100', minAccessRole: 'reader' }, 'items'),
     reuniones: (calendario, fechaDesde, fechaHasta) => paginas('calendar', `calendars/${encodeURIComponent(calendario)}/events`, {
       timeMin: `${fechaDesde}T00:00:00-03:00`, timeMax: `${fechaHasta}T00:00:00-03:00`,
