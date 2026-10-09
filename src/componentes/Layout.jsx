@@ -25,49 +25,107 @@ import {
   X,
 } from 'lucide-react';
 
-const MODULOS = [
-  { ruta: '/', titulo: 'Inicio', icono: LayoutDashboard, exacta: true },
-  { ruta: '/mi-trabajo', titulo: 'Mi trabajo', icono: UserCheck },
-  { ruta: '/proyectos', titulo: 'Proyectos y Puntuales', icono: FolderKanban },
-  { ruta: '/obras', titulo: 'Obras', icono: HardHat },
-  { ruta: '/seguimiento', titulo: 'Seguimiento', icono: CalendarCheck },
-  { ruta: '/monitoreo', titulo: 'Monitoreo', icono: Radar },
-  { ruta: '/estrategicos', titulo: 'Proyectos estratégicos', icono: Gem },
-  { ruta: '/posicionamiento', titulo: 'Posicionamiento', icono: Globe2 },
-  { ruta: '/planificacion', titulo: 'Planificación', icono: Target },
-  // Eventos ya no es un ítem propio: es una pestaña más de Mesas de trabajo
-  // (ver `src/modulos/mesas/Mesas.jsx`), junto a Temáticas/Barriales/Otros
-  // proyectos — decisión del 14/09/2026.
-  { ruta: '/mesas', titulo: 'Mesas de trabajo', icono: Users },
-  { ruta: '/mapa', titulo: 'Mapa de cortes', icono: MapPinned },
-  { ruta: '/reportes', titulo: 'Reportes', icono: FileBarChart },
+/**
+ * Estructura con el estilo del Sistema de Gestión de Flota (09/10/2026):
+ *
+ *  - Barra superior navy: la marca a la izquierda y la sesión a la derecha.
+ *  - Lateral claro con los módulos agrupados por rótulos. El activo lleva
+ *    filete naranja, fondo, peso y texto navy: el color solo no alcanza para
+ *    decir dónde está uno (ver los tokens `--color-lateral-*`).
+ *
+ * De flota se tomó el estilo, no la arquitectura: allá la barra superior tiene
+ * los módulos y el lateral las vistas del módulo actual. Acá el lateral sigue
+ * listando los módulos y las vistas siguen siendo pestañas de cada pantalla
+ * —decisión de JP, para no cambiar cómo navega el equipo—.
+ *
+ * Por debajo de 1024 px el lateral se esconde y se abre con el botón de menú.
+ */
+const GRUPOS = [
+  {
+    titulo: null,
+    modulos: [
+      { ruta: '/', titulo: 'Inicio', icono: LayoutDashboard, exacta: true },
+      { ruta: '/mi-trabajo', titulo: 'Mi trabajo', icono: UserCheck },
+    ],
+  },
+  {
+    titulo: 'Seguimiento de gestión',
+    modulos: [
+      { ruta: '/seguimiento', titulo: 'Seguimiento', icono: CalendarCheck },
+      { ruta: '/monitoreo', titulo: 'Monitoreo', icono: Radar },
+      // Eventos ya no es un ítem propio: es una pestaña más de Mesas de trabajo
+      // (ver `src/modulos/mesas/Mesas.jsx`), junto a Temáticas/Barriales/Otros
+      // proyectos — decisión del 14/09/2026.
+      { ruta: '/mesas', titulo: 'Mesas de trabajo', icono: Users },
+    ],
+  },
+  {
+    titulo: 'Proyectos',
+    modulos: [
+      { ruta: '/proyectos', titulo: 'Proyectos y Puntuales', icono: FolderKanban },
+      { ruta: '/obras', titulo: 'Obras', icono: HardHat },
+      { ruta: '/estrategicos', titulo: 'Proyectos estratégicos', icono: Gem },
+      { ruta: '/posicionamiento', titulo: 'Posicionamiento', icono: Globe2 },
+      { ruta: '/planificacion', titulo: 'Planificación', icono: Target },
+    ],
+  },
+  {
+    titulo: 'Herramientas',
+    modulos: [
+      { ruta: '/mapa', titulo: 'Mapa de cortes', icono: MapPinned },
+      { ruta: '/reportes', titulo: 'Reportes', icono: FileBarChart },
+    ],
+  },
 ];
 
-function Navegacion({ alNavegar }) {
-  const clase = ({ isActive }) =>
-    `flex items-center gap-2.5 rounded-chip border-l-2 px-3 py-2 text-sm font-medium transition ${
-      isActive
-        ? 'border-acento bg-acento-suave text-acento-fuerte'
-        : 'border-transparent text-gris hover:bg-paper hover:text-tinta'
-    }`;
+const claseItem = (activo) =>
+  `flex min-h-11 w-full items-center gap-2.5 rounded-chip px-3 py-2 text-sm transition lg:min-h-10 ${
+    activo
+      ? 'bg-lateral-activo font-semibold text-lateral-activo-texto shadow-[inset_3px_0_var(--color-filete)] [&_svg]:text-lateral-activo-texto'
+      : 'font-medium text-lateral-texto hover:bg-lateral-hover hover:text-lateral-activo-texto [&_svg]:text-lateral-icono'
+  }`;
 
+function Rotulo({ children }) {
+  return <p className="px-3 pt-4 pb-1.5 text-[11px] font-semibold tracking-[0.08em] text-gris uppercase">{children}</p>;
+}
+
+function Lateral({ abierto, alNavegar }) {
   return (
-    <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
-      {MODULOS.map((m) => (
-        <NavLink key={m.ruta} to={m.ruta} end={m.exacta} className={clase} onClick={alNavegar}>
-          <m.icono size={17} className="shrink-0" />
-          {m.titulo}
-        </NavLink>
-      ))}
-      <div className="mt-auto pt-2">
+    <aside
+      id="lateral"
+      aria-label="Módulos del portal"
+      // `invisible` cuando está cerrado en pantallas chicas: fuera de la
+      // pantalla igual recibiría el foco con Tab, y el teclado se perdería en
+      // enlaces que no se ven. La visibilidad cambia al final del
+      // deslizamiento, así que la animación de salida se ve entera.
+      className={`no-imprimir fixed top-14 bottom-0 left-0 z-30 flex w-[260px] flex-col border-r border-borde bg-lateral
+        transition-[translate,visibility] duration-200 lg:visible lg:static lg:w-60 lg:shrink-0 lg:translate-x-0 lg:transition-none ${
+          abierto ? 'visible translate-x-0 shadow-flotante' : 'invisible -translate-x-full'
+        }`}
+    >
+      <nav aria-label="Módulos" className="scroll-fino flex-1 overflow-y-auto px-2.5 pt-2 pb-3">
+        {GRUPOS.map((grupo) => (
+          <div key={grupo.titulo ?? 'principal'}>
+            {grupo.titulo && <Rotulo>{grupo.titulo}</Rotulo>}
+            <div className="flex flex-col gap-0.5">
+              {grupo.modulos.map((m) => (
+                <NavLink key={m.ruta} to={m.ruta} end={m.exacta} onClick={alNavegar} className={({ isActive }) => claseItem(isActive)}>
+                  <m.icono size={17} className="shrink-0" aria-hidden="true" />
+                  {m.titulo}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        ))}
+      </nav>
+      <div className="flex flex-col gap-0.5 border-t border-borde px-2.5 pt-2.5 pb-3">
         <SelectorTema />
-        <NavLink to="/configuracion" className={clase} onClick={alNavegar}>
-          <Settings size={17} className="shrink-0" />
+        <NavLink to="/configuracion" onClick={alNavegar} className={({ isActive }) => claseItem(isActive)}>
+          <Settings size={17} className="shrink-0" aria-hidden="true" />
           Configuración
         </NavLink>
-        <UsuarioSesion />
       </div>
-    </nav>
+    </aside>
   );
 }
 
@@ -84,7 +142,7 @@ function SelectorTema() {
       aria-checked={activo}
       aria-label={activo ? 'Desactivar modo BlueNight' : 'Activar modo BlueNight'}
       onClick={() => cambiarTema(activo ? 'claro' : 'bluenight')}
-      className="interruptor-tema mb-1 flex min-h-[44px] w-full items-center gap-2.5 rounded-chip px-3 text-sm font-medium text-gris transition hover:bg-paper hover:text-tinta"
+      className={`interruptor-tema ${claseItem(false)}`}
     >
       {activo ? <Moon size={17} className="shrink-0" aria-hidden="true" /> : <Sun size={17} className="shrink-0" aria-hidden="true" />}
       <span className="flex-1 text-left">BlueNight</span>
@@ -114,32 +172,50 @@ function UsuarioSesion() {
   if (!perfil) return null;
 
   return (
-    <div className="mt-2 border-t border-borde px-3 pt-3">
-      <p className="truncate text-sm font-medium leading-tight text-tinta">{perfil.nombre}</p>
-      <p className="truncate text-[11px] leading-tight text-tenue">
-        {ROTULO_ROL[perfil.rol] ?? perfil.rol}
-      </p>
+    <div className="flex min-w-0 items-center gap-2 border-l border-superior-hover pl-3 md:gap-3 md:pl-4">
+      <div className="hidden min-w-0 text-right md:block">
+        <p className="truncate text-sm font-semibold leading-tight">{perfil.nombre}</p>
+        <p className="truncate text-[11px] leading-tight text-superior-tenue">{ROTULO_ROL[perfil.rol] ?? perfil.rol}</p>
+      </div>
       <button
         type="button"
         onClick={salir}
-        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-gris transition hover:text-tinta"
+        aria-label="Salir del portal"
+        title="Salir"
+        className="flex min-h-10 items-center gap-1.5 rounded-chip px-2.5 text-sm font-medium text-superior-texto transition hover:bg-superior-hover"
       >
-        <LogOut size={14} className="shrink-0" />
-        Salir
+        <LogOut size={16} className="shrink-0" aria-hidden="true" />
+        <span className="max-sm:hidden">Salir</span>
       </button>
     </div>
   );
 }
 
-function Marca() {
+function BarraSuperior({ menuAbierto, alternarMenu }) {
   return (
-    <div className="flex items-center gap-2.5 border-b border-borde px-4 py-3.5">
-      <img src={logo3f} alt="" className="h-9 w-9 shrink-0 rounded-chip" />
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold leading-tight text-tinta">Coordinación</p>
-        <p className="truncate text-[11px] leading-tight text-tenue">Municipio de Tres de Febrero</p>
+    <header className="barra-superior no-imprimir relative z-40 flex h-14 shrink-0 items-center justify-between gap-3 bg-superior px-3 text-superior-texto md:px-4">
+      <div className="flex min-w-0 items-center gap-2 md:gap-3">
+        <button
+          type="button"
+          onClick={alternarMenu}
+          aria-expanded={menuAbierto}
+          aria-controls="lateral"
+          aria-label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}
+          className="grid h-10 w-10 place-items-center rounded-chip text-white transition hover:bg-superior-hover lg:hidden"
+        >
+          {menuAbierto ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
+        </button>
+        <div className="flex min-w-0 items-center gap-2.5">
+          {/* Fondo blanco: el logo tiene navy y sobre la barra se perdería. */}
+          <img src={logo3f} alt="" width="36" height="36" className="h-9 w-9 shrink-0 rounded-chip bg-card p-[3px]" />
+          <div className="min-w-0">
+            <p className="truncate text-[15px] font-bold leading-tight text-white">Coordinación</p>
+            <p className="truncate text-[11px] leading-tight text-superior-tenue max-[380px]:hidden">Municipio de Tres de Febrero</p>
+          </div>
+        </div>
       </div>
-    </div>
+      <UsuarioSesion />
+    </header>
   );
 }
 
@@ -181,58 +257,51 @@ export function Layout() {
     acciones.refrescar().catch(() => {});
   }, [pathname]);
 
+  // En tablet y celular el menú se cierra al navegar y con Escape.
+  useEffect(() => setMenuAbierto(false), [pathname]);
+  useEffect(() => {
+    if (!menuAbierto) return undefined;
+    const alTeclear = (e) => { if (e.key === 'Escape') setMenuAbierto(false); };
+    document.addEventListener('keydown', alTeclear);
+    return () => document.removeEventListener('keydown', alTeclear);
+  }, [menuAbierto]);
+
   return (
-    <div className="layout-app flex h-full">
+    <div className="layout-app flex h-full flex-col">
       {/* Primer elemento alcanzable con el teclado: sin esto, cada pantalla
-          empieza con diez tabulaciones por la navegación antes de llegar al
+          empieza con quince tabulaciones por la navegación antes de llegar al
           contenido, y hay que repetirlas en cada página. */}
       <a href="#contenido" className="saltar-al-contenido no-imprimir">
         Saltar al contenido
       </a>
 
-      {/* Barra lateral fija — escritorio */}
-      <aside className="barra-lateral no-imprimir hidden w-60 shrink-0 flex-col border-r border-borde bg-barra lg:flex">
-        <Marca />
-        <Navegacion />
-      </aside>
+      <BarraSuperior menuAbierto={menuAbierto} alternarMenu={() => setMenuAbierto((v) => !v)} />
 
-      {/* Barra lateral desplegable — tablet */}
-      {menuAbierto && (
-        <div className="no-imprimir fixed inset-0 z-40 lg:hidden">
+      <div className="flex min-h-0 min-w-0 flex-1">
+        <Lateral abierto={menuAbierto} alNavegar={() => setMenuAbierto(false)} />
+        {menuAbierto && (
           <button
             type="button"
-            className="absolute inset-0 bg-tinta/40"
-            onClick={() => setMenuAbierto(false)}
             aria-label="Cerrar menú"
+            tabIndex={-1}
+            onClick={() => setMenuAbierto(false)}
+            className="no-imprimir fixed inset-0 top-14 z-20 bg-tinta/40 lg:hidden"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-60 flex-col border-r border-borde bg-barra shadow-flotante">
-            <Marca />
-            <Navegacion alNavegar={() => setMenuAbierto(false)} />
-          </aside>
-        </div>
-      )}
+        )}
 
-      {/* min-h-0: sin esto, un flex item en columna no se achica por debajo
-          de la altura natural de su contenido (default `min-height: auto`
-          de flexbox). Con una pantalla con mucho contenido —como "Proyectos
-          y compromisos de esta ventana" en Monitoreo, que puede crecer
-          bastante al abrir un proyecto o un compromiso— este div terminaba
-          estirándose para darle lugar a #contenido en vez de dejarlo
-          scrollear solo, y aparecía un segundo scroll: el de la ventana del
-          navegador entera, encima del de #contenido. */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <button
-          type="button"
-          onClick={() => setMenuAbierto((v) => !v)}
-          className="no-imprimir flex items-center gap-2 border-b border-borde bg-card px-4 py-2.5 text-sm
-            font-medium text-tinta lg:hidden"
-        >
-          {menuAbierto ? <X size={18} /> : <Menu size={18} />}
-          Menú
-        </button>
-        <main id="contenido" tabIndex={-1} className="area-contenido scroll-fino min-h-0 flex-1 overflow-y-auto">
-          <Outlet />
-        </main>
+        {/* min-h-0: sin esto, un flex item en columna no se achica por debajo
+            de la altura natural de su contenido (default `min-height: auto`
+            de flexbox). Con una pantalla con mucho contenido —como "Proyectos
+            y compromisos de esta ventana" en Monitoreo, que puede crecer
+            bastante al abrir un proyecto o un compromiso— este div terminaba
+            estirándose para darle lugar a #contenido en vez de dejarlo
+            scrollear solo, y aparecía un segundo scroll: el de la ventana del
+            navegador entera, encima del de #contenido. */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <main id="contenido" tabIndex={-1} className="area-contenido scroll-fino min-h-0 flex-1 overflow-y-auto">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </div>
   );

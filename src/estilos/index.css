@@ -39,6 +39,24 @@
   --color-institucional-navy: #0f3d6e;
   --color-institucional-naranja: #ea8b2d;
 
+  /* Barra superior y lateral, con el estilo del Sistema de Gestión de Flota
+     (09/10/2026, pedido de JP). La barra es el navy institucional; el lateral,
+     un gris claro con el ítem activo marcado por filete naranja + fondo + peso
+     + texto navy. El filete solo no llega a 3:1 contra el fondo del activo
+     (2,05): por eso nunca va solo. Contrastes medidos: texto 6,4; ícono 3,6;
+     texto activo 8,8; texto de la barra 9,3; BlueNight todo arriba de 4,5. */
+  --color-superior: #0f3d6e;
+  --color-superior-hover: #1a4b80;
+  --color-superior-texto: #e5edf6;
+  --color-superior-tenue: #c3d3e5;
+  --color-lateral: #f0f2f5;
+  --color-lateral-hover: #e5e9ef;
+  --color-lateral-activo: #e0e7f0;
+  --color-lateral-activo-texto: #0f3d6e;
+  --color-lateral-texto: #4a596a;
+  --color-lateral-icono: #728093;
+  --color-filete: #ea8b2d;
+
   /* Semáforo diferencial — 4 niveles distinguibles de un vistazo.
      Los niveles claros llevan texto oscuro, nunca blanco.
 
@@ -153,6 +171,17 @@
   --color-acento-medio: #3c6385;
   --color-acento-fuerte: #c7e3fa;
   --color-limite-mapa: #6ea6d6;
+
+  --color-superior: #0b2a4a;
+  --color-superior-hover: #16395f;
+  --color-superior-texto: #e5edf6;
+  --color-superior-tenue: #b9c9db;
+  --color-lateral: #151a20;
+  --color-lateral-hover: #1f262e;
+  --color-lateral-activo: #20384e;
+  --color-lateral-activo-texto: #c7e3fa;
+  --color-lateral-texto: #b9c2cc;
+  --color-lateral-icono: #9ca7b2;
 
   --color-vencido: #ffc1c7;
   --color-vencido-texto: #ffabb3;
@@ -281,9 +310,9 @@ body {
   border-radius: var(--radius-chip);
 }
 
-/* Sobre fondos oscuros —la barra lateral— el acento no contrasta: ahí el
-   anillo es blanco. */
-.barra-lateral :where(a, button):focus-visible {
+/* Sobre la barra superior navy el acento no contrasta —es casi el mismo
+   azul—: ahí el anillo es blanco (11:1). */
+.barra-superior :where(a, button):focus-visible {
   outline-color: #ffffff;
 }
 
