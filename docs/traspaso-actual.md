@@ -73,8 +73,17 @@ manda a mano. Sin campo de presentación en Eventos. Las demás mesas usan el mi
 modal con su plantilla genérica. Permiso nuevo `calendar.events`: hay que sumarlo
 en Google Auth Platform → Acceso a los datos, y el equipo vuelve a aceptar
 permisos. La plantilla (invitados incluidos) sigue en el navegador de cada uno.
-**Sigue:** enviar compromisos de la mesa y la plantilla de barrios.
 Prueba sin cuentas reales: `node scripts/verificar-invitacion.mjs`.
+
+**Mesa de Eventos: enviar compromisos (09/10).** Botón «Enviar compromisos» en
+Eventos: borrador para los invitados de la última reunión realizada, con el último
+documento de Drive Eventos → Cultura → Compromisos en PDF y la última PPT de
+Cultura → PPT en .pptx («último» = número más alto del nombre). Variable
+`VITE_GOOGLE_EVENTOS_FOLDER_ID` ya cargada en Vercel (el ID está en
+`contexto/drive/00-general.md`, no en el repo). Los borradores ahora suben por
+`upload/gmail/.../drafts` (hasta 35 MB) para que entre el .pptx.
+Prueba: `node scripts/verificar-compromisos-mesa.mjs`.
+**Sigue:** barrios (invitación y compromisos con su carpeta y su texto).
 
 **Rama sin mergear:** `feat/interfaz-estilo-flota` (barra navy y lateral que se
 despliega con el cursor), esperando el visto bueno de JP.
