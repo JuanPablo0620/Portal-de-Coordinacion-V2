@@ -4,7 +4,7 @@ import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoCheck, CampoFecha, CampoHora, CampoSelect, CampoTexto } from '../../componentes/Campo.jsx';
 import { VistaPreviaMail } from '../../componentes/VistaPreviaMail.jsx';
-import { CLAVE_EVENTOS, DURACIONES, agregarMails, armarInvitacion, horarioEvento, validarInvitacion } from '../../datos/invitaciones.js';
+import { CLAVE_EVENTOS, DURACIONES, agregarMails, armarInvitacion, horarioEvento, plantillaBase, plantillaBarrial, validarInvitacion } from '../../datos/invitaciones.js';
 import { GOOGLE_CLIENT_ID, conectarGoogleConvocatorias, prepararConexionGoogle } from '../../datos/repositorio.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { acciones } from '../../estado/tienda.js';
@@ -27,9 +27,13 @@ import { acciones } from '../../estado/tienda.js';
  * antes de cada convocatoria y queda guardada al usarla. La fecha es lo único
  * que no se guarda, porque es de esta reunión y no de la mesa.
  */
-export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial = '' }) {
+export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial = '', tipoMesa }) {
   const hoy = hoyISO();
-  const [plantilla, setPlantilla] = useState(() => acciones.plantillaInvitacion(clave));
+  const [plantilla, setPlantilla] = useState(() => {
+    const guardada = acciones.plantillaInvitacion(clave);
+    if (tipoMesa !== 'barrial' || guardada.mensaje !== plantillaBase().mensaje) return guardada;
+    return { ...guardada, ...plantillaBarrial(), invitados: guardada.invitados, hora: guardada.hora, lugar: guardada.lugar, duracion_min: guardada.duracion_min };
+  });
   const [fecha, setFecha] = useState(fechaInicial ?? '');
   const [errores, setErrores] = useState({});
   const [guardada, setGuardada] = useState(false);

@@ -229,3 +229,16 @@ export function horarioEvento(fechaISO, hora, duracionMin) {
     end: { dateTime: sello(Number(duracionMin)), timeZone: ZONA_HORARIA },
   };
 }
+
+/** El nombre literal evita que una mesa lea los invitados de otra. */
+export function patronTituloMesa(nombre) {
+  const normalizado = String(nombre).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  if (!normalizado) return /a^/;
+  const escapado = normalizado.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|\\s)${escapado}(?=$|\\s|[|:?-])`);
+}
+
+export function plantillaBarrial() {
+  return { ...plantillaBase(), titulo_evento: 'Reunión {mesa}', asunto: '{mesa} | {dia}',
+    mensaje: '¡Buenas tardes a todos!\n\nLos convocamos a la reunión de **{mesa}** del **{fecha_corta} a las {hora} hs**.\nLugar: **{lugar}**.\n\n**Les pedimos que confirmen su asistencia vía Calendar.**\n\nDesde ya, muchas gracias.' };
+}

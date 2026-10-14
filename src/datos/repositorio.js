@@ -21,6 +21,7 @@ import { normalizarPlantilla } from './invitaciones.js';
 export {
   CARPETA_SEGUIMIENTOS,
   CARPETA_EVENTOS,
+  CARPETA_BARRIOS,
   GOOGLE_CLIENT_ID,
   prepararConexionGoogle,
   conectarGoogleConvocatorias,

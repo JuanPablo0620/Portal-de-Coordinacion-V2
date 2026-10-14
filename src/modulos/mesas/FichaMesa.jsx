@@ -26,7 +26,7 @@ import { acciones, useBD } from '../../estado/tienda.js';
 import { EditarReunion } from './EditarReunion.jsx';
 import { configDe } from './tipos.js';
 
-export function FichaMesa({ mesa, color, atrasada, alVolver, alEditar, alRegistrar, alAgendar, alInvitar }) {
+export function FichaMesa({ mesa, color, atrasada, alVolver, alEditar, alRegistrar, alAgendar, alInvitar, alEnviarCompromisos }) {
   const bd = useBD();
   const navegar = useNavigate();
   const hoy = hoyISO();
@@ -91,6 +91,7 @@ export function FichaMesa({ mesa, color, atrasada, alVolver, alEditar, alRegistr
                 Agregar carpeta
               </Boton>
             )}
+            {alEnviarCompromisos && <Boton icono={Send} onClick={alEnviarCompromisos}>Enviar compromisos</Boton>}
             <Boton icono={CalendarClock} onClick={alAgendar}>
               Agendar reunión
             </Boton>

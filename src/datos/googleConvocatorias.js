@@ -14,6 +14,7 @@ import {
 export const GOOGLE_CLIENT_ID = (import.meta.env?.VITE_GOOGLE_CLIENT_ID ?? '').trim();
 export const CARPETA_SEGUIMIENTOS = (import.meta.env?.VITE_GOOGLE_SEGUIMIENTO_FOLDER_ID ?? '').trim();
 export const CARPETA_EVENTOS = (import.meta.env?.VITE_GOOGLE_EVENTOS_FOLDER_ID ?? '').trim();
+export const CARPETA_BARRIOS = (import.meta.env?.VITE_GOOGLE_BARRIOS_FOLDER_ID ?? '').trim();
 export const PERMISOS_CONVOCATORIA = [
   'https://www.googleapis.com/auth/calendar.readonly',
   // Para agendar las reuniones de mesa en el Calendar de quien convoca.
@@ -216,8 +217,8 @@ export function crearClienteConvocatorias(tokenInicial, vence, consultar = globa
         if (halladas.length !== 1) throw new Error(`No se encontró una única carpeta «${nombre}» en el Drive de la mesa.`);
         return halladas[0].id;
       };
-      const area = await unica(idDeDrive(raiz), subcarpeta, nombreDeCarpeta(subcarpeta));
-      const [compromisos, ppt] = await Promise.all([unica(area, /compromiso/, 'Compromisos'), unica(area, /^ppt|presentacion/, 'PPT')]);
+      const area = subcarpeta ? await unica(idDeDrive(raiz), subcarpeta, nombreDeCarpeta(subcarpeta)) : idDeDrive(raiz);
+      const [compromisos, ppt] = await Promise.all([unica(area, /compromiso/, 'Compromisos'), unica(area, /^(?:\d+\.\s*)?ppt|presentacion/, 'PPT')]);
       const [documentos, presentaciones] = await Promise.all([archivos(compromisos), archivos(ppt)]);
       return {
         compromisos: documentos.filter((a) => [MIME_DOC, MIME_DOCX, 'application/pdf'].includes(a.mimeType)),

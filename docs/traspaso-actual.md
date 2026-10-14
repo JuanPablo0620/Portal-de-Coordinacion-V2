@@ -27,6 +27,23 @@ que el otro no puede deducir leyendo el repo.
 
 ## 1. Dónde está parado el portal
 
+### Barrios: invitaciones y compromisos (14/10, rama de trabajo)
+
+`feat/barrios-invitaciones-compromisos` agrega convocatoria con negritas y
+el envio de compromisos desde la ficha de cada mesa barrial. Reutiliza
+Calendar y los borradores de Gmail con firma. No esta en main.
+
+Carpetas verificadas en solo lectura: Esperanza, EDLA y Favelita y el Libertador
+usan Compromisos y PPTS, algunas con prefijo numerico. Miramar no tiene esa
+estructura: no se presume compatible. El selector deja confirmar el barrio.
+Variable nueva `VITE_GOOGLE_BARRIOS_FOLDER_ID`: configurada solo en local;
+el ID queda fuera del repo. Antes de publicar hay que cargarla en Vercel.
+
+Pendiente: confirmar texto habitual de convocatoria y probar el borrador real
+por barrio. La propuesta usa PDF y PPTX como Eventos; todo es revisable. Hay
+archivos sin numero o con numeros repetidos: se eligen manualmente si no hay
+una propuesta unica. Se mantiene el redise?o del sidebar de la rama base.
+
 ### Convocatorias de Seguimiento (06/10, mergeado a `main` el 09/10)
 
 «Enviar convocatoria» en Seguimiento prepara un borrador de Gmail con los invitados

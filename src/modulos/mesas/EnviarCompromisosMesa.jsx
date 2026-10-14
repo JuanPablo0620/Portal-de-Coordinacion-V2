@@ -5,7 +5,7 @@ import { Aviso, Boton } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoCheck, CampoFecha, CampoSelect, CampoTexto } from '../../componentes/Campo.jsx';
 import { VistaPreviaMail } from '../../componentes/VistaPreviaMail.jsx';
 import {
-  datosDelEvento, fechaCorta, moverFecha, reunionesRealizadas, textoCompromisosMesa, ultimoNumerado, validarFecha,
+  coincidenciaUnica, datosDelEvento, fechaCorta, moverFecha, reunionesRealizadas, textoCompromisosMesa, ultimoNumerado, validarFecha,
 } from '../../datos/convocatorias.js';
 import { GOOGLE_CLIENT_ID, conectarGoogleConvocatorias, prepararConexionGoogle } from '../../datos/repositorio.js';
 import { hoyISO } from '../../datos/selectores.js';
@@ -27,7 +27,7 @@ import { acciones } from '../../estado/tienda.js';
  * `area` la subcarpeta con Compromisos y PPT; `patronReunion` reconoce sus
  * reuniones por el título del evento.
  */
-export function EnviarCompromisosMesa({ alCerrar, mesa, clave, raiz = '', area, patronReunion }) {
+export function EnviarCompromisosMesa({ alCerrar, mesa, clave, raiz = '', area, patronReunion, seleccionarBarrio = false }) {
   const conexion = useRef(null);
   const activo = useRef(true);
   const operando = useRef(false);
@@ -47,6 +47,8 @@ export function EnviarCompromisosMesa({ alCerrar, mesa, clave, raiz = '', area, 
   const [destinatarios, setDestinatarios] = useState('');
   const [carpeta, setCarpeta] = useState(raiz);
   const [materiales, setMateriales] = useState(null);
+  const [barrios, setBarrios] = useState([]);
+  const [barrio, setBarrio] = useState('');
   const [seleccion, setSeleccion] = useState({ compromiso: '', presentacion: '', conPresentacion: true });
   const [adjuntos, setAdjuntos] = useState(null);
   const [texto, setTexto] = useState({ asunto: '', mensaje: '' });
@@ -106,7 +108,21 @@ export function EnviarCompromisosMesa({ alCerrar, mesa, clave, raiz = '', area, 
   }
 
   async function leerMateriales(sesion, idCarpeta) {
-    const encontrados = await sesion.materialesMesa(idCarpeta, area);
+    if (seleccionarBarrio) {
+      const disponibles = await sesion.carpetas(idCarpeta);
+      if (!activo.current) return;
+      setBarrios(disponibles);
+      const elegida = coincidenciaUnica(mesa, disponibles, (c) => c.name);
+      setBarrio(elegida?.id ?? '');
+      setMateriales(null);
+      if (elegida) await leerBarrio(sesion, elegida.id);
+      return;
+    }
+    await leerBarrio(sesion, idCarpeta, area);
+  }
+
+  async function leerBarrio(sesion, idCarpeta, subcarpeta) {
+    const encontrados = await sesion.materialesMesa(idCarpeta, subcarpeta);
     if (!activo.current) return;
     setMateriales(encontrados);
     setSeleccion((s) => ({
@@ -227,6 +243,11 @@ export function EnviarCompromisosMesa({ alCerrar, mesa, clave, raiz = '', area, 
               <Boton className="min-h-11" disabled={!carpeta.trim()}
                 onClick={() => ejecutar('Buscando los archivos…', () => leerMateriales(conexion.current, carpeta.trim()))}>Buscar archivos</Boton>
             </div>
+            {seleccionarBarrio && barrios.length > 0 && <CampoSelect etiqueta="Carpeta del barrio" value={barrio}
+              opciones={opciones(barrios)} onChange={(e) => {
+                invalidar(); setBarrio(e.target.value); setMateriales(null);
+                if (e.target.value) ejecutar('Buscando archivos del barrio...', () => leerBarrio(conexion.current, e.target.value));
+              }} />}
             {materiales && <>
               <CampoSelect etiqueta="Compromisos" value={seleccion.compromiso} opciones={opciones(materiales.compromisos)}
                 placeholder="Elegí el documento" onChange={(e) => setSeleccion((s) => ({ ...s, compromiso: e.target.value }))} />

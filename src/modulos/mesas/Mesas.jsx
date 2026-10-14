@@ -6,6 +6,9 @@ import { AgendarReunion } from './AgendarReunion.jsx';
 import { FichaMesa } from './FichaMesa.jsx';
 import { FormularioMesa } from './FormularioMesa.jsx';
 import { InvitarReunion } from './InvitarReunion.jsx';
+import { EnviarCompromisosMesa } from './EnviarCompromisosMesa.jsx';
+import { CARPETA_BARRIOS } from '../../datos/repositorio.js';
+import { patronTituloMesa } from '../../datos/invitaciones.js';
 import { RegistrarReunion } from './RegistrarReunion.jsx';
 import { CONFIG_TIPO, coloresPorMesa, configDe } from './tipos.js';
 import Eventos from '../eventos/Eventos.jsx';
@@ -40,6 +43,7 @@ export default function Mesas() {
   const [agendando, setAgendando] = useState(null);
   /** `{ mesa, fecha }` de la invitación abierta, o null. */
   const [invitando, setInvitando] = useState(null);
+  const [enviandoCompromisos, setEnviandoCompromisos] = useState(null);
 
   const todas = useMemo(() => (bd ? selMesas(bd, {}) : []), [bd]);
   const atrasadas = useMemo(() => (bd ? new Set(mesasSinReunion(bd, hoy).map((m) => m.id)) : new Set()), [bd, hoy]);
@@ -111,6 +115,7 @@ export default function Mesas() {
             alRegistrar={() => setRegistrando(mesaAbierta)}
             alAgendar={() => setAgendando(mesaAbierta)}
             alInvitar={(fecha) => setInvitando({ mesa: mesaAbierta, fecha })}
+            alEnviarCompromisos={mesaAbierta.tipo === 'barrial' ? () => setEnviandoCompromisos(mesaAbierta) : undefined}
           />
         ) : (
           <>
@@ -167,12 +172,19 @@ export default function Mesas() {
           }}
         />
       )}
+      {enviandoCompromisos && (
+        <EnviarCompromisosMesa alCerrar={() => setEnviandoCompromisos(null)}
+          mesa={enviandoCompromisos.nombre} clave={enviandoCompromisos.id}
+          raiz={CARPETA_BARRIOS} seleccionarBarrio
+          patronReunion={patronTituloMesa(enviandoCompromisos.nombre)} />
+      )}
       {invitando && (
         <InvitarReunion
           abierto
           alCerrar={() => setInvitando(null)}
           clave={invitando.mesa.id}
           nombre={invitando.mesa.nombre}
+          tipoMesa={invitando.mesa.tipo}
           fechaInicial={invitando.fecha}
         />
       )}
