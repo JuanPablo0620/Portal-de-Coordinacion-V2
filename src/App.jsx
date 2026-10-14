@@ -1,3 +1,4 @@
+import CalendarioGeneral from './modulos/calendario/CalendarioGeneral.jsx';
 import { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './componentes/Layout.jsx';
@@ -103,6 +104,7 @@ function Portal() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
+        <Route path="calendario" element={<CalendarioGeneral />} />
         <Route path="mi-trabajo" element={<MiTrabajo />} />
         {/* Sin esto, un favorito viejo cae en el comodín y termina en Inicio
             sin decir por qué. Mismo criterio que `/eventos` arriba. */}

@@ -312,7 +312,8 @@ export default function Dashboard() {
           </div>
 
           {/* Columna derecha */}
-          <Tarjeta titulo="Calendario" descripcion="Seguimientos, eventos, reuniones de mesa y vencimientos.">
+          <Tarjeta titulo="Calendario" descripcion="Seguimientos, eventos, reuniones de mesa y vencimientos."
+            acciones={<Boton tamanio="sm" onClick={() => navegar('/calendario')}>Ver calendario</Boton>}>
             <Calendario
               anio={mes.anio}
               mes={mes.mes}

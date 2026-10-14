@@ -38,6 +38,8 @@ const CON_DEMO = [
   ['/obras?tab=listado', 'ubicada'],
   ['/obras?tab=zonas', 'Obras por zona'],
   ['/obras?tab=alertas', 'Alertas de obras'],
+  ['/calendario', 'Calendario general'],
+  ['/calendario?eventos=0&mesas=0', 'Calendario general'],
   ['/seguimiento', 'Próximos seguimientos'],
   ['/seguimiento?vista=lista', 'Temas a tratar'],
   ['/seguimiento?tab=cargar', '2 · Compromisos, avances y problemas'],

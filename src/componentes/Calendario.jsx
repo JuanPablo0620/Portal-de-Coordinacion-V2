@@ -58,6 +58,7 @@ export function Calendario({
   alVolverAHoy,
   compacto = false,
   presentarItem,
+  capasDisponibles,
 }) {
   const navegar = useNavigate();
 
@@ -102,7 +103,7 @@ export function Calendario({
 
         {capas && (
           <div className="flex flex-wrap items-center gap-1">
-            {CAPAS_CALENDARIO.map((capa) => {
+            {CAPAS_CALENDARIO.filter((c) => !capasDisponibles || capasDisponibles.includes(c.clave)).map((capa) => {
               const encendida = capas[capa.clave] !== false;
               return (
                 <button
@@ -112,6 +113,7 @@ export function Calendario({
                   className={`flex items-center gap-1.5 rounded-chip border px-2 py-1 text-[11px] font-medium transition ${
                     encendida ? 'border-borde-fuerte bg-card text-tinta' : 'border-borde bg-paper text-tenue'
                   }`}
+                  aria-pressed={encendida}
                   title={encendida ? 'Ocultar capa' : 'Mostrar capa'}
                 >
                   <span

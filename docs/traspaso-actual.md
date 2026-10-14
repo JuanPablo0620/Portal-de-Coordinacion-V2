@@ -27,6 +27,13 @@ que el otro no puede deducir leyendo el repo.
 
 ## 1. Dónde está parado el portal
 
+### Calendario general (14/10, rama de Barrios)
+
+Inicio tiene acceso a /calendario a la derecha del encabezado de la tarjeta.
+La pagina reutiliza la agenda del portal a ancho completo con filtros por
+Seguimientos, Eventos y Mesas. Los filtros quedan en la URL. No consulta
+Google Calendar: representa los registros que ya tiene el portal.
+
 ### Listas predeterminadas de invitados (14/10, rama de Barrios)
 
 Editor dedicado en Seguimiento (por secretaria), fichas de mesa (por mesa)
