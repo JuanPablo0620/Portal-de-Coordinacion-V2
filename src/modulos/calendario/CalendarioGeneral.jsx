@@ -2,14 +2,14 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
-import { Boton, Tarjeta } from '../../componentes/Basicos.jsx';
+import { Boton, Buscador, Tarjeta } from '../../componentes/Basicos.jsx';
 import { Calendario, useMesVisible } from '../../componentes/Calendario.jsx';
 import { hoyISO, itemsCalendario } from '../../datos/selectores.js';
 import { useBD } from '../../estado/tienda.js';
 import { useFiltrosUrl } from '../../utilidades/filtrosUrl.js';
 
 const CAPAS = ['seguimientos', 'eventos', 'mesas'];
-const DEFAULTS = { seguimientos: true, eventos: true, mesas: true };
+const DEFAULTS = { seguimientos: true, eventos: true, mesas: true, buscar: '' };
 
 /** Agenda amplia del portal: usa la misma fuente que Inicio y filtros compartibles por URL. */
 export default function CalendarioGeneral() {
@@ -24,13 +24,18 @@ export default function CalendarioGeneral() {
     mesas: filtros.mesas !== false,
     vencimientos: false,
   }), [filtros.seguimientos, filtros.eventos, filtros.mesas]);
-  const items = useMemo(() => bd ? itemsCalendario(bd, capas, ...mes.rango) : [], [bd, capas, mes.rango]);
+  const items = useMemo(() => {
+    const normalizar = (t) => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const consulta = normalizar(filtros.buscar).trim();
+    return (bd ? itemsCalendario(bd, capas, ...mes.rango) : [])
+      .filter((item) => !consulta || normalizar(`${item.titulo} ${item.detalle}`).includes(consulta));
+  }, [bd, capas, mes.rango, filtros.buscar]);
   return <>
     <EncabezadoPagina titulo="Calendario general" descripcion="Seguimientos, eventos y reuniones de mesa en una sola agenda."
       acciones={<Boton icono={ArrowLeft} onClick={() => navegar('/')}>Volver a Inicio</Boton>} />
     <Pagina>
       <Tarjeta>
-        <Calendario anio={mes.anio} mes={mes.mes} hoy={hoy} items={items} capas={capas}
+        <Calendario agenda controles={<Buscador valor={filtros.buscar} alCambiar={(buscar) => setFiltros({ buscar })} placeholder="Buscar actividades" />} anio={mes.anio} mes={mes.mes} hoy={hoy} items={items} capas={capas}
           capasDisponibles={CAPAS} alCambiarCapas={({ seguimientos, eventos, mesas }) => setFiltros({ seguimientos, eventos, mesas })}
           alMover={mes.mover} alVolverAHoy={mes.volverAHoy} />
         <p role="status" className="mt-3 text-sm text-gris">{items.length

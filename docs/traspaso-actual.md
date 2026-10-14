@@ -30,6 +30,8 @@ que el otro no puede deducir leyendo el repo.
 ### Calendario general (14/10, rama de Barrios)
 
 Inicio tiene acceso a /calendario a la derecha del encabezado de la tarjeta.
+Diseno inspirado en la referencia de JP: cabecera del mes, busqueda, grilla
+amplia y etiquetas suaves por categoria con horario cuando esta disponible.
 La pagina reutiliza la agenda del portal a ancho completo con filtros por
 Seguimientos, Eventos y Mesas. Los filtros quedan en la URL. No consulta
 Google Calendar: representa los registros que ya tiene el portal.

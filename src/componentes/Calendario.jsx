@@ -59,6 +59,8 @@ export function Calendario({
   compacto = false,
   presentarItem,
   capasDisponibles,
+  agenda = false,
+  controles,
 }) {
   const navegar = useNavigate();
 
@@ -86,13 +88,22 @@ export function Calendario({
   const colorDeCapa = (capa) => CAPAS_CALENDARIO.find((c) => c.clave === capa)?.color ?? 'var(--color-sindato)';
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={`flex flex-col gap-3 ${agenda ? 'calendario-agenda' : ''}`}>
       <div className="no-imprimir flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
+        {agenda && <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 flex-col items-center justify-center rounded-chip border border-borde bg-paper">
+            <span className="text-[10px] uppercase text-gris">{nombreMes(anio, mes).split(' ')[0].slice(0, 3)}</span>
+            <strong className="tabular text-sm text-tinta">{hoy.slice(0, 7) === `${anio}-${String(mes + 1).padStart(2, '0')}` ? Number(hoy.slice(8)) : 1}</strong>
+          </div>
+          <div><h2 className="text-sm font-semibold capitalize text-tinta">{nombreMes(anio, mes)}</h2>
+            <p className="text-xs text-gris">Vista mensual</p></div>
+        </div>}
+        <div className={`flex flex-wrap items-center gap-1 ${agenda ? 'ml-auto' : ''}`}>
+          {controles}
           <Boton tamanio="sm" variante="fantasma" onClick={() => alMover(-1)} aria-label="Mes anterior">
             <ChevronLeft size={16} />
           </Boton>
-          <span className="min-w-36 text-center text-sm font-semibold text-tinta">{nombreMes(anio, mes)}</span>
+          <span className={`min-w-36 text-center text-sm font-semibold text-tinta ${agenda ? 'sr-only' : ''}`}>{nombreMes(anio, mes)}</span>
           <Boton tamanio="sm" variante="fantasma" onClick={() => alMover(1)} aria-label="Mes siguiente">
             <ChevronRight size={16} />
           </Boton>
@@ -128,23 +139,23 @@ export function Calendario({
         )}
       </div>
 
-      <div className="overflow-hidden rounded-card border border-borde">
-        <div className="grid grid-cols-7 border-b border-borde bg-paper">
+      <div className={`overflow-x-auto rounded-card border border-borde ${agenda ? 'agenda-grilla' : ''}`}>
+        <div className={`grid grid-cols-7 border-b border-borde bg-paper ${agenda ? 'min-w-[700px]' : ''}`}>
           {DIAS_SEMANA.map((d) => (
             <div key={d} className="px-2 py-1.5 text-center text-[11px] font-semibold uppercase tracking-wide text-gris">
               {d}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7">
+        <div className={`grid grid-cols-7 ${agenda ? 'min-w-[700px]' : ''}`}>
           {celdas.map((celda) =>
             celda.vacia ? (
               <div key={celda.clave} className="min-h-16 border-b border-r border-borde/60 bg-paper/40 last:border-r-0" />
             ) : (
               <div
                 key={celda.clave}
-                className={`${compacto ? 'min-h-16' : 'min-h-24'} border-b border-r border-borde/60 p-1 last:border-r-0 ${
-                  celda.esHoy ? 'bg-acento-suave' : 'bg-card'
+                className={`${agenda ? 'min-h-36' : compacto ? 'min-h-16' : 'min-h-24'} border-b border-r border-borde/60 p-1 last:border-r-0 ${
+                  celda.esHoy && !agenda ? 'bg-acento-suave' : 'bg-card'
                 }`}
               >
                 <div className="mb-0.5 flex items-center gap-1 px-0.5">
@@ -168,6 +179,7 @@ export function Calendario({
                 <div className="flex flex-col gap-0.5">
                   {celda.items.slice(0, compacto ? 2 : 3).map((item, i) => {
                     const presentacion = presentarItem?.(item);
+                    const horario = agenda ? item.detalle?.match(/^\d{1,2}:\d{2}/)?.[0] : '';
                     // El texto de la celda puede ser más corto que el título:
                     // donde el color ya dice de qué secretaría es, repetirlo
                     // en el texto no deja lugar para lo demás. El `title` del
@@ -182,7 +194,8 @@ export function Calendario({
                         title={titulo}
                         aria-label={titulo}
                         className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[10px] leading-tight
-                          transition hover:brightness-95 ${presentacion ? 'border' : 'text-tinta hover:bg-paper'}`}
+                          transition hover:brightness-95 ${agenda ? 'agenda-actividad' : ''} ${presentacion ? 'border' : 'text-tinta hover:bg-paper'}`}
+                        data-capa={item.capa}
                         style={
                           presentacion
                             ? { background: presentacion.fondo, color: presentacion.color, borderColor: presentacion.borde }
@@ -197,7 +210,8 @@ export function Calendario({
                             style={{ background: colorDeCapa(item.capa) }}
                           />
                         )}
-                        <span className="truncate">{etiqueta}</span>
+                        <span className="min-w-0 flex-1 truncate">{etiqueta}</span>
+                        {horario && <span className="tabular shrink-0 text-[10px] opacity-80">{horario}</span>}
                       </button>
                     );
                   })}

@@ -532,3 +532,21 @@ body {
 .corte-atenuado {
   stroke-opacity: 0.35;
 }
+
+/* Agenda amplia: etiquetas por categoria, con colores del tema institucional. */
+.calendario-agenda > div:first-child { gap: 1rem; padding-bottom: .75rem; }
+.calendario-agenda .agenda-actividad {
+  min-height: 26px; border: 1px solid var(--color-borde); border-radius: var(--radius-chip);
+  font-size: 11px; padding: 3px 6px; font-weight: 500;
+}
+.calendario-agenda .agenda-actividad[data-capa='seguimientos'] {
+  background: var(--color-acento-suave); color: var(--color-acento-fuerte);
+}
+.calendario-agenda .agenda-actividad[data-capa='eventos'] {
+  background: var(--color-area-cor-suave); color: var(--color-area-cor-texto);
+}
+.calendario-agenda .agenda-actividad[data-capa='mesas'] {
+  background: var(--color-enregla-suave); color: var(--color-enregla-texto);
+}
+.calendario-agenda .agenda-grilla > div:nth-child(2) > div { padding: 8px; }
+.calendario-agenda .agenda-grilla > div:nth-child(2) > div > div:first-child { margin-bottom: 8px; }
