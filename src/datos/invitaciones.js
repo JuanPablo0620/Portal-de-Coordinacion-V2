@@ -242,3 +242,6 @@ export function plantillaBarrial() {
   return { ...plantillaBase(), titulo_evento: 'Reunión {mesa}', asunto: '{mesa} | {dia}',
     mensaje: '¡Buenas tardes a todos!\n\nLos convocamos a la reunión de **{mesa}** del **{fecha_corta} a las {hora} hs**.\nLugar: **{lugar}**.\n\n**Les pedimos que confirmen su asistencia vía Calendar.**\n\nDesde ya, muchas gracias.' };
 }
+
+/** El ID del catalogo mantiene la lista aunque se corrija el nombre de la secretaria. */
+export const claveInvitadosSeguimiento = (idArea) => `seguimiento:${idArea}`;

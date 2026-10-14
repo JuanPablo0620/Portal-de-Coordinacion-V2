@@ -12,7 +12,8 @@ import {
   nombreSinPrefijo, normalizarNombre, reunionesRealizadas, textoCompromisos, textoConvocatoria, validarConvocatoria, validarPDF,
 } from '../../datos/convocatorias.js';
 import { hoyISO } from '../../datos/selectores.js';
-import { useBD } from '../../estado/tienda.js';
+import { claveInvitadosSeguimiento } from '../../datos/invitaciones.js';
+import { acciones, useBD } from '../../estado/tienda.js';
 
 /**
  * Una convocatoria termina en un borrador de Gmail, con el PDF y el enlace de
@@ -154,6 +155,14 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null, tipo = 'conv
     setEventoId(id);
     const deducida = areaDelTitulo(evento.summary ?? '', bd.areas ?? []);
     setDatos((d) => ({ ...d, ...reunion, area: seguimiento ? d.area : deducida, entrega: moverFecha(reunion.fecha, -1), asunto: '', mensaje: '', presentacion: '' }));
+  }
+
+  function usarInvitadosPredeterminados() {
+    const area = coincidenciaUnica(datos.area, bd.areas ?? [], (a) => a.nombre);
+    const invitados = area ? acciones.plantillaInvitacion(claveInvitadosSeguimiento(area.id)).invitados : [];
+    if (!invitados.length) { setError('No hay invitados predeterminados para esta secretar\u00eda. Cargalos desde Seguimiento.'); return; }
+    setDatos((d) => ({ ...d, destinatarios: invitados.join(', ') }));
+    setRevisado(false); setError('');
   }
 
   function cargarCarpetas() {
@@ -312,6 +321,7 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null, tipo = 'conv
                 <CampoSelect etiqueta="Modalidad" value={datos.modalidad} opciones={['presencial', 'virtual', 'híbrida']} onChange={cambiar('modalidad')} />
                 <CampoTexto etiqueta="Lugar o enlace de reunión" requerido value={datos.lugar} onChange={cambiar('lugar')} />
               </GrillaCampos>}
+              <Boton onClick={usarInvitadosPredeterminados} disabled={!datos.area.trim()}>Usar invitados predeterminados</Boton>
               <CampoArea etiqueta="Destinatarios de Calendar" requerido filas={2} value={datos.destinatarios} onChange={cambiar('destinatarios')}
                 ayuda="Podés ajustar la lista antes de guardar." />
             </>}
@@ -349,7 +359,8 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null, tipo = 'conv
             <legend ref={revision} tabIndex={-1} className="mb-3 text-sm font-semibold text-tinta">3. Revisar el borrador</legend>
             <p className="text-sm text-gris">{datos.area} · {fechaCorta(datos.fecha)} · {datos.hora} hs{esCompromisos ? '' : ` · ${datos.lugar}`}</p>
             <Boton className="self-start" onClick={invalidar}>Editar reunión o materiales</Boton>
-            <CampoArea etiqueta="Destinatarios de Calendar" requerido filas={2} value={datos.destinatarios} onChange={cambiar('destinatarios')} />
+            <Boton onClick={usarInvitadosPredeterminados} disabled={!datos.area.trim()}>Usar invitados predeterminados</Boton>
+              <CampoArea etiqueta="Destinatarios de Calendar" requerido filas={2} value={datos.destinatarios} onChange={cambiar('destinatarios')} />
             <CampoTexto etiqueta="Asunto" requerido value={datos.asunto} onChange={cambiar('asunto')} />
             <CampoArea etiqueta="Mensaje" requerido filas={esCompromisos ? 8 : 12} value={datos.mensaje} onChange={cambiar('mensaje')}
               ayuda={esCompromisos ? '**texto** va en negrita.' : '**texto** va en negrita; [texto] es el enlace a la presentación.'} />

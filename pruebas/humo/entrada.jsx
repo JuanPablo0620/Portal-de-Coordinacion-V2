@@ -1,3 +1,4 @@
+import { EditarInvitados } from '../../src/componentes/EditarInvitados.jsx';
 /**
  * Entrada de la prueba de humo.
  *
@@ -32,6 +33,7 @@ import { EnviarCompromisosMesa } from '../../src/modulos/mesas/EnviarCompromisos
 const CATEGORIAS = CATALOGOS_SEMILLA.categorias_tema.map((c) => ({ valor: c.nombre, titulo: c.nombre }));
 
 const COMPONENTES = {
+  EditarInvitados: () => <EditarInvitados alCerrar={() => {}} opciones={[{ valor: 'mesa-prueba', titulo: 'Mesa de prueba' }]} />,
   ConvocarSeguimiento: () => <ConvocarSeguimiento alCerrar={() => {}} />,
   EnviarCompromisos: () => <ConvocarSeguimiento tipo="compromisos" alCerrar={() => {}} />,
   EnviarCompromisosMesa: () => <EnviarCompromisosMesa alCerrar={() => {}} mesa="Mesa Eventos" clave="eventos" area={/cultura/} patronReunion={/eventos/} />,

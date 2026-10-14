@@ -181,6 +181,7 @@ const RUTAS_PROFUNDAS = [
  * de que la línea de tiempo unificada entre en la prueba de humo.
  */
 const COMPONENTES = [
+  ['EditarInvitados', 'Invitados predeterminados'],
   ['ConvocarSeguimiento', 'Enviar convocatoria'],
   ['EnviarCompromisos', 'Enviar compromisos'],
   ['EnviarCompromisosMesa', 'Mesa Eventos'],

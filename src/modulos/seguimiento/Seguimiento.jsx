@@ -33,6 +33,8 @@ import { EditorCompromiso } from '../../componentes/EditorCompromiso.jsx';
 import { LeyendaAreas, identidadArea } from '../../componentes/identidadArea.jsx';
 import { CargarSeguimiento } from './CargarSeguimiento.jsx';
 import { HistorialArea } from './HistorialArea.jsx';
+import { EditarInvitados } from '../../componentes/EditarInvitados.jsx';
+import { claveInvitadosSeguimiento } from '../../datos/invitaciones.js';
 import { ConvocarSeguimiento } from './ConvocarSeguimiento.jsx';
 import { COLUMNAS_COMPROMISO, nivelDe } from './columnasCompromiso.jsx';
 import { ESTADOS_COMPROMISO } from '../../datos/catalogos.js';
@@ -68,6 +70,7 @@ export default function Seguimiento() {
   const bd = useBD();
   const [filtros, setFiltros] = useFiltrosUrl(DEFAULTS);
   const [agendando, setAgendando] = useState(false);
+  const [editandoInvitados, setEditandoInvitados] = useState(false);
   const [convocando, setConvocando] = useState(null);
   const [enviandoCompromisos, setEnviandoCompromisos] = useState(false);
 
@@ -85,6 +88,7 @@ export default function Seguimiento() {
         descripcion="Reuniones de seguimiento con las áreas y compromisos que surgen de ellas."
         acciones={
           <>
+            <Boton icono={Mail} onClick={() => setEditandoInvitados(true)}>Invitados predeterminados</Boton>
             <Boton icono={Mail} onClick={() => setConvocando({})} className="min-h-11">
               Enviar convocatoria
             </Boton>
@@ -112,6 +116,9 @@ export default function Seguimiento() {
         {filtros.tab === 'historial' && <HistorialArea bd={bd} filtros={filtros} setFiltros={setFiltros} />}
       </Pagina>
 
+      {editandoInvitados && <EditarInvitados alCerrar={() => setEditandoInvitados(false)}
+        opciones={(bd?.areas ?? []).filter((a) => a.activo !== false && /^Secretar/i.test(a.nombre))
+          .map((a) => ({ valor: claveInvitadosSeguimiento(a.id), titulo: a.nombre }))} />}
       {agendando && <AgendarSeguimiento abierto alCerrar={() => setAgendando(false)} />}
       {convocando && <ConvocarSeguimiento seguimiento={convocando.id ? convocando : null} alCerrar={() => setConvocando(null)} />}
       {enviandoCompromisos && <ConvocarSeguimiento tipo="compromisos" alCerrar={() => setEnviandoCompromisos(false)} />}

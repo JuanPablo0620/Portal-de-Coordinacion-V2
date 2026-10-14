@@ -27,6 +27,16 @@ que el otro no puede deducir leyendo el repo.
 
 ## 1. Dónde está parado el portal
 
+### Listas predeterminadas de invitados (14/10, rama de Barrios)
+
+Editor dedicado en Seguimiento (por secretaria), fichas de mesa (por mesa)
+y Eventos. Conserva los otros campos de la plantilla al guardar la lista.
+Las mesas reutilizan esos invitados al agendar en Calendar y preparar el mail.
+Seguimiento conserva invitados de Calendar inicialmente; el boton para usar
+la lista predeterminada permite reemplazarlos expresamente antes de guardar.
+No modifica eventos existentes. Sigue siendo configuracion del navegador,
+no compartida entre cuentas ni computadoras. No hay datos personales en git.
+
 ### Barrios: invitaciones y compromisos (14/10, rama de trabajo)
 
 `feat/barrios-invitaciones-compromisos` agrega convocatoria con negritas y

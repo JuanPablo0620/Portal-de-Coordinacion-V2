@@ -9,6 +9,7 @@ import { LeyendaAreas, identidadArea } from '../../componentes/identidadArea.jsx
 import { CampoSelect } from '../../componentes/Campo.jsx';
 import { GrillaFiltros, TarjetaFiltros, limpiarClaves } from '../../componentes/Filtros.jsx';
 import { FormularioEvento, SeccionRequerimientos } from './FormularioEvento.jsx';
+import { EditarInvitados } from '../../componentes/EditarInvitados.jsx';
 import { InvitarReunion } from '../mesas/InvitarReunion.jsx';
 import { EnviarCompromisosMesa } from '../mesas/EnviarCompromisosMesa.jsx';
 import { CARPETA_EVENTOS } from '../../datos/repositorio.js';
@@ -44,6 +45,7 @@ export default function Eventos() {
   const [errorRemoto, setErrorRemoto] = useState(null);
   const [errorAccion, setErrorAccion] = useState('');
   const [invitando, setInvitando] = useState(false);
+  const [editandoInvitados, setEditandoInvitados] = useState(false);
   const [enviandoCompromisos, setEnviandoCompromisos] = useState(false);
 
   // Eventos es la primera colección que vive en Supabase y no en el navegador,
@@ -103,6 +105,7 @@ export default function Eventos() {
           {/* La reunión de agenda de eventos no tiene todavía entidad propia en
               el front (la `0036` creó la tabla, sin pantallas): su invitación
               cuelga de la pestaña, con la plantilla guardada bajo `CLAVE_EVENTOS`. */}
+          <Boton icono={Send} onClick={() => setEditandoInvitados(true)}>Invitados predeterminados</Boton>
           <Boton icono={Send} onClick={() => setInvitando(true)}>
             Invitar a la reunión
           </Boton>
@@ -148,6 +151,8 @@ export default function Eventos() {
       )}
 
       {formulario && <FormularioEvento abierto alCerrar={() => setFormulario(null)} evento={formulario.id ? formulario : null} />}
+      {editandoInvitados && <EditarInvitados alCerrar={() => setEditandoInvitados(false)}
+        opciones={[{ valor: CLAVE_EVENTOS, titulo: 'Mesa Eventos' }]} />}
       {invitando && (
         <InvitarReunion abierto alCerrar={() => setInvitando(false)} clave={CLAVE_EVENTOS} nombre="Agenda de eventos" />
       )}

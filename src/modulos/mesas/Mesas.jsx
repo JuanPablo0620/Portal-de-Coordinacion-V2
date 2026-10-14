@@ -5,6 +5,7 @@ import { Boton, Chip, Pestanias, Tarjeta, Vacio } from '../../componentes/Basico
 import { AgendarReunion } from './AgendarReunion.jsx';
 import { FichaMesa } from './FichaMesa.jsx';
 import { FormularioMesa } from './FormularioMesa.jsx';
+import { EditarInvitados } from '../../componentes/EditarInvitados.jsx';
 import { InvitarReunion } from './InvitarReunion.jsx';
 import { EnviarCompromisosMesa } from './EnviarCompromisosMesa.jsx';
 import { CARPETA_BARRIOS } from '../../datos/repositorio.js';
@@ -43,6 +44,7 @@ export default function Mesas() {
   const [agendando, setAgendando] = useState(null);
   /** `{ mesa, fecha }` de la invitación abierta, o null. */
   const [invitando, setInvitando] = useState(null);
+  const [editandoInvitados, setEditandoInvitados] = useState(null);
   const [enviandoCompromisos, setEnviandoCompromisos] = useState(null);
 
   const todas = useMemo(() => (bd ? selMesas(bd, {}) : []), [bd]);
@@ -115,6 +117,7 @@ export default function Mesas() {
             alRegistrar={() => setRegistrando(mesaAbierta)}
             alAgendar={() => setAgendando(mesaAbierta)}
             alInvitar={(fecha) => setInvitando({ mesa: mesaAbierta, fecha })}
+            alEditarInvitados={() => setEditandoInvitados(mesaAbierta)}
             alEnviarCompromisos={mesaAbierta.tipo === 'barrial' ? () => setEnviandoCompromisos(mesaAbierta) : undefined}
           />
         ) : (
@@ -159,6 +162,8 @@ export default function Mesas() {
         )}
       </Pagina>
 
+      {editandoInvitados && <EditarInvitados alCerrar={() => setEditandoInvitados(null)}
+        opciones={[{ valor: editandoInvitados.id, titulo: editandoInvitados.nombre }]} />}
       {formulario && <FormularioMesa abierto alCerrar={() => setFormulario(null)} mesa={formulario.id ? formulario : null} tipoInicial={formulario.tipo} />}
       {registrando && <RegistrarReunion abierto alCerrar={() => setRegistrando(null)} mesa={registrando} />}
       {agendando && (
