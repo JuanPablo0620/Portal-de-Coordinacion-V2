@@ -85,8 +85,15 @@ Cultura → PPT en .pptx («último» = número más alto del nombre). Variable
 Prueba: `node scripts/verificar-compromisos-mesa.mjs`.
 **Sigue:** barrios (invitación y compromisos con su carpeta y su texto).
 
-**Rama sin mergear:** `feat/interfaz-estilo-flota` (barra navy y lateral que se
-despliega con el cursor), esperando el visto bueno de JP.
+**Rediseño estilo flota (en `main` desde el 16/10).** Barra superior navy con la
+marca y la sesión; lateral gris con los módulos agrupados («Seguimiento de
+gestión», «Proyectos», «Herramientas») que en escritorio queda como riel de
+íconos y se despliega al pasar el cursor, por encima del contenido. Tokens
+`--color-superior-*` y `--color-lateral-*` con su versión BlueNight. Se tomó el
+estilo de flota, no su navegación. Los botones siguen con el azul `#1D5FA8`.
+
+**Rama sin mergear:** `feat/barrios-invitaciones-compromisos` (barrios, invitados
+predeterminados y calendario general, 14/10): falta revisarla.
 
 Circuito, configuración y límites en `docs/convocatorias-seguimiento.md`.
 La rama también trajo las invitaciones manuales de Mesas y Eventos.
