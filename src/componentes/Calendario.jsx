@@ -58,6 +58,7 @@ export function Calendario({
   alVolverAHoy,
   compacto = false,
   presentarItem,
+  alSeleccionarItem,
 }) {
   const navegar = useNavigate();
 
@@ -176,7 +177,7 @@ export function Calendario({
                       <button
                         key={`${item.capa}-${i}`}
                         type="button"
-                        onClick={() => item.ruta && navegar(item.ruta)}
+                        onClick={() => alSeleccionarItem ? alSeleccionarItem(item) : item.ruta && navegar(item.ruta)}
                         title={titulo}
                         aria-label={titulo}
                         className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[10px] leading-tight

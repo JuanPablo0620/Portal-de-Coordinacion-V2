@@ -3,7 +3,7 @@
  * compromisos cumplidos y pendientes, y evolución del avance de sus proyectos.
  */
 import { useMemo } from 'react';
-import { Building2, Download } from 'lucide-react';
+import { Building2, CalendarDays, Download } from 'lucide-react';
 import {
   BarraAvance,
   Boton,
@@ -24,7 +24,7 @@ import { historialArea, hoyISO } from '../../datos/selectores.js';
 import { fecha as fFecha, haceCuanto, numero, sufijoArchivo } from '../../utilidades/formato.js';
 import { useOpciones } from '../../utilidades/catalogos.js';
 
-export function HistorialArea({ bd, filtros, setFiltros }) {
+export function HistorialArea({ bd, filtros, setFiltros, alModificarFecha }) {
   const hoy = hoyISO();
   const opcionesArea = useOpciones('areas');
   const area = filtros.area;
@@ -41,6 +41,7 @@ export function HistorialArea({ bd, filtros, setFiltros }) {
     const eventos = [
       ...datos.seguimientos.map((s) => ({
         clave: `s${s.id}`,
+        seguimiento: s,
         fecha: s.fecha,
         clase: 'Seguimiento',
         titulo: s.tipo === 'programado' ? 'Seguimiento agendado' : 'Seguimiento realizado',
@@ -196,6 +197,11 @@ export function HistorialArea({ bd, filtros, setFiltros }) {
                   <p className="mt-1 text-sm leading-tight text-tinta">{e.titulo}</p>
                   {e.detalle && <p className="text-[11px] text-tenue">{e.detalle}</p>}
                   {e.extra && <p className="text-[11px] text-tenue">{e.extra}</p>}
+                  {e.seguimiento && alModificarFecha && (
+                    <Boton icono={CalendarDays} className="mt-2 min-h-11" onClick={() => alModificarFecha(e.seguimiento)}>
+                      Modificar fecha
+                    </Boton>
+                  )}
                 </div>
               </li>
             ))}

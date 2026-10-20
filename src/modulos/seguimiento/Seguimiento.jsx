@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CalendarPlus,
+  CalendarDays,
   CalendarRange,
   ChevronDown,
   ClipboardList,
@@ -34,6 +35,7 @@ import { LeyendaAreas, identidadArea } from '../../componentes/identidadArea.jsx
 import { CargarSeguimiento } from './CargarSeguimiento.jsx';
 import { HistorialArea } from './HistorialArea.jsx';
 import { ConvocarSeguimiento } from './ConvocarSeguimiento.jsx';
+import { ModificarFechaSeguimiento } from './ModificarFechaSeguimiento.jsx';
 import { COLUMNAS_COMPROMISO, nivelDe } from './columnasCompromiso.jsx';
 import { ESTADOS_COMPROMISO } from '../../datos/catalogos.js';
 import {
@@ -68,6 +70,7 @@ export default function Seguimiento() {
   const bd = useBD();
   const [filtros, setFiltros] = useFiltrosUrl(DEFAULTS);
   const [agendando, setAgendando] = useState(false);
+  const [modificandoFecha, setModificandoFecha] = useState(null);
   const [convocando, setConvocando] = useState(null);
   const [enviandoCompromisos, setEnviandoCompromisos] = useState(false);
 
@@ -105,14 +108,15 @@ export default function Seguimiento() {
         <Pestanias opciones={pestanias} valor={filtros.tab} alCambiar={(v) => setFiltros({ tab: v })} />
 
         {filtros.tab === 'calendario' && (
-          <PanelCalendario bd={bd} filtros={filtros} setFiltros={setFiltros} alAgendar={() => setAgendando(true)} alConvocar={setConvocando} />
+          <PanelCalendario bd={bd} filtros={filtros} setFiltros={setFiltros} alAgendar={() => setAgendando(true)} alConvocar={setConvocando} alModificarFecha={setModificandoFecha} />
         )}
         {filtros.tab === 'cargar' && <CargarSeguimiento alTerminar={() => setFiltros({ tab: 'compromisos' })} />}
         {filtros.tab === 'compromisos' && <PanelCompromisos bd={bd} filtros={filtros} setFiltros={setFiltros} />}
-        {filtros.tab === 'historial' && <HistorialArea bd={bd} filtros={filtros} setFiltros={setFiltros} />}
+        {filtros.tab === 'historial' && <HistorialArea bd={bd} filtros={filtros} setFiltros={setFiltros} alModificarFecha={setModificandoFecha} />}
       </Pagina>
 
       {agendando && <AgendarSeguimiento abierto alCerrar={() => setAgendando(false)} />}
+      {modificandoFecha && <ModificarFechaSeguimiento key={modificandoFecha.id} seguimiento={modificandoFecha} alCerrar={() => setModificandoFecha(null)} />}
       {convocando && <ConvocarSeguimiento seguimiento={convocando.id ? convocando : null} alCerrar={() => setConvocando(null)} />}
       {enviandoCompromisos && <ConvocarSeguimiento tipo="compromisos" alCerrar={() => setEnviandoCompromisos(false)} />}
     </>
@@ -121,7 +125,7 @@ export default function Seguimiento() {
 
 /* ── Calendario y lista de próximos ─────────────────────────────────── */
 
-function PanelCalendario({ bd, filtros, setFiltros, alAgendar, alConvocar }) {
+function PanelCalendario({ bd, filtros, setFiltros, alAgendar, alConvocar, alModificarFecha }) {
   const hoy = hoyISO();
   const mes = useMesVisible(hoy);
   const esLista = filtros.vista === 'lista';
@@ -238,6 +242,10 @@ function PanelCalendario({ bd, filtros, setFiltros, alAgendar, alConvocar }) {
             { clave: 'participantes', titulo: 'Participantes' },
             { clave: 'temas', titulo: 'Temas a tratar' },
             {
+              clave: 'fecha_reunion', titulo: 'Reunión', sinOrdenar: true,
+              render: (f) => <Boton icono={CalendarDays} className="min-h-11" onClick={() => alModificarFecha(f)}>Modificar fecha</Boton>,
+            },
+            {
               clave: 'convocatoria', titulo: 'Convocatoria', sinOrdenar: true,
               render: (f) => <Boton icono={Mail} className="min-h-11" onClick={() => alConvocar(f)}>Enviar convocatoria</Boton>,
             },
@@ -279,6 +287,10 @@ function PanelCalendario({ bd, filtros, setFiltros, alAgendar, alConvocar }) {
             alMover={mes.mover}
             alVolverAHoy={mes.volverAHoy}
             presentarItem={presentarItem}
+            alSeleccionarItem={(item) => {
+              const seguimiento = bd?.seguimientos.find((s) => s.id === item.id);
+              if (seguimiento) alModificarFecha(seguimiento);
+            }}
           />
         </div>
         {programados.length === 0 && (

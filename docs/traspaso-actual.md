@@ -19,13 +19,31 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 09/10/2026 · JP (con Claude)
+**Última actualización:** 20/10/2026 · Codex, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
 ---
 
 ## 1. Dónde está parado el portal
+
+### Modificar fecha de Seguimiento (20/10)
+
+Disponible desde la reunión en el calendario, «Modificar fecha» en la lista y
+el historial por área, también para corregir reuniones pasadas. Guarda fecha y
+hora mediante la actualización parcial existente; conserva el mismo registro,
+sus compromisos y su contenido. No requiere migración.
+
+El cambio alcanza al portal: el usuario debe modificar por separado el evento
+de Google Calendar, como explica el formulario. No existe un identificador de
+Calendar persistido en el seguimiento que permita sincronizar ambos.
+
+Validado con `npm run verificar`: 441 pruebas, build, 132 comprobaciones de
+render y 29 rutas auditadas. `node scripts/verificar-fecha-seguimiento.mjs`
+prueba lista, calendario, historial, cancelación, validación, error y reintento,
+persistencia al recargar, vínculos y bitácora en Chrome con datos ficticios.
+Capturas de escritorio y móvil revisadas. No se modificaron reuniones reales
+durante las pruebas.
 
 ### Convocatorias de Seguimiento (06/10, mergeado a `main` el 09/10)
 

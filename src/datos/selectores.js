@@ -1826,6 +1826,7 @@ export function itemsCalendario(bd, capas, desde, hasta) {
       items.push({
         fecha: s.fecha.slice(0, 10),
         capa: 'seguimientos',
+        id: s.id,
         // El título lleva el área adentro para el calendario del inicio, que
         // mezcla las cuatro capas y colorea por capa, no por secretaría. El
         // de Seguimiento la colorea por área y la saca de `area`, sin repetirla
