@@ -15,6 +15,7 @@ import {
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
 import {
   Boton,
+  Aviso,
   BotonAlternable,
   Buscador,
   Chip,
@@ -71,6 +72,7 @@ export default function Seguimiento() {
   const [filtros, setFiltros] = useFiltrosUrl(DEFAULTS);
   const [agendando, setAgendando] = useState(false);
   const [modificandoFecha, setModificandoFecha] = useState(null);
+  const [aviso, setAviso] = useState('');
   const [convocando, setConvocando] = useState(null);
   const [enviandoCompromisos, setEnviandoCompromisos] = useState(false);
 
@@ -105,6 +107,7 @@ export default function Seguimiento() {
       />
 
       <Pagina className="flex flex-col gap-4">
+        {aviso && <div role="status"><Aviso>{aviso}</Aviso></div>}
         <Pestanias opciones={pestanias} valor={filtros.tab} alCambiar={(v) => setFiltros({ tab: v })} />
 
         {filtros.tab === 'calendario' && (
@@ -116,7 +119,7 @@ export default function Seguimiento() {
       </Pagina>
 
       {agendando && <AgendarSeguimiento abierto alCerrar={() => setAgendando(false)} />}
-      {modificandoFecha && <ModificarFechaSeguimiento key={modificandoFecha.id} seguimiento={modificandoFecha} alCerrar={() => setModificandoFecha(null)} />}
+      {modificandoFecha && <ModificarFechaSeguimiento key={modificandoFecha.id} seguimiento={modificandoFecha} alCerrar={() => setModificandoFecha(null)} alEliminar={() => setAviso('Seguimiento eliminado.')} />}
       {convocando && <ConvocarSeguimiento seguimiento={convocando.id ? convocando : null} alCerrar={() => setConvocando(null)} />}
       {enviandoCompromisos && <ConvocarSeguimiento tipo="compromisos" alCerrar={() => setEnviandoCompromisos(false)} />}
     </>

@@ -29,6 +29,14 @@ que el otro no puede deducir leyendo el repo.
 
 ### Modificar fecha de Seguimiento (20/10)
 
+**Eliminar duplicados (20/10):** el diálogo también permite eliminar un
+seguimiento agendado, con confirmación que identifica área, fecha y hora.
+Reutiliza `eliminarSeguimiento`: baja lógica del registro elegido, sin borrar
+las otras reuniones ni sus compromisos. No cancela eventos de Google Calendar.
+La opción no se ofrece para seguimientos realizados. La prueba en Chrome
+incluye dos reuniones ficticias de Seguridad del 04/11, cancelación, error y
+reintento, y conservación de la otra reunión después de recargar.
+
 Disponible desde la reunión en el calendario, «Modificar fecha» en la lista y
 el historial por área, también para corregir reuniones pasadas. Guarda fecha y
 hora mediante la actualización parcial existente; conserva el mismo registro,

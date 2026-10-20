@@ -19,6 +19,8 @@ const reunion = {
   ids_proyecto: [], resumen: 'Conservar resumen', avances: ['Conservar avance'],
 };
 base.seguimientos.push(reunion);
+const duplicado = { ...reunion, id: 'seguimiento-duplicado', area: 'Seguridad', fecha: '2026-11-04' };
+base.seguimientos.push(duplicado, { ...duplicado, id: 'seguimiento-conservar' });
 base.compromisos.push({ id: 'compromiso-prueba', origen_tipo: 'seguimiento', id_origen: reunion.id, descripcion: 'Conservar compromiso', estado: 'pendiente', activo: true });
 let servidor;
 let navegador;
@@ -55,7 +57,7 @@ try {
   }, base);
   const leer = () => pagina.evaluate(() => JSON.parse(localStorage.getItem('coord3f_bd_v1')));
   await pagina.goto('http://127.0.0.1:5191/seguimiento?vista=lista');
-  const abrir = () => pagina.getByRole('button', { name: 'Modificar fecha', exact: true }).click();
+  const abrir = () => pagina.getByRole('button', { name: 'Modificar fecha', exact: true }).first().click();
   const dialogo = pagina.getByRole('dialog', { name: 'Modificar fecha de reunión' });
   await abrir();
   assert.equal(await dialogo.getByLabel(/^Fecha/).inputValue(), fecha);
@@ -110,9 +112,40 @@ try {
   await abrir();
   await dialogo.waitFor();
   assert.equal(await dialogo.getByLabel(/^Fecha/).inputValue(), otraFecha);
+  await pagina.keyboard.press('Escape');
+  await pagina.goto('http://127.0.0.1:5191/seguimiento?vista=lista&area=Seguridad');
+  assert.equal(await pagina.getByRole('button', { name: 'Modificar fecha', exact: true }).count(), 2);
+  await abrir();
+  await dialogo.getByRole('button', { name: 'Eliminar seguimiento', exact: true }).click();
+  const confirmacion = pagina.getByRole('dialog', { name: 'Eliminar seguimiento', exact: true });
+  await confirmacion.getByText(/Seguridad del 04/).waitFor();
+  assert.equal((await leer()).seguimientos.find((s) => s.id === duplicado.id).activo, true);
+  await confirmacion.getByRole('button', { name: 'Volver' }).click();
+  await dialogo.getByRole('button', { name: 'Cancelar' }).click();
+  assert.equal(await pagina.getByRole('button', { name: 'Modificar fecha', exact: true }).count(), 2);
+  await abrir();
+  await dialogo.getByRole('button', { name: 'Eliminar seguimiento', exact: true }).click();
+  await pagina.evaluate(() => { window.fallarGuardadoFecha = true; });
+  await confirmacion.getByRole('button', { name: 'Sí, eliminar' }).click();
+  await confirmacion.getByRole('alert').getByText('Error de prueba al guardar').waitFor();
+  assert.equal((await leer()).seguimientos.find((s) => s.id === duplicado.id).activo, true);
+  await pagina.evaluate(() => { window.fallarGuardadoFecha = false; });
+  await confirmacion.screenshot({ path: join(capturas, 'eliminar-movil.png') });
+  await confirmacion.getByRole('button', { name: 'Sí, eliminar' }).click();
+  assert.equal(await confirmacion.getByRole('button', { name: 'Eliminando…' }).isDisabled(), true);
+  await confirmacion.waitFor({ state: 'hidden' });
+  await pagina.getByRole('status').getByText('Seguimiento eliminado.').waitFor();
+  const eliminada = await leer();
+  assert.equal(eliminada.seguimientos.find((s) => s.id === duplicado.id).activo, false);
+  assert.deepEqual(eliminada.seguimientos.find((s) => s.id === 'seguimiento-conservar'), { ...duplicado, id: 'seguimiento-conservar' });
+  assert.deepEqual(eliminada.compromisos, base.compromisos);
+  assert.equal(await pagina.getByRole('button', { name: 'Modificar fecha', exact: true }).count(), 1);
+  await pagina.reload();
+  assert.equal(await pagina.getByRole('button', { name: 'Modificar fecha', exact: true }).count(), 1);
   assert.deepEqual(errores, []);
   console.log('✓ Lista, calendario e historial; cancelar, fecha obligatoria, error y reintento, guardado y recarga, hora opcional, vínculos y bitácora.');
   console.log('✓ Escritorio y móvil con datos ficticios, sin servicios externos. Capturas: ' + capturas);
+  console.log('✓ Eliminar duplicado de Seguridad: confirmación, cancelar, error y reintento, baja persistida y conservación de la otra reunión y sus compromisos.');
 } finally {
   await navegador?.close();
   await servidor?.httpServer?.close();
