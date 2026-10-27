@@ -198,8 +198,10 @@ export function ConvocarSeguimiento({ alCerrar, seguimiento = null, tipo = 'conv
       if (!eventoId || !datos.area.trim()) throw new Error('Elegí la reunión y completá la secretaría.');
       if (!esCompromisos && !datos.lugar.trim()) throw new Error('Completá el lugar de la reunión.');
       if (!seleccion.compromiso) throw new Error(`Elegí el documento de compromisos de ${esCompromisos ? 'esta' : 'la última'} reunión.`);
+      // La lista ya sale de la carpeta Compromisos: no se exige la palabra en el
+      // nombre, porque los documentos se llaman «05. Seguimiento Seguridad 16/09».
       const documento = materiales.compromisos.find((a) => a.id === seleccion.compromiso);
-      if (!documento || !/compromiso/.test(normalizarNombre(documento.name))) throw new Error('Elegí un documento de compromisos.');
+      if (!documento) throw new Error('Elegí un documento de compromisos.');
       const fechaDocumento = fechaDelArchivo(documento, datos.fecha.slice(0, 4));
       if (esCompromisos) {
         if (fechaDocumento && fechaDocumento !== datos.fecha) throw new Error(`Los compromisos deben ser de la reunión del ${fechaCorta(datos.fecha)}.`);
