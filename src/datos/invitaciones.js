@@ -192,14 +192,15 @@ export function armarInvitacion(plantilla, { nombre, fecha }) {
 }
 
 /** Qué le falta a la invitación para poder abrirla. `{}` si está completa. */
-export function validarInvitacion(plantilla, fecha, hoy) {
+export function validarInvitacion(plantilla, fecha, hoy, { conEvento = true } = {}) {
   const errores = {};
   if (!fecha) errores.fecha = 'Indicá la fecha de la reunión.';
   else if (hoy && fecha < hoy) errores.fecha = 'La fecha ya pasó.';
   if (!/^\d{2}:\d{2}$/.test(plantilla.hora)) errores.hora = 'Indicá la hora.';
   if (!plantilla.invitados.length) errores.invitados = 'Agregá al menos un invitado.';
   if (!plantilla.asunto.trim()) errores.asunto = 'El asunto no puede quedar vacío.';
-  if (!plantilla.titulo_evento.trim()) errores.titulo_evento = 'El evento necesita un título.';
+  // El título sólo va al evento de Calendar: el mail solo no lo usa.
+  if (conEvento && !plantilla.titulo_evento.trim()) errores.titulo_evento = 'El evento necesita un título.';
   const link = plantilla.url_presentacion.trim();
   if (link && !/^https?:\/\/\S+$/.test(link)) {
     errores.url_presentacion = 'Tiene que ser un link completo, que empiece con https://';

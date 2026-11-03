@@ -19,13 +19,27 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 20/10/2026 · Codex, por pedido de JP
+**Última actualización:** 03/11/2026 · Claude, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
 ---
 
 ## 1. Dónde está parado el portal
+
+### Invitar a la reunión: sólo el mail (03/11)
+
+El modal de «Invitar a la reunión» (Eventos y Mesas) suma la casilla «Ya está
+agendada en Calendar: sólo preparar el mail»: esconde el paso de Calendar, el
+título del evento y la duración. Antes el mail ya era independiente, pero con
+los dos pasos a la vista parecía obligatorio agendar. El mail tampoco exige ya
+el título de Calendar.
+
+También suma «Restablecer textos»: vuelve título, asunto, mensaje, hora,
+duración y lugar a la base de la mesa sin tocar los invitados. Hace falta
+porque la plantilla se guarda sola al usarla (en `localStorage`): JP usó el
+botón de Eventos para la reunión de Barrios Populares del 22/10 y su plantilla
+de Eventos quedó con ese título (y quizás esos invitados).
 
 ### Modificar fecha de Seguimiento (20/10)
 

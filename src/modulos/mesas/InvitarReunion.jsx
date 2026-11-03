@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { CalendarPlus, ExternalLink, Mail, Save, UserPlus, X } from 'lucide-react';
+import { CalendarPlus, ExternalLink, Mail, RotateCcw, Save, UserPlus, X } from 'lucide-react';
 import { Modal } from '../../componentes/Modal.jsx';
 import { Aviso, Boton } from '../../componentes/Basicos.jsx';
 import { CampoArea, CampoCheck, CampoFecha, CampoHora, CampoSelect, CampoTexto } from '../../componentes/Campo.jsx';
 import { VistaPreviaMail } from '../../componentes/VistaPreviaMail.jsx';
-import { CLAVE_EVENTOS, DURACIONES, agregarMails, armarInvitacion, horarioEvento, validarInvitacion } from '../../datos/invitaciones.js';
+import {
+  CLAVE_EVENTOS, DURACIONES, agregarMails, armarInvitacion, horarioEvento, plantillaBase, validarInvitacion,
+} from '../../datos/invitaciones.js';
 import { GOOGLE_CLIENT_ID, conectarGoogleConvocatorias, prepararConexionGoogle } from '../../datos/repositorio.js';
 import { hoyISO } from '../../datos/selectores.js';
 import { acciones } from '../../estado/tienda.js';
@@ -19,13 +21,17 @@ import { acciones } from '../../estado/tienda.js';
  *  2. Convocatoria por mail: un borrador de Gmail con el texto de la plantilla
  *     y la firma predeterminada; se revisa y se envía desde Gmail.
  *
- * Los dos pasos son independientes: si el evento ya se creó a mano, se puede
- * preparar sólo el mail.
+ * Los dos pasos son independientes: si el evento ya se creó a mano, «Ya está
+ * agendada» esconde el paso 1 y lo que sólo sirve para Calendar (título y
+ * duración), y queda sólo el mail (pedido de JP, 03/11/2026: con los dos
+ * pasos a la vista parecía obligatorio agendar).
  *
  * Cada mesa tiene UNA plantilla —título del evento, asunto, mensaje,
  * invitados, link de la presentación, hora, duración y lugar— que se ajusta acá
  * antes de cada convocatoria y queda guardada al usarla. La fecha es lo único
- * que no se guarda, porque es de esta reunión y no de la mesa.
+ * que no se guarda, porque es de esta reunión y no de la mesa. Como se guarda
+ * sola, un uso para otra reunión la pisa: «Restablecer textos» vuelve a la
+ * base sin tocar los invitados.
  */
 export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial = '' }) {
   const hoy = hoyISO();
@@ -33,6 +39,7 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
   const [fecha, setFecha] = useState(fechaInicial ?? '');
   const [errores, setErrores] = useState({});
   const [guardada, setGuardada] = useState(false);
+  const [soloMail, setSoloMail] = useState(false);
 
   // Conexión con Google: el token vive sólo mientras el modal está abierto.
   const conexion = useRef(null);
@@ -111,8 +118,8 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
     });
   }
 
-  function validar() {
-    const faltan = validarInvitacion(vigente, fecha, hoy);
+  function validar(conEvento) {
+    const faltan = validarInvitacion(vigente, fecha, hoy, { conEvento });
     setErrores(faltan);
     return !Object.keys(faltan).length;
   }
@@ -122,8 +129,15 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
     setGuardada(true);
   }
 
+  function restablecer() {
+    setPlantilla((p) => ({ ...plantillaBase(clave), invitados: p.invitados }));
+    setErrores({});
+    setRevisado(false);
+    setGuardada(false);
+  }
+
   function agendar() {
-    if (!validar()) return;
+    if (!validar(true)) return;
     ejecutar('Creando el evento en Calendar…', async () => {
       if (!confirmaEnvio) throw new Error('Confirmá que Google les va a mandar la invitación a los invitados.');
       const link = vigente.url_presentacion.trim();
@@ -140,7 +154,7 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
   }
 
   function prepararMail() {
-    if (!validar()) return;
+    if (!validar(false)) return;
     ejecutar('Guardando el borrador en Gmail…', async () => {
       if (!revisado) throw new Error('Revisá el mail antes de guardarlo.');
       const resultado = await conexion.current.crearBorrador({
@@ -155,6 +169,8 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
   const bloqueado = Boolean(ocupado || incierto);
   const cerrar = () => { if (!operando.current) alCerrar(); };
   const invitados = plantilla.invitados.length;
+  // Una vez creado el evento acá, ya no hay elección: queda el mail.
+  const conCalendar = !soloMail || Boolean(evento);
 
   return (
     <Modal
@@ -168,6 +184,9 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
           <Boton variante="fantasma" onClick={cerrar} disabled={Boolean(ocupado)} className="mr-auto">
             Cerrar
           </Boton>
+          <Boton variante="fantasma" icono={RotateCcw} onClick={restablecer} disabled={bloqueado}>
+            Restablecer textos
+          </Boton>
           <Boton icono={Save} onClick={guardar} disabled={bloqueado}>
             Guardar plantilla
           </Boton>
@@ -177,8 +196,17 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
       <div className="flex flex-col gap-4" aria-busy={Boolean(ocupado)}>
         <p className="text-sm text-gris">
           Agendá la reunión en tu Google Calendar —Google les manda la invitación a los invitados— y prepará la
-          convocatoria por mail como borrador de Gmail.
+          convocatoria por mail como borrador de Gmail. Si ya la agendaste a mano, podés preparar sólo el mail.
         </p>
+        {!evento && (
+          <CampoCheck
+            etiqueta="Ya está agendada en Calendar: sólo preparar el mail"
+            descripcion="El portal no crea el evento ni le manda nada a nadie: sólo guarda el borrador en Gmail."
+            checked={soloMail}
+            onChange={(e) => setSoloMail(e.target.checked)}
+            disabled={bloqueado}
+          />
+        )}
         {ocupado && <p role="status" className="text-sm font-medium text-acento">{ocupado}</p>}
         {error && <div role="alert"><Aviso tono="error" titulo="No se pudo completar">{error}</Aviso></div>}
         {!GOOGLE_CLIENT_ID && (
@@ -199,14 +227,16 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
 
         <fieldset disabled={bloqueado} className="flex flex-col gap-3">
           <legend className="mb-3 text-sm font-semibold text-tinta">Reunión</legend>
-          <CampoTexto
-            etiqueta="Título del evento en Calendar"
-            requerido
-            value={plantilla.titulo_evento}
-            onChange={cambiar('titulo_evento')}
-            error={errores.titulo_evento}
-          />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {conCalendar && (
+            <CampoTexto
+              etiqueta="Título del evento en Calendar"
+              requerido
+              value={plantilla.titulo_evento}
+              onChange={cambiar('titulo_evento')}
+              error={errores.titulo_evento}
+            />
+          )}
+          <div className={`grid grid-cols-1 gap-3 ${conCalendar ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
             <CampoFecha
               etiqueta="Fecha"
               requerido
@@ -216,16 +246,18 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
               error={errores.fecha}
             />
             <CampoHora etiqueta="Hora" requerido value={plantilla.hora} onChange={cambiar('hora')} error={errores.hora} />
-            <CampoSelect
-              etiqueta="Duración"
-              opciones={DURACIONES}
-              placeholder="Elegir…"
-              value={String(plantilla.duracion_min)}
-              onChange={(e) =>
-                // El «Elegir…» vacío no es una duración: se queda la que estaba.
-                e.target.value && setPlantilla((p) => ({ ...p, duracion_min: Number(e.target.value) }))
-              }
-            />
+            {conCalendar && (
+              <CampoSelect
+                etiqueta="Duración"
+                opciones={DURACIONES}
+                placeholder="Elegir…"
+                value={String(plantilla.duracion_min)}
+                onChange={(e) =>
+                  // El «Elegir…» vacío no es una duración: se queda la que estaba.
+                  e.target.value && setPlantilla((p) => ({ ...p, duracion_min: Number(e.target.value) }))
+                }
+              />
+            )}
           </div>
           <CampoTexto
             etiqueta="Lugar"
@@ -251,43 +283,47 @@ export function InvitarReunion({ abierto, alCerrar, clave, nombre, fechaInicial 
           />
         </fieldset>
 
-        <fieldset disabled={bloqueado || !cuenta} className="flex flex-col gap-3 border-t border-borde pt-4">
-          <legend className="mb-3 text-sm font-semibold text-tinta">1. Agendar en Calendar</legend>
-          {evento ? (
-            <div role="status">
-              <Aviso tono="info" titulo="Evento creado y enviado a los invitados">
-                Google ya les mandó la invitación de Calendar.{' '}
-                {evento.htmlLink && (
-                  <a href={evento.htmlLink} target="_blank" rel="noopener noreferrer" className="font-medium text-acento underline">
-                    Abrir el evento en Calendar
-                  </a>
+        {conCalendar && (
+          <fieldset disabled={bloqueado || !cuenta} className="flex flex-col gap-3 border-t border-borde pt-4">
+            <legend className="mb-3 text-sm font-semibold text-tinta">1. Agendar en Calendar</legend>
+            {evento ? (
+              <div role="status">
+                <Aviso tono="info" titulo="Evento creado y enviado a los invitados">
+                  Google ya les mandó la invitación de Calendar.{' '}
+                  {evento.htmlLink && (
+                    <a href={evento.htmlLink} target="_blank" rel="noopener noreferrer" className="font-medium text-acento underline">
+                      Abrir el evento en Calendar
+                    </a>
+                  )}
+                </Aviso>
+              </div>
+            ) : (
+              <>
+                {calendarios.length > 1 && (
+                  <CampoSelect
+                    etiqueta="Calendario"
+                    opciones={calendarios.map((c) => ({ valor: c.id, titulo: c.summary }))}
+                    value={calendario}
+                    onChange={(e) => setCalendario(e.target.value)}
+                  />
                 )}
-              </Aviso>
-            </div>
-          ) : (
-            <>
-              {calendarios.length > 1 && (
-                <CampoSelect
-                  etiqueta="Calendario"
-                  opciones={calendarios.map((c) => ({ valor: c.id, titulo: c.summary }))}
-                  value={calendario}
-                  onChange={(e) => setCalendario(e.target.value)}
+                <CampoCheck
+                  etiqueta={`Revisé fecha, hora e invitados: al crear el evento, Google les manda la invitación a ${invitados} ${invitados === 1 ? 'persona' : 'personas'}.`}
+                  checked={confirmaEnvio}
+                  onChange={(e) => setConfirmaEnvio(e.target.checked)}
                 />
-              )}
-              <CampoCheck
-                etiqueta={`Revisé fecha, hora e invitados: al crear el evento, Google les manda la invitación a ${invitados} ${invitados === 1 ? 'persona' : 'personas'}.`}
-                checked={confirmaEnvio}
-                onChange={(e) => setConfirmaEnvio(e.target.checked)}
-              />
-              <Boton variante="primario" icono={CalendarPlus} className="min-h-11 self-start" disabled={!confirmaEnvio || !calendario} onClick={agendar}>
-                Agendar en Calendar
-              </Boton>
-            </>
-          )}
-        </fieldset>
+                <Boton variante="primario" icono={CalendarPlus} className="min-h-11 self-start" disabled={!confirmaEnvio || !calendario} onClick={agendar}>
+                  Agendar en Calendar
+                </Boton>
+              </>
+            )}
+          </fieldset>
+        )}
 
         <fieldset disabled={bloqueado || !cuenta || Boolean(borrador)} className="flex flex-col gap-3 border-t border-borde pt-4">
-          <legend className="mb-3 text-sm font-semibold text-tinta">2. Convocatoria por mail</legend>
+          <legend className="mb-3 text-sm font-semibold text-tinta">
+            {conCalendar ? '2. Convocatoria por mail' : 'Convocatoria por mail'}
+          </legend>
           <CampoTexto etiqueta="Asunto" requerido value={plantilla.asunto} onChange={cambiar('asunto')} error={errores.asunto} />
           <CampoArea
             etiqueta="Mensaje"

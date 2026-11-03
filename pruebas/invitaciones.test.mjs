@@ -84,6 +84,12 @@ test('validar: faltantes, fecha pasada y {link} sin presentación', () => {
   assert.ok(validarInvitacion({ ...completa, url_presentacion: 'docs.google.com/p/1' }, '2026-10-01').url_presentacion);
 });
 
+test('validar: el mail solo no pide el título del evento de Calendar', () => {
+  const sinTitulo = plantilla({ titulo_evento: ' ', url_presentacion: 'https://docs.google.com/p/1' });
+  assert.ok(validarInvitacion(sinTitulo, '2026-10-01', '2026-09-28').titulo_evento);
+  assert.deepEqual(validarInvitacion(sinTitulo, '2026-10-01', '2026-09-28', { conEvento: false }), {});
+});
+
 test('Calendar: hora de reloj con huso aparte, y el fin cruza la medianoche', () => {
   assert.deepEqual(horarioEvento('2026-10-01', '23:30', 60), {
     start: { dateTime: '2026-10-01T23:30:00', timeZone: 'America/Argentina/Buenos_Aires' },
