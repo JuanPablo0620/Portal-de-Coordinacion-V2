@@ -23,7 +23,7 @@ import { ubicarTodos } from '../../datos/bacheo/ubicar.js';
 import { deLeaflet, verticesDe } from '../../datos/bacheo/geometria.js';
 import { cargarLugares, publicarSemana } from '../../datos/supabaseBacheo.js';
 import { ESTADOS_UBICACION, armarPublicacion, nombreDia, rotuloSemana, textoTareas } from '../../datos/bacheo/semana.js';
-import { encuadreDe, formasDeTrabajos } from './formas.js';
+import { encuadreDe, formasDeTrabajos, formasDelPartido, useLimitePartido } from './formas.js';
 
 const PRIORIDAD = { sin_ubicar: 0, aproximada: 1, automatica: 2, manual: 3, revisada: 4 };
 const QUE_DIBUJAR = {
@@ -106,6 +106,7 @@ export function CargaSemana({ semanas, alCancelar, alPublicar }) {
   };
   const minimoPuntos = actual?.forma === 'esquina' ? 1 : actual?.forma === 'tramo' ? 2 : 3;
 
+  const limite = useLimitePartido();
   const formas = useMemo(() => {
     const base = formasDeTrabajos(
       trabajos.filter((t) => !dibujo || t.clave !== elegido),
@@ -121,8 +122,8 @@ export function CargaSemana({ semanas, alCancelar, alPublicar }) {
         interactiva: false,
       });
     }
-    return base;
-  }, [trabajos, dibujo, elegido, actual]);
+    return [...formasDelPartido(limite), ...base];
+  }, [limite, trabajos, dibujo, elegido, actual]);
 
   const encuadre = useMemo(
     () => (actual?.geometria ? verticesDe(actual.geometria) : encuadreDe(trabajos)),

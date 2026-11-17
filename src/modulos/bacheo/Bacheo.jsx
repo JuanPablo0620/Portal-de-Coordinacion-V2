@@ -35,7 +35,7 @@ import {
   rotuloSemana,
   textoTareas,
 } from '../../datos/bacheo/semana.js';
-import { encuadreDe, formasDeTrabajos } from './formas.js';
+import { encuadreDe, formasDeTrabajos, formasDelPartido, useLimitePartido } from './formas.js';
 import { CargaSemana } from './CargaSemana.jsx';
 
 const formatoM2 = (n) => `${Math.round(n).toLocaleString('es-AR')} m²`;
@@ -104,7 +104,11 @@ export default function Bacheo() {
   // En el mapa van los de los tipos elegidos de TODA la semana; el día solo
   // atenúa. En el panel, solo los que pasan todos los filtros.
   const enMapa = useMemo(() => trabajos.filter((t) => pasaFiltros(t, { tipos })), [trabajos, tipos]);
-  const formas = useMemo(() => formasDeTrabajos(enMapa, { fecha }), [enMapa, fecha]);
+  const limite = useLimitePartido();
+  const formas = useMemo(
+    () => [...formasDelPartido(limite), ...formasDeTrabajos(enMapa, { fecha })],
+    [limite, enMapa, fecha],
+  );
   const grupos = useMemo(() => agruparPorLocalidad(visibles), [visibles]);
   const resumen = resumenSemana(visibles);
   const elegido = trabajos.find((t) => t.id === seleccion) ?? null;

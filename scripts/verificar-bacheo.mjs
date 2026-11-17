@@ -11,7 +11,8 @@
  *
  * Los PDF no están en el repo (es público): ver `docs/bacheo.md`. Sin carpeta,
  * la prueba no corre. Las capturas quedan en `BACHEO_CAPTURAS` o en una
- * carpeta temporal.
+ * carpeta temporal. Con `BACHEO_TESELAS=1` las capturas salen con el mapa de
+ * fondo real (OpenFreeMap).
  */
 import { build, mergeConfig, preview } from 'vite';
 import { chromium } from 'playwright';
@@ -79,6 +80,10 @@ try {
       const respuesta = await fetch(real);
       return ruta.fulfill({ status: respuesta.status, contentType: 'application/json', body: await respuesta.text() });
     }
+    // Con BACHEO_TESELAS=1 deja pasar el mapa de fondo, para revisar las
+    // capturas con el aspecto real. Por defecto no: la prueba no depende de un
+    // servicio externo.
+    if (process.env.BACHEO_TESELAS && /openfreemap\.org|openmaptiles/.test(url)) return ruta.continue();
     return url.startsWith(local) ? ruta.continue() : ruta.abort();
   });
 

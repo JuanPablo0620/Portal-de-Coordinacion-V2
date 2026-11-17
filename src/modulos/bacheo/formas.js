@@ -6,7 +6,9 @@
  * «no se trabaja el día elegido». Son tres variables visuales distintas a
  * propósito: color, trazo y opacidad no compiten entre sí.
  */
+import { useEffect, useState } from 'react';
 import { aFormaMapa, verticesDe } from '../../datos/bacheo/geometria.js';
+import { limitePartido } from '../../datos/geoportal.js';
 import { ETIQUETAS_TIPO } from '../../datos/bacheo/programacion.js';
 import { esProvisoria } from '../../datos/bacheo/semana.js';
 
@@ -39,3 +41,41 @@ export function formasDeTrabajos(trabajos, { fecha = '', idClave = 'id' } = {}) 
 
 /** Puntos para encuadrar el mapa en un conjunto de trabajos. */
 export const encuadreDe = (trabajos) => trabajos.flatMap((t) => verticesDe(t.geometria));
+
+/**
+ * El contorno oficial del partido (Geoportal), una vez por montaje. Mientras
+ * no llega, o si el Geoportal no responde, el mapa se ve igual pero sin
+ * cortina: no es un error que haya que mostrar.
+ */
+export function useLimitePartido() {
+  const [limite, setLimite] = useState([]);
+  useEffect(() => {
+    let vigente = true;
+    limitePartido().then((contornos) => vigente && setLimite(contornos));
+    return () => {
+      vigente = false;
+    };
+  }, []);
+  return limite;
+}
+
+/**
+ * Lo mismo que el mapa de cortes: una cortina blanca sobre todo lo que queda
+ * fuera de Tres de Febrero y el borde del partido en navy. Va primero en la
+ * lista para quedar debajo de los trabajos.
+ */
+export function formasDelPartido(limite) {
+  if (!limite.length) return [];
+  return [
+    { id: null, tipo: 'mascara', puntos: limite, clase: 'corte-fuera-partido', interactiva: false },
+    {
+      id: null,
+      tipo: 'linea',
+      puntos: limite,
+      clase: 'corte-limite-partido',
+      grosor: 3,
+      mostrarPuntas: false,
+      interactiva: false,
+    },
+  ];
+}
