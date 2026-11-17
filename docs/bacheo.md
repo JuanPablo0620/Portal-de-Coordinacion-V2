@@ -53,6 +53,10 @@ Se validó contra los 38 PDF de junio a noviembre de 2026 (19 semanas de asfalto
   tabla y descarta lo del viernes (el sellado del Cuadrante 7 del 02/11, la
   reconstrucción de Sgto. Palma del 20/07). Leer por posición no tiene ese
   problema: por eso el lector no usa los bordes.
+- **El encabezado puede venir en dos renglones** («APROX» arriba y «m2» abajo, hormigón
+  del 25/05): el lector toma una franja de ±5 puntos alrededor de DIRECCION.
+- **Calles con el mismo apellido** («Zanella» = Juan o Santiago Zanella en Caseros): se
+  prueban todas las que empatan, como alternativas.
 - **El «M2 TOTALES» de hormigón no es confiable**: el del 16/11 dice 421 y las
   filas suman 907. El total se calcula.
 - **Reprogramaciones**: en octubre el hormigón tuvo dos versiones en tres semanas
@@ -77,7 +81,7 @@ Se validó contra los 38 PDF de junio a noviembre de 2026 (19 semanas de asfalto
 
 ## Carga histórica
 
-Las 19 semanas de junio a noviembre se cargaron con un SQL generado por
+Las 36 semanas de enero a noviembre (19 de los PDF de JP, 17 más del Drive de Seguimiento) se cargaron con un SQL generado por
 `Trabajo/analisis/mapas-seguridad-bacheo/generar_carga_historica.mjs`, que usa
 este mismo código. Ese script también arma el informe de lugares que no se
 pueden ubicar tal como están escritos, para el área.

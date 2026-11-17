@@ -253,14 +253,29 @@ const enLaLocalidad = (candidato, localidad) => {
  * @returns {string|null} el nombre oficial elegido
  */
 export function elegirCalle(texto, candidatos, localidad = '') {
-  let mejor = null;
+  return elegirCalles(texto, candidatos, localidad)[0] ?? null;
+}
+
+/**
+ * Todos los nombres oficiales que empatan en el mejor puntaje. «Zanella» en
+ * Caseros es Juan Zanella o Santiago Zanella: quedarse con uno al azar dejaba
+ * tramos «que no se cruzan». Quien llama los trata como alternativas.
+ */
+export function elegirCalles(texto, candidatos, localidad = '') {
+  let mejor = -Infinity;
+  let nombres = [];
   for (const c of candidatos) {
     const p = puntaje(texto, c.nombre);
     if (p === null) continue;
     const total = p + (enLaLocalidad(c, localidad) ? 5 : 0);
-    if (!mejor || total > mejor.total) mejor = { nombre: c.nombre, total };
+    if (total > mejor) {
+      mejor = total;
+      nombres = [c.nombre];
+    } else if (total === mejor && !nombres.includes(c.nombre)) {
+      nombres.push(c.nombre);
+    }
   }
-  return mejor?.nombre ?? null;
+  return nombres;
 }
 
 /**

@@ -393,3 +393,13 @@ test('la palabra que sobra no puede ser el apellido', async () => {
   ];
   assert.equal(elegirCalleFlexible('Martin de Álzaga', candidatos, 'Caseros'), 'Álzaga');
 });
+
+test('calles que empatan se devuelven todas («Zanella» en Caseros)', async () => {
+  const { elegirCalles } = await import('../src/datos/bacheo/nombresCalle.js');
+  const candidatos = [
+    { nombre: 'Juan Zanella', localidades: ['Caseros'] },
+    { nombre: 'Santiago Zanella', localidades: ['Caseros'] },
+  ];
+  assert.deepEqual(elegirCalles('Zanella', candidatos, 'Caseros'), ['Juan Zanella', 'Santiago Zanella']);
+  assert.deepEqual(elegirCalles('Santiago Zanella', candidatos, 'Caseros'), ['Santiago Zanella']);
+});

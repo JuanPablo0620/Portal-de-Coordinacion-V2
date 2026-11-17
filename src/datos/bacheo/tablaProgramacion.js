@@ -45,6 +45,9 @@ const limpio = (texto) => String(texto ?? '').replace(/\s+/g, ' ').trim();
  * difieren en menos de 1. */
 const TOLERANCIA_FILA = 2.5;
 
+/** Franja vertical del encabezado alrededor de «DIRECCION». */
+const TOLERANCIA_ENCABEZADO = 5;
+
 /** Dos textos de la misma celda están en la misma línea si su altura difiere en
  * menos que esto; si no, el de más arriba va primero. */
 const TOLERANCIA_LINEA = 1.5;
@@ -70,13 +73,40 @@ export function tablaDesdeItems(items) {
     throw new Error('No se encontró la columna DIRECCION: el PDF no parece una programación semanal de Bacheo.');
   }
 
-  const encabezados = textos
-    .filter((i) => Math.abs(i.y - direccion.y) <= TOLERANCIA_FILA)
-    .sort((a, b) => a.x - b.x);
-  const columnas = encabezados.filter((i) => i.x >= direccion.x - MARGEN_DIRECCION);
-  const iDireccion = columnas.indexOf(direccion);
+  /*
+   * El encabezado puede venir en dos renglones: en la semana del 25/05 el
+   * hormigón trae «APROX» cuatro puntos arriba de la línea de DIRECCION y «m2»
+   * cuatro abajo. Se toma una franja de ±TOLERANCIA_ENCABEZADO (la primera fila
+   * de datos está a más de 10 puntos) y los pedazos que se superponen en
+   * horizontal se juntan en una sola columna.
+   */
+  const enFranja = textos.filter((i) => Math.abs(i.y - direccion.y) <= TOLERANCIA_ENCABEZADO);
+  const columnas = [];
+  for (const item of [...enFranja].sort((a, b) => b.y - a.y || a.x - b.x)) {
+    const fin = item.x + (item.w ?? 0);
+    const misma = columnas.find((c) => item.x < c.fin && fin > c.x);
+    if (misma) {
+      misma.partes.push(item);
+      misma.x = Math.min(misma.x, item.x);
+      misma.fin = Math.max(misma.fin, fin);
+    } else {
+      columnas.push({ x: item.x, fin, partes: [item] });
+    }
+  }
+  for (const c of columnas) {
+    c.str = c.partes.map((p) => p.str).join(' ');
+    c.centro = (c.x + c.fin) / 2;
+    c.y = c.partes[0].y;
+    c.esDireccion = c.partes.includes(direccion);
+  }
+  columnas.sort((a, b) => a.x - b.x);
+  const piso = Math.min(...enFranja.map((i) => i.y));
+  const deTabla = columnas.filter((c) => c.x >= direccion.x - MARGEN_DIRECCION);
+  columnas.length = 0;
+  columnas.push(...deTabla);
+  const iDireccion = columnas.findIndex((c) => c.esDireccion);
 
-  const cuerpo = textos.filter((i) => i.y < direccion.y - TOLERANCIA_FILA);
+  const cuerpo = textos.filter((i) => i.y < piso - TOLERANCIA_FILA && !enFranja.includes(i));
   const rotulos = cuerpo.filter((i) => i.x + (i.w ?? 0) < direccion.x - MARGEN_DIRECCION);
   const celdas = cuerpo.filter((i) => !rotulos.includes(i));
 
@@ -125,7 +155,7 @@ export function tablaDesdeItems(items) {
   const cuadrillaDe = conCuadrilla ? repartirFilas(trabajos.map((f) => f.y), bloques) : [];
 
   return {
-    tipo: textos.some((i) => clave(i.str).includes('M2') && Math.abs(i.y - direccion.y) <= TOLERANCIA_FILA)
+    tipo: columnas.some((c) => clave(c.str).includes('M2'))
       ? 'hormigon'
       : 'asfalto',
     encabezado: (conCuadrilla ? [''] : []).concat(columnas.map((c) => c.str)),

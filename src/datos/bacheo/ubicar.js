@@ -29,7 +29,7 @@ import {
   alternativas,
   clasificarDescripcion,
   claveLugar,
-  elegirCalle,
+  elegirCalles,
   elegirCalleFlexible,
   esDudosa,
   patronesDeBusqueda,
@@ -83,9 +83,9 @@ export async function resolverCalle(texto, localidad) {
     if (!patrones.length) continue;
     const candidatos = await callesQueCoinciden(patrones);
     vistos.push(...candidatos);
-    const nombre = elegirCalle(texto, candidatos, localidad);
-    if (nombre) {
-      resultado = { nombre, interpretado: esDudosa(texto, nombre), sugerencia: null };
+    const nombres = elegirCalles(texto, candidatos, localidad);
+    if (nombres.length) {
+      resultado = { nombre: nombres[0], alternativas: nombres, interpretado: esDudosa(texto, nombres[0]), sugerencia: null };
       break;
     }
   }
@@ -151,7 +151,7 @@ async function nombresOficiales(textos, localidad) {
     for (const alt of alternativas(texto)) {
       const r = await resolverCalle(alt, localidad);
       if (r.nombre) {
-        encontrados.push(r.nombre);
+        encontrados.push(...(r.alternativas ?? [r.nombre]));
         if (r.interpretado) avisos.push(`Se tomó «${alt}» como «${r.nombre}».`);
       } else sugerencia ??= r.sugerencia;
     }
