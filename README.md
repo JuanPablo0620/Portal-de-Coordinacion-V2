@@ -68,6 +68,7 @@ importaciones circulares · ausencia de importaciones sin uso · 292 tests · bu
 | `/planificacion` | **Módulo 4** | Metas anuales y trimestrales, tablero de estadísticas y comparativo planificado vs. real |
 | `/mesas` | **Módulo 5** | Mesas temáticas, barriales y otros proyectos, separadas en pestañas con color propio |
 | `/eventos` | **Módulo 6** | Agenda, requerimientos desde catálogo cerrado y checklist con alerta a 5 días |
+| `/bacheo` | **Bacheo** | Programación semanal de asfalto y hormigón: carga de los PDF del área, ubicación en el callejero oficial y mapa por localidad. Ver `docs/bacheo.md` |
 | `/reportes` | **Módulo 7** | Constructor con filtros combinables, vista previa, PDF por impresión y configuraciones guardadas |
 | `/estrategicos` | **Módulo 8** | Cartera estratégica con tablero propio, semáforo más estricto y promoción de candidatos surgidos de monitoreo y seguimiento |
 | `/posicionamiento` | **Módulo 9** | Hermanamientos, redes, postulaciones y convenios internacionales, con embudo por estado, cobertura de ODS y reloj de convocatorias |

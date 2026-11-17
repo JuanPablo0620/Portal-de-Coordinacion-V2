@@ -140,6 +140,19 @@
   --color-serie-7: #9a8c3f;
   --color-serie-8: #7a8794;
 
+  /* Bacheo: un color por tipo de trabajo. Salen de las series —ya validadas a
+     3:1 contra la tarjeta y distinguibles con daltonismo— para no inventar una
+     paleta nueva. Limpieza y mantenimiento comparten el gris: en seis meses de
+     planillas aparecieron una vez cada una. */
+  --color-bacheo-caliente: var(--color-serie-3);
+  --color-bacheo-frio: var(--color-serie-1);
+  --color-bacheo-sellado: var(--color-serie-6);
+  --color-bacheo-reconstruccion: var(--color-serie-7);
+  --color-bacheo-pintura: var(--color-serie-5);
+  --color-bacheo-viales: var(--color-serie-4);
+  --color-bacheo-hormigon: var(--color-serie-2);
+  --color-bacheo-otro: var(--color-serie-8);
+
   /* Tipografía */
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
 
@@ -532,3 +545,45 @@ body {
 .corte-atenuado {
   stroke-opacity: 0.35;
 }
+
+/* ── Bacheo ──────────────────────────────────────────────────────────── */
+
+/* El color dice el tipo de trabajo; el relleno de los cuadrantes va tenue para
+   que se sigan leyendo las calles que encierran. */
+.bacheo-caliente { stroke: var(--color-bacheo-caliente); fill: var(--color-bacheo-caliente); }
+.bacheo-frio { stroke: var(--color-bacheo-frio); fill: var(--color-bacheo-frio); }
+.bacheo-sellado { stroke: var(--color-bacheo-sellado); fill: var(--color-bacheo-sellado); }
+.bacheo-reconstruccion { stroke: var(--color-bacheo-reconstruccion); fill: var(--color-bacheo-reconstruccion); }
+.bacheo-pintura { stroke: var(--color-bacheo-pintura); fill: var(--color-bacheo-pintura); }
+.bacheo-viales { stroke: var(--color-bacheo-viales); fill: var(--color-bacheo-viales); }
+.bacheo-hormigon { stroke: var(--color-bacheo-hormigon); fill: var(--color-bacheo-hormigon); }
+.bacheo-limpieza,
+.bacheo-mantenimiento { stroke: var(--color-bacheo-otro); fill: var(--color-bacheo-otro); }
+
+path.bacheo-area {
+  fill-opacity: 0.14;
+}
+
+/* Ubicación sin revisar o aproximada: trazo cortado, que se lee como
+   «orientativo» sin necesidad de leyenda. */
+path.bacheo-provisoria {
+  stroke-dasharray: 6 5;
+}
+
+/* Fuera del día elegido: se ve dónde está, pero no compite. */
+path.bacheo-atenuado {
+  stroke-opacity: 0.3;
+  fill-opacity: 0.05;
+}
+
+/* Muestra de color en listas y leyendas. */
+.bacheo-muestra { background-color: var(--muestra); }
+.bacheo-muestra-caliente { --muestra: var(--color-bacheo-caliente); }
+.bacheo-muestra-frio { --muestra: var(--color-bacheo-frio); }
+.bacheo-muestra-sellado { --muestra: var(--color-bacheo-sellado); }
+.bacheo-muestra-reconstruccion { --muestra: var(--color-bacheo-reconstruccion); }
+.bacheo-muestra-pintura { --muestra: var(--color-bacheo-pintura); }
+.bacheo-muestra-viales { --muestra: var(--color-bacheo-viales); }
+.bacheo-muestra-hormigon { --muestra: var(--color-bacheo-hormigon); }
+.bacheo-muestra-limpieza,
+.bacheo-muestra-mantenimiento { --muestra: var(--color-bacheo-otro); }

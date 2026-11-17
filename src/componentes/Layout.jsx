@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   MapPinned,
+  Construction,
   Moon,
   Radar,
   Settings,
@@ -82,6 +83,7 @@ const GRUPOS = [
     titulo: 'Herramientas',
     modulos: [
       { ruta: '/mapa', titulo: 'Mapa de cortes', icono: MapPinned },
+      { ruta: '/bacheo', titulo: 'Bacheo', icono: Construction },
       { ruta: '/reportes', titulo: 'Reportes', icono: FileBarChart },
     ],
   },

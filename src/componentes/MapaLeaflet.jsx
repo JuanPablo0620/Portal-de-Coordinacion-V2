@@ -93,8 +93,9 @@ function crearCapaBase(L, cual, maplibreGL) {
 }
 
 /**
- * @param {object[]} formas  `{ id, tipo: 'linea'|'punto'|'mascara', puntos, clase, titulo }`
+ * @param {object[]} formas  `{ id, tipo: 'linea'|'punto'|'poligono'|'mascara', puntos, clase, titulo }`
  *   — `mascara` recibe anillos cerrados y pinta todo lo que queda AFUERA de ellos.
+ *   — `poligono` recibe anillos cerrados y pinta lo que queda ADENTRO.
  *   — `puntos` es un array de polilíneas para `linea` y un `{lat,lng}` para `punto`.
  *   Opcionales: `grosor` (ancho del trazo), `interactiva: false` (no responde al
  *   clic) y `mostrarPuntas: false` (sin los círculos de los extremos).
@@ -113,6 +114,7 @@ export function MapaLeaflet({
   encuadrar = null,
   alto = 520,
   className = '',
+  etiqueta = 'Mapa de cortes de calle',
 }) {
   const contenedor = useRef(null);
   const leaflet = useRef(null);
@@ -305,6 +307,11 @@ export function MapaLeaflet({
         }
       } else if (forma.tipo === 'punto') {
         if (forma.puntos) capas.push(L.circleMarker(forma.puntos, { radius: seleccion ? 11 : 8, className: clase }));
+      } else if (forma.tipo === 'poligono') {
+        // Un área entera (los cuadrantes de bacheo): relleno tenue y borde pleno,
+        // para que las calles de abajo se sigan leyendo.
+        const anillos = (forma.puntos ?? []).filter((anillo) => anillo?.length >= 3);
+        if (anillos.length) capas.push(L.polygon(anillos, { weight: seleccion ? 4 : 2.5, className: clase }));
       } else {
         const grosor = forma.grosor ?? (seleccion ? 9 : 6);
         for (const linea of forma.puntos ?? []) {
@@ -366,7 +373,7 @@ export function MapaLeaflet({
       // teclado del módulo pasa por la lista de cortes y por los desplegables
       // de esquina, que son controles reales.
       role="application"
-      aria-label="Mapa de cortes de calle"
+      aria-label={etiqueta}
     >
       {!listo && <p className="p-3 text-sm text-tenue">Cargando el mapa…</p>}
     </div>

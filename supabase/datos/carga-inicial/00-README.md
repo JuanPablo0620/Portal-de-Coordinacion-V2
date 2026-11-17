@@ -22,6 +22,7 @@ actualizaciones) queda en standby por decisión de JP.
 | `03-puntuales.csv` | 0 | **vacío** — la tabla ya no existe, ver nota arriba |
 | `04-mesas.csv` | 3 | `mesas` |
 | `05-compromisos.csv` | 130 | `compromisos` (124 del `_db` + 6 del PDF de Obras 20/08) |
+| `06-bacheo-lugares.sql` | 20 | `bacheo_lugares` — memoria inicial de Bacheo (17/11/2026). Se corre en el editor SQL después de `0038_bacheo.sql`; ver `docs/bacheo.md` |
 
 **Los catálogos no están acá a propósito**: `areas`, `ejes`, `estados` y
 `tipos_proyecto` ya vienen en los seeds de `0001_esquema.sql`, y los nombres de

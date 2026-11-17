@@ -58,6 +58,7 @@ const CAPA_CALLEJERO = 'geonode:callejero_normalizado';
 const CAPA_ESQUINAS = 'geonode:intersecciones_callejero';
 /** Límite oficial del partido, usado para orientar y encuadrar el mapa. */
 const CAPA_LIMITE_PARTIDO = 'geonode:limites3f';
+const CAPA_LOCALIDADES = 'geonode:localidades';
 
 /** Capa base opcional del mapa, servida por WMS. */
 export const WMS_OWS = OWS_DIRECTO;
@@ -372,6 +373,41 @@ export async function buscarCalles(texto, { limite = 12 } = {}) {
     .map(([nombre, localidades]) => ({ nombre, localidades: [...localidades].sort() }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
     .slice(0, limite);
+}
+
+/**
+ * Calles cuyo nombre contiene TODOS los fragmentos dados (patrones LIKE, con
+ * `_` como comodín de un carácter).
+ *
+ * La usa Bacheo para pasar «M. S. de Thompson» al nombre oficial: busca por los
+ * fragmentos que seguro están y deja la elección fina a `nombresCalle.js`. Los
+ * fragmentos llegan con las vocales y la «n» como comodín, porque ILIKE no
+ * ignora acentos: «Peron» no encuentra «Perón», pero «P_r_n» sí.
+ */
+export async function callesQueCoinciden(patrones, { limite = 800 } = {}) {
+  const partes = patrones.filter(Boolean).map((p) => `nombre_cal ILIKE '%${cql(p)}%'`);
+  if (!partes.length) return [];
+  const features = await wfs(CAPA_CALLEJERO, {
+    filtro: partes.join(' AND '),
+    campos: ['nombre_cal', 'localidad'],
+    limite,
+  });
+  const porNombre = new Map();
+  for (const f of features) {
+    const nombre = f.properties?.nombre_cal;
+    if (!nombre) continue;
+    if (!porNombre.has(nombre)) porNombre.set(nombre, new Set());
+    if (f.properties.localidad) porNombre.get(nombre).add(nombrePropio(f.properties.localidad));
+  }
+  return [...porNombre].map(([nombre, localidades]) => ({ nombre, localidades: [...localidades] }));
+}
+
+/** Polígonos de las localidades del partido: `[{ nombre, contornos }]`. */
+export async function localidadesDelPartido() {
+  const features = await wfs(CAPA_LOCALIDADES, { campos: ['nombre'], limite: 40 });
+  return features
+    .map((f) => ({ nombre: f.properties?.nombre ?? '', contornos: contornosDe(f.geometry) }))
+    .filter((l) => l.nombre && l.contornos.length);
 }
 
 /** Una esquina, ya normalizada: dónde está y con qué calle cruza. */

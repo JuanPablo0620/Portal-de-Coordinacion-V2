@@ -20,6 +20,7 @@ import FichaPrograma from './modulos/posicionamiento/FichaPrograma.jsx';
 import Planificacion from './modulos/planificacion/Planificacion.jsx';
 import Mesas from './modulos/mesas/Mesas.jsx';
 import Mapa from './modulos/mapa/Mapa.jsx';
+import Bacheo from './modulos/bacheo/Bacheo.jsx';
 import Reportes from './modulos/reportes/Reportes.jsx';
 import Configuracion from './modulos/configuracion/Configuracion.jsx';
 import VigentesSupabase from './modulos/vigentes-supabase/VigentesSupabase.jsx';
@@ -120,6 +121,7 @@ function Portal() {
         <Route path="mesas" element={<Mesas />} />
         <Route path="eventos" element={<RedireccionEventos />} />
         <Route path="mapa" element={<Mapa />} />
+        <Route path="bacheo" element={<Bacheo />} />
         <Route path="reportes" element={<Reportes />} />
         <Route path="vigentes-supabase" element={<VigentesSupabase />} />
         <Route path="configuracion" element={<Configuracion />} />
