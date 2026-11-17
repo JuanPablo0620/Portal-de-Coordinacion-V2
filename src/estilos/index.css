@@ -548,17 +548,28 @@ body {
 
 /* ── Bacheo ──────────────────────────────────────────────────────────── */
 
-/* El color dice el tipo de trabajo; el relleno de los cuadrantes va tenue para
-   que se sigan leyendo las calles que encierran. */
-.bacheo-caliente { stroke: var(--color-bacheo-caliente); fill: var(--color-bacheo-caliente); }
-.bacheo-frio { stroke: var(--color-bacheo-frio); fill: var(--color-bacheo-frio); }
-.bacheo-sellado { stroke: var(--color-bacheo-sellado); fill: var(--color-bacheo-sellado); }
-.bacheo-reconstruccion { stroke: var(--color-bacheo-reconstruccion); fill: var(--color-bacheo-reconstruccion); }
-.bacheo-pintura { stroke: var(--color-bacheo-pintura); fill: var(--color-bacheo-pintura); }
-.bacheo-viales { stroke: var(--color-bacheo-viales); fill: var(--color-bacheo-viales); }
-.bacheo-hormigon { stroke: var(--color-bacheo-hormigon); fill: var(--color-bacheo-hormigon); }
+/* El color dice el tipo de trabajo. Va en una variable y no directo en
+   `fill`: las líneas NO llevan relleno. Con `fill` en la clase, el navegador
+   rellenaba el área entre los puntos de una calle con curva (J.J. Urquiza
+   salía como una mancha roja). Relleno solo para áreas y esquinas. */
+.bacheo-caliente { --bacheo: var(--color-bacheo-caliente); }
+.bacheo-frio { --bacheo: var(--color-bacheo-frio); }
+.bacheo-sellado { --bacheo: var(--color-bacheo-sellado); }
+.bacheo-reconstruccion { --bacheo: var(--color-bacheo-reconstruccion); }
+.bacheo-pintura { --bacheo: var(--color-bacheo-pintura); }
+.bacheo-viales { --bacheo: var(--color-bacheo-viales); }
+.bacheo-hormigon { --bacheo: var(--color-bacheo-hormigon); }
 .bacheo-limpieza,
-.bacheo-mantenimiento { stroke: var(--color-bacheo-otro); fill: var(--color-bacheo-otro); }
+.bacheo-mantenimiento { --bacheo: var(--color-bacheo-otro); }
+
+path.bacheo-trabajo {
+  stroke: var(--bacheo);
+}
+
+path.bacheo-area,
+path.bacheo-punto {
+  fill: var(--bacheo);
+}
 
 path.bacheo-area {
   fill-opacity: 0.14;

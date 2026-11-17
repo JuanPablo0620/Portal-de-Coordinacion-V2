@@ -118,7 +118,7 @@ export function CargaSemana({ semanas, alCancelar, alPublicar }) {
         id: 'dibujo',
         tipo,
         puntos: tipo === 'punto' ? dibujo.puntos[0] : [dibujo.puntos],
-        clase: `bacheo-${actual.tipo} ${tipo === 'poligono' ? 'bacheo-area' : ''} corte-sel`,
+        clase: `bacheo-trabajo bacheo-${actual.tipo} ${tipo === 'poligono' ? 'bacheo-area' : ''} ${tipo === 'punto' ? 'bacheo-punto' : ''} corte-sel`,
         interactiva: false,
       });
     }

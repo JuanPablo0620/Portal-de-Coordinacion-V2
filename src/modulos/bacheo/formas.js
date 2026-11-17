@@ -19,8 +19,10 @@ export function formasDeTrabajos(trabajos, { fecha = '', idClave = 'id' } = {}) 
     if (!base) continue;
     const fuera = fecha && !t.fechas.includes(fecha);
     const clases = [
+      'bacheo-trabajo',
       `bacheo-${t.tipo}`,
       base.tipo === 'poligono' ? 'bacheo-area' : '',
+      base.tipo === 'punto' ? 'bacheo-punto' : '',
       esProvisoria(t.ubicacion) ? 'bacheo-provisoria' : '',
       fuera ? 'bacheo-atenuado' : '',
     ];
