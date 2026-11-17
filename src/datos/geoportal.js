@@ -174,6 +174,21 @@ async function wfs(capa, { filtro, campos, limite = 500, geom } = {}) {
   }
 }
 
+/**
+ * Fragmento para `ILIKE '%…%'` que sobrevive al viaje hasta el Geoportal.
+ *
+ * Entre el navegador y GeoServer la consulta se decodifica DOS veces: un `%`
+ * seguido de dos caracteres hexadecimales se convierte en otro carácter. Así,
+ * `%1852%` llega como un byte 0x18 seguido de «52», y `%25 de%` como `% de%`
+ * (que trae mil calles). Pasaba con cualquier búsqueda que empezara con dos
+ * cifras o con letras de la A a la F: «25 de Mayo» en el autocompletado de
+ * cortes no encontraba nada. Verificado el 17/11/2026 contra /gs/ows.
+ *
+ * Si el fragmento empieza así, su primer carácter pasa a ser comodín (`_852`):
+ * encuentra lo mismo y no deja un `%XX` decodificable.
+ */
+export const fragmentoSeguro = (texto) => String(texto).replace(/^[0-9A-Fa-f](?=[0-9A-Fa-f])/, '_');
+
 /** Escapa una comilla simple para meter un nombre propio dentro de un filtro CQL. */
 const cql = (texto) => String(texto).replace(/'/g, "''");
 
@@ -358,7 +373,7 @@ export async function buscarCalles(texto, { limite = 12 } = {}) {
   const busqueda = texto.trim();
   if (busqueda.length < 3) return [];
   const features = await wfs(CAPA_CALLEJERO, {
-    filtro: `nombre_cal ILIKE '%${cql(busqueda)}%'`,
+    filtro: `nombre_cal ILIKE '%${cql(fragmentoSeguro(busqueda))}%'`,
     campos: ['nombre_cal', 'localidad'],
     limite: 800,
   });
@@ -385,7 +400,7 @@ export async function buscarCalles(texto, { limite = 12 } = {}) {
  * ignora acentos: «Peron» no encuentra «Perón», pero «P_r_n» sí.
  */
 export async function callesQueCoinciden(patrones, { limite = 800 } = {}) {
-  const partes = patrones.filter(Boolean).map((p) => `nombre_cal ILIKE '%${cql(p)}%'`);
+  const partes = patrones.filter(Boolean).map((p) => `nombre_cal ILIKE '%${cql(fragmentoSeguro(p))}%'`);
   if (!partes.length) return [];
   const features = await wfs(CAPA_CALLEJERO, {
     filtro: partes.join(' AND '),

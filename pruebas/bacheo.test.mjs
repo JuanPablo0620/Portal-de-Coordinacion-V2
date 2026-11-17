@@ -325,3 +325,71 @@ test('solo lo marcado o confirmado por una persona pasa a la memoria', () => {
 test('días hábiles de la semana', () => {
   assert.deepEqual(diasDeSemana({ desde: '2026-06-16', hasta: '2026-06-19' }), ['2026-06-16', '2026-06-17', '2026-06-18', '2026-06-19']);
 });
+
+/* ── Escrituras de la planilla vistas de junio a noviembre ──────────── */
+
+test('números escritos con letras o romanos', async () => {
+  const { puntaje: p } = await import('../src/datos/bacheo/nombresCalle.js');
+  assert.notEqual(p('Tres de Febrero', '3 de febrero'), null);
+  assert.notEqual(p('Rio IV', 'Río Cuarto'), null);
+  assert.notEqual(p('1 de Mayo', 'Primero de mayo'), null);
+});
+
+test('errores chicos de tipeo y palabras pegadas', async () => {
+  const { puntaje: p, similitud } = await import('../src/datos/bacheo/nombresCalle.js');
+  assert.notEqual(p('Cuelli', 'Cueli'), null);
+  assert.notEqual(p('de Vicenzi', 'Devicenzi'), null);
+  assert.notEqual(p('Avdor Palazzo', 'Aviador Palazzo'), null);
+  assert.ok(similitud('MADGALENA', 'MAGDALENA') > 0.88, 'una transposición es un solo error');
+});
+
+test('vuelta flexible y sugerencia', async () => {
+  const { elegirCalleFlexible, sugerirCalle } = await import('../src/datos/bacheo/nombresCalle.js');
+  const alzaga = [{ nombre: 'Álzaga', localidades: ['Caseros'] }];
+  assert.equal(elegirCalleFlexible('Martin de Álzaga', alzaga, 'Caseros'), 'Álzaga');
+  assert.equal(elegirCalleFlexible('Martin de Álzaga', alzaga, 'Ciudadela'), null, 'solo en la localidad del trabajo');
+  assert.equal(sugerirCalle('Rosseti', [{ nombre: 'Rosetti', localidades: [] }, { nombre: 'Roma', localidades: [] }]), 'Rosetti');
+});
+
+test('cuadrantes sin número, con punto y coma, y calles con dos nombres', () => {
+  assert.deepEqual(clasificarDescripcion('Cuadrante: De los Aromos, De los Paraisos y De los Geranios').calles, [
+    'De los Aromos',
+    'De los Paraisos',
+    'De los Geranios',
+  ]);
+  assert.equal(clasificarDescripcion('Cuadrante 11: Av Maldonado, Av Juan B justo; Av gral Paz; Av. Maipú').calles.length, 4);
+  assert.equal(clasificarDescripcion('Av. Mitre entre M. T. de Alvear hasta Constitución').forma, 'tramo');
+  assert.equal(clasificarDescripcion('Ituzaingo e Iguazu').forma, 'esquina');
+});
+
+test('un título que no coincide resta: «Pres. Perón» no es «Eva Perón»', () => {
+  const candidatos = [
+    { nombre: 'Eva Perón RP8', localidades: ['Loma Hermosa'] },
+    { nombre: 'Avenida Presidente Juan Domingo Perón', localidades: ['Martín Coronado'] },
+  ];
+  assert.equal(elegirCalle('Pres. Perón', candidatos, 'Loma Hermosa'), 'Avenida Presidente Juan Domingo Perón');
+});
+
+test('una coincidencia dudosa se avisa', async () => {
+  const { esDudosa } = await import('../src/datos/bacheo/nombresCalle.js');
+  assert.equal(esDudosa('Sta. Marina', 'Fray Justo Santa María de Oro'), true);
+  assert.equal(esDudosa('M. S. de Thompson', 'M Sánchez de Thomson'), false);
+  assert.equal(esDudosa('de Vicenzi', 'Devicenzi'), false);
+});
+
+test('el fragmento de búsqueda no deja un %XX que el Geoportal decodifique', async () => {
+  const { fragmentoSeguro } = await import('../src/datos/geoportal.js');
+  assert.equal(fragmentoSeguro('1852'), '_852');
+  assert.equal(fragmentoSeguro('25 de Mayo'), '_5 de Mayo');
+  assert.equal(fragmentoSeguro('Castelli'), '_astelli', '«Ca» también es un par hexadecimal (0xCA)');
+  assert.equal(fragmentoSeguro('9 de Julio'), '9 de Julio');
+});
+
+test('la palabra que sobra no puede ser el apellido', async () => {
+  const { elegirCalleFlexible } = await import('../src/datos/bacheo/nombresCalle.js');
+  const candidatos = [
+    { nombre: 'Álzaga', localidades: ['Caseros'] },
+    { nombre: 'Martín Rodríguez', localidades: ['Caseros'] },
+  ];
+  assert.equal(elegirCalleFlexible('Martin de Álzaga', candidatos, 'Caseros'), 'Álzaga');
+});

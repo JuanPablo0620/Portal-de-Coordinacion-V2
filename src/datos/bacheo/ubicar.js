@@ -25,7 +25,17 @@ import {
   metrosEntre,
   tramoEntre,
 } from '../geoportal.js';
-import { clasificarDescripcion, claveLugar, elegirCalle, patronesDeBusqueda } from './nombresCalle.js';
+import {
+  alternativas,
+  clasificarDescripcion,
+  claveLugar,
+  elegirCalle,
+  elegirCalleFlexible,
+  esDudosa,
+  patronesDeBusqueda,
+  patronesDeRespaldo,
+  sugerirCalle,
+} from './nombresCalle.js';
 import { centroDe, cascoConvexo, contiene, deLeaflet } from './geometria.js';
 import { clave } from './tablaProgramacion.js';
 
@@ -45,34 +55,65 @@ async function poligonoLocalidad(nombre) {
 }
 
 const memoNombres = new Map();
-/** Nombre oficial de una calle de la planilla, o null. */
-export async function nombreOficial(texto, localidad) {
+/**
+ * Nombre oficial de una calle de la planilla: `{ nombre, interpretado, sugerencia }`.
+ *
+ *  - `nombre`: el oficial, o null si no se encontró.
+ *  - `interpretado`: true si hizo falta la vuelta flexible (sobraba una
+ *    palabra): se ubica, pero se avisa en la nota.
+ *  - `sugerencia`: si no se encontró, el nombre oficial más parecido.
+ */
+export async function resolverCalle(texto, localidad) {
   const k = `${clave(texto)}|${clave(localidad)}`;
   if (memoNombres.has(k)) return memoNombres.get(k);
   /*
-   * Tres intentos, de más preciso a más amplio:
+   * Intentos, de más preciso a más amplio:
    *  1. todas las palabras;
    *  2. con la «n» como comodín, por si el nombre oficial tiene «ñ»;
-   *  3. solo la palabra más larga, por si la planilla trae una palabra que el
-   *     nombre oficial no tiene.
+   *  3. cada palabra por separado, por si la planilla trae una palabra que el
+   *     nombre oficial no tiene («Martin de Álzaga» / «Álzaga»);
+   *  4. el final de la palabra más larga, por si el error está al principio.
    */
   const intentos = [patronesDeBusqueda(texto), patronesDeBusqueda(texto, { comodinEnN: true })];
-  const larga = [...intentos[0]].sort((a, b) => b.length - a.length)[0];
-  if (intentos[0].length > 1 && larga) intentos.push([larga]);
-  let nombre = null;
+  if (intentos[0].length > 1) for (const p of intentos[0]) intentos.push([p]);
+  intentos.push(patronesDeRespaldo(texto));
+  const vistos = [];
+  let resultado = null;
   for (const patrones of intentos) {
     if (!patrones.length) continue;
-    nombre = elegirCalle(texto, await callesQueCoinciden(patrones), localidad);
-    if (nombre) break;
+    const candidatos = await callesQueCoinciden(patrones);
+    vistos.push(...candidatos);
+    const nombre = elegirCalle(texto, candidatos, localidad);
+    if (nombre) {
+      resultado = { nombre, interpretado: esDudosa(texto, nombre), sugerencia: null };
+      break;
+    }
   }
-  memoNombres.set(k, nombre);
-  return nombre;
+  if (!resultado) {
+    const flexible = elegirCalleFlexible(texto, vistos, localidad);
+    resultado = flexible
+      ? { nombre: flexible, interpretado: true, sugerencia: null }
+      : { nombre: null, interpretado: false, sugerencia: sugerirCalle(texto, vistos) };
+  }
+  memoNombres.set(k, resultado);
+  return resultado;
 }
 
-/** Cruces entre la calle `a` y cualquiera de `otras` (nombres oficiales). */
+/** Nombre oficial de una calle de la planilla, o null. Prueba cada alternativa «A / B». */
+export async function nombreOficial(texto, localidad) {
+  for (const alt of alternativas(texto)) {
+    const r = await resolverCalle(alt, localidad);
+    if (r.nombre) return r.nombre;
+  }
+  return null;
+}
+
+/** Cruces entre la calle `a` (o sus alternativas) y cualquiera de `otras`. */
 async function crucesDe(a, otras) {
-  const esquinas = await esquinasDeCalle(a);
-  return esquinas.filter((e) => e.calles.some((c) => otras.includes(c) && c !== a));
+  const propias = [a].flat();
+  const ajenas = otras.flat();
+  const esquinas = (await Promise.all(propias.map((n) => esquinasDeCalle(n)))).flat();
+  return esquinas.filter((e) => e.calles.some((c) => ajenas.includes(c) && !propias.includes(c)));
 }
 
 /** De varias esquinas candidatas, la que cae en la localidad o más cerca de ella. */
@@ -85,21 +126,77 @@ function mejorEsquina(esquinas, poligono) {
   return [...esquinas].sort((x, y) => metrosEntre(x.punto, centro) - metrosEntre(y.punto, centro))[0];
 }
 
+/*
+ * Cuando algo no se puede ubicar, cada función devuelve `{ motivo, nota }` en
+ * vez de null. El motivo concreto («no existe la calle X», «A y B no se
+ * cruzan») es lo que permite decirle al área qué corregir en la planilla, en
+ * vez de un «no se pudo» que obliga a adivinar.
+ *
+ * motivo: calle_desconocida | no_se_cruzan | faltan_esquinas | sin_calles | interpretado | error
+ */
+const falla = (motivo, nota) => ({ motivo, nota });
+
+/**
+ * Resuelve los nombres de la planilla. Devuelve, por cada texto, la lista de
+ * nombres oficiales (más de uno si viene «A / B»), los que no existen con su
+ * sugerencia, y las interpretaciones hechas para avisarlas en la nota.
+ */
+async function nombresOficiales(textos, localidad) {
+  const nombres = [];
+  const faltan = [];
+  const avisos = [];
+  for (const texto of textos) {
+    const encontrados = [];
+    let sugerencia = null;
+    for (const alt of alternativas(texto)) {
+      const r = await resolverCalle(alt, localidad);
+      if (r.nombre) {
+        encontrados.push(r.nombre);
+        if (r.interpretado) avisos.push(`Se tomó «${alt}» como «${r.nombre}».`);
+      } else sugerencia ??= r.sugerencia;
+    }
+    nombres.push(encontrados);
+    if (!encontrados.length) faltan.push({ texto, sugerencia });
+  }
+  return { nombres, faltan, avisos };
+}
+const entreComillas = (lista) => lista.map((f) => `«${f}»`).join(', ');
+const describirFaltantes = (faltan) =>
+  faltan.map((f) => (f.sugerencia ? `«${f.texto}» (¿${f.sugerencia}?)` : `«${f.texto}»`)).join(', ');
+const noExisten = (faltan) =>
+  falla('calle_desconocida', `No existe en el callejero oficial: ${describirFaltantes(faltan)}. Revisar cómo está escrito.`);
+
 async function ubicarEsquina({ a, b }, localidad, poligono) {
-  const [na, nb] = await Promise.all([nombreOficial(a, localidad), nombreOficial(b, localidad)]);
-  if (!na || !nb) return null;
-  const punto = mejorEsquina(await crucesDe(na, [nb]), poligono)?.punto;
-  return punto ? { geometria: deLeaflet.punto(punto), forma: 'esquina', estado: 'automatica' } : null;
+  const { nombres, faltan, avisos } = await nombresOficiales([a, b], localidad);
+  if (faltan.length) return noExisten(faltan);
+  const punto = mejorEsquina(await crucesDe(nombres[0], nombres[1]), poligono)?.punto;
+  if (!punto) return falla('no_se_cruzan', `«${a}» y «${b}» no se cruzan en el callejero oficial.`);
+  return {
+    geometria: deLeaflet.punto(punto),
+    forma: 'esquina',
+    estado: avisos.length ? 'aproximada' : 'automatica',
+    motivo: avisos.length ? 'interpretado' : '',
+    nota: avisos.join(' '),
+  };
 }
 
 async function ubicarTramo({ calle, desde, hasta }, localidad, poligono) {
-  const nx = await nombreOficial(calle, localidad);
-  if (!nx) return null;
+  const { nombres, faltan, avisos } = await nombresOficiales([calle, desde, hasta], localidad);
+  if (faltan.length) return noExisten(faltan);
+  const [alternativasX, ...limites] = nombres;
+  // Para el trazado hace falta UN nombre: el de la calle del tramo que cruza a
+  // los límites (si viene «A / B», la que corresponda).
+  let nx = alternativasX[0];
+  for (const n of alternativasX) {
+    if ((await crucesDe(n, limites.flat())).length) {
+      nx = n;
+      break;
+    }
+  }
   const extremos = [];
   const aproximados = [];
-  for (const lim of [desde, hasta]) {
-    const nl = await nombreOficial(lim, localidad);
-    if (!nl) return null;
+  for (const [k, nl] of limites.entries()) {
+    const lim = [desde, hasta][k];
     const cruce = mejorEsquina(await crucesDe(nx, [nl]), poligono);
     if (cruce) {
       extremos.push(cruce.punto);
@@ -107,7 +204,7 @@ async function ubicarTramo({ calle, desde, hasta }, localidad, poligono) {
     }
     // No se cruzan (corre paralela, como Bentivenga con Gaona): la esquina de
     // la calle del tramo más cercana a la otra, si está razonablemente cerca.
-    const [deX, deL] = await Promise.all([esquinasDeCalle(nx), esquinasDeCalle(nl)]);
+    const [deX, deL] = await Promise.all([esquinasDeCalle(nx), Promise.all(nl.map((n) => esquinasDeCalle(n))).then((l) => l.flat())]);
     let mejor = null;
     for (const e of deX) {
       for (const o of deL) {
@@ -115,87 +212,119 @@ async function ubicarTramo({ calle, desde, hasta }, localidad, poligono) {
         if (!mejor || d < mejor.d) mejor = { punto: e.punto, d };
       }
     }
-    if (!mejor || mejor.d > TOPE_APROXIMADO_M) return null;
+    if (!mejor || mejor.d > TOPE_APROXIMADO_M) {
+      return falla('no_se_cruzan', `«${calle}» y «${lim}» no se cruzan ni pasan cerca en el callejero oficial.`);
+    }
     extremos.push(mejor.punto);
     aproximados.push(lim);
   }
   const tramo = await tramoEntre(nx, extremos[0], extremos[1]);
-  const aproximado = aproximados.length > 0 || tramo.aproximado;
+  const aproximado = aproximados.length > 0 || tramo.aproximado || avisos.length > 0;
+  const notas = [...avisos];
+  if (aproximados.length) {
+    notas.push(`${entreComillas(aproximados)} no cruza «${calle}»: el tramo se cortó a la altura del punto más cercano. Confirmar con el área.`);
+  } else if (tramo.aproximado) {
+    notas.push('El callejero no trajo el trazado de la calle: se dibujó la recta entre las dos esquinas.');
+  }
   return {
     geometria: deLeaflet.lineas(tramo.lineas),
     forma: 'tramo',
     estado: aproximado ? 'aproximada' : 'automatica',
-    nota: aproximados.length
-      ? `${aproximados.join(' y ')} no cruza ${calle}: el tramo se cortó a la altura del punto más cercano. Confirmar con el área.`
-      : tramo.aproximado
-        ? 'El callejero no trajo el trazado de la calle: se dibujó la recta entre las dos esquinas.'
-        : '',
+    motivo: aproximados.length ? 'no_se_cruzan' : tramo.aproximado ? 'sin_trazado' : avisos.length ? 'interpretado' : '',
+    nota: notas.join(' '),
   };
 }
 
 async function ubicarArea({ calles }, localidad, poligono) {
-  const nombres = (await Promise.all(calles.map((c) => nombreOficial(c, localidad)))).filter(Boolean);
-  if (nombres.length < 3) return null;
+  const { nombres: todos, faltan, avisos } = await nombresOficiales(calles, localidad);
+  const nombres = todos.filter((n) => n.length);
+  if (nombres.length < 3) {
+    return faltan.length
+      ? noExisten(faltan)
+      : falla('sin_calles', 'Un cuadrante necesita al menos tres calles y la planilla nombra menos.');
+  }
   const esquinas = (await Promise.all(nombres.map((n) => crucesDe(n, nombres)))).flat();
   // Calles homónimas en otra punta del partido: se descartan las esquinas
   // lejos del grupo.
   const referencia = poligono ? centroDe(poligono.contornos.flat()) : centroDe(esquinas.map((e) => e.punto));
   const cercanas = esquinas.filter((e) => metrosEntre(e.punto, referencia) <= RADIO_CUADRANTE_M * 2);
   const centro = centroDe(cercanas.map((e) => e.punto));
-  const puntos = cercanas.map((e) => e.punto).filter((p) => metrosEntre(p, centro) <= RADIO_CUADRANTE_M);
-  const casco = cascoConvexo(puntos);
-  if (casco.length < 3) return null;
+  const validas = cercanas.filter((e) => metrosEntre(e.punto, centro) <= RADIO_CUADRANTE_M);
+  const casco = cascoConvexo(validas.map((e) => e.punto));
+  // Las calles que no tienen ninguna esquina con las demás son las que no
+  // cierran el cuadrante: es lo que hay que corregir en la planilla.
+  const sueltas = calles.filter((c, i) => todos[i].length && !validas.some((e) => e.calles.some((n) => todos[i].includes(n))));
+  if (casco.length < 3) {
+    const partes = [];
+    if (sueltas.length) partes.push(`sin esquina con las demás: ${entreComillas(sueltas)}`);
+    if (faltan.length) partes.push(`no existe en el callejero: ${describirFaltantes(faltan)}`);
+    return falla(
+      faltan.length ? 'calle_desconocida' : 'faltan_esquinas',
+      `Las calles no se cruzan entre sí lo suficiente para cerrar un área${partes.length ? ` (${partes.join('; ')})` : ''}.`,
+    );
+  }
+  const notas = [...avisos];
+  if (faltan.length) notas.push(`No existe en el callejero oficial: ${describirFaltantes(faltan)}.`);
+  if (sueltas.length) notas.push(`No cruza a las demás calles del cuadrante: ${entreComillas(sueltas)}.`);
   return {
     geometria: deLeaflet.poligono(casco),
     forma: 'area',
     // Con menos esquinas que calles, el casco corta el área (dos calles
-    // opuestas que no se cruzan en el callejero): se marca aproximada.
+    // opuestas que no se cruzan en el callejero): se marca aproximada. También
+    // si alguna calle no existe o no cruza a las demás.
     //
-    // Con más NO alcanza para sospechar: las calles curvas suman vértices y el
-    // área sale bien (el Cuadrante 4 de Loma Hermosa da 6 y coincide al 100%
-    // con el dibujo del área). Y un cuadrante con la cantidad justa puede estar
-    // mal igual (el 10 de Ciudadela da 4 y abarca 104 ha contra 71). Contar
-    // vértices no distingue uno de otro; lo que los resuelve es la memoria de
-    // lugares revisados, que para los cuadrantes conocidos tiene el dibujo.
-    estado: casco.length >= nombres.length ? 'automatica' : 'aproximada',
-    nota:
-      nombres.length < calles.length
-        ? `No se encontró en el callejero: ${calles.filter((_, i) => !nombres[i]).join(', ')}.`
-        : '',
+    // Con más esquinas NO alcanza para sospechar: las calles curvas suman
+    // vértices y el área sale bien (el Cuadrante 4 de Loma Hermosa da 6 y
+    // coincide al 100% con el dibujo del área). Y un cuadrante con la cantidad
+    // justa puede estar mal igual (el 10 de Ciudadela da 4 y abarca 104 ha
+    // contra 71). Contar vértices no distingue uno de otro; lo que los resuelve
+    // es la memoria de lugares revisados, que para los cuadrantes conocidos
+    // tiene el dibujo.
+    estado: casco.length >= nombres.length && !faltan.length && !sueltas.length && !avisos.length ? 'automatica' : 'aproximada',
+    motivo: faltan.length
+      ? 'calle_desconocida'
+      : sueltas.length || casco.length < nombres.length
+        ? 'faltan_esquinas'
+        : avisos.length
+          ? 'interpretado'
+          : '',
+    nota: notas.join(' '),
   };
 }
 
 /**
  * @param {object} trabajo de `programacion.js`
  * @param {Map<string, object>} lugares memoria de `bacheo_lugares`, por clave
- * @returns {Promise<{ geometria: object|null, forma: string, estado: string, nota: string }>}
+ * @returns {Promise<{ geometria: object|null, forma: string, estado: string, motivo: string, nota: string }>}
  *   `estado`: revisada (memoria) | automatica | aproximada | sin_ubicar
  */
 export async function ubicarTrabajo(trabajo, lugares = new Map()) {
   const recordado = lugares.get(claveLugar(trabajo.descripcion, trabajo.localidad));
   if (recordado?.geometria) {
-    return { geometria: recordado.geometria, forma: recordado.forma, estado: 'revisada', nota: recordado.nota ?? '' };
+    return { geometria: recordado.geometria, forma: recordado.forma, estado: 'revisada', motivo: '', nota: recordado.nota ?? '' };
   }
   const tipo = clasificarDescripcion(trabajo.descripcion);
+  const forma = tipo.forma === 'lugar' ? 'area' : tipo.forma;
+  if (tipo.forma === 'lugar') {
+    return {
+      geometria: null,
+      forma,
+      estado: 'sin_ubicar',
+      motivo: 'sin_calles',
+      nota: 'Es un lugar sin calles: hay que marcarlo a mano una vez, y las semanas siguientes se reusa.',
+    };
+  }
   const poligono = trabajo.localidad ? await poligonoLocalidad(trabajo.localidad) : null;
-  let resultado = null;
+  let resultado;
   try {
     if (tipo.forma === 'area') resultado = await ubicarArea(tipo, trabajo.localidad, poligono);
     else if (tipo.forma === 'tramo') resultado = await ubicarTramo(tipo, trabajo.localidad, poligono);
-    else if (tipo.forma === 'esquina') resultado = await ubicarEsquina(tipo, trabajo.localidad, poligono);
-  } catch {
-    resultado = null;
+    else resultado = await ubicarEsquina(tipo, trabajo.localidad, poligono);
+  } catch (error) {
+    resultado = falla('error', `El Geoportal no respondió (${error.message}). Probar de nuevo más tarde.`);
   }
-  if (resultado?.geometria) return { nota: '', ...resultado };
-  return {
-    geometria: null,
-    forma: tipo.forma === 'lugar' ? 'area' : tipo.forma,
-    estado: 'sin_ubicar',
-    nota:
-      tipo.forma === 'lugar'
-        ? 'Es un lugar sin calles: hay que marcarlo a mano una vez, y las semanas siguientes se reusa.'
-        : 'No se pudo ubicar con el callejero: hay que marcarlo a mano.',
-  };
+  if (resultado.geometria) return { motivo: '', nota: '', ...resultado };
+  return { geometria: null, forma, estado: 'sin_ubicar', motivo: resultado.motivo, nota: `${resultado.nota} Hay que marcarlo a mano.` };
 }
 
 /** Ubica todos, de a uno: el Geoportal no tolera ráfagas grandes de pedidos. */

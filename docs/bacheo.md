@@ -43,8 +43,8 @@ tabla propia).
 
 ## Lo que se aprendió de los PDF reales
 
-Se validó contra los 38 PDF de junio a noviembre de 2026 (21 semanas de asfalto,
-17 de hormigón). No están en el repo (es público); los tiene JP en
+Se validó contra los 38 PDF de junio a noviembre de 2026 (19 semanas de asfalto,
+16 de hormigón y 3 reprogramaciones). No están en el repo (es público); los tiene JP en
 `Trabajo/analisis/mapas-seguridad-bacheo/fuentes/`.
 
 - **El formato es estable desde junio**: mismas columnas, mismos textos de celda.
@@ -62,6 +62,25 @@ Se validó contra los 38 PDF de junio a noviembre de 2026 (21 semanas de asfalto
   «Ventivenga», Mons. Antonio Bentivenga (ex Juan B. Justo, paralela a Gaona);
   «Lutcher», Luchter. «M. S. de Thompson» en Loma Hermosa figura «Thomson»: eso lo
   resuelve el emparejamiento aproximado, no hace falta alias.
+- **Más escrituras distintas** (resueltas sin alias): números con letras o romanos
+  («Tres de Febrero» = «3 de febrero», «Rio IV» = «Río Cuarto»), palabras pegadas
+  («de Vicenzi» = «Devicenzi»), abreviaturas («Avdor.», «Almte.», «Ant.»), calles
+  con dos nombres («Triunvirato / Gral. Lavalle») y cuadrantes sin número o con
+  «;». Si sobra un nombre de pila («Martin de Álzaga» = «Álzaga») o la
+  coincidencia es dudosa («Sta. Marina» → «Santa María de Oro»), se ubica pero
+  queda **aproximada** con la nota «se tomó X como Y»: un error que no se ve es
+  peor que un «no se pudo».
+- **El Geoportal decodifica dos veces la consulta**: un `%` seguido de dos
+  caracteres hexadecimales se vuelve otro carácter. `ILIKE '%1852%'` o
+  `'%Castelli%'` daban cero resultados (también en el autocompletado de cortes).
+  `fragmentoSeguro()` en `geoportal.js` lo evita.
+
+## Carga histórica
+
+Las 19 semanas de junio a noviembre se cargaron con un SQL generado por
+`Trabajo/analisis/mapas-seguridad-bacheo/generar_carga_historica.mjs`, que usa
+este mismo código. Ese script también arma el informe de lugares que no se
+pueden ubicar tal como están escritos, para el área.
 
 ## Cómo probarlo
 
