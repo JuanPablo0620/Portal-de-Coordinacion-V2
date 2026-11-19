@@ -3,21 +3,21 @@
  *
  * El color es el tipo de trabajo (clase `bacheo-<tipo>`, tokens en
  * `index.css`). El trazo punteado dice «ubicación sin revisar»; atenuado,
- * «no se trabaja el día elegido». Son tres variables visuales distintas a
+ * «no se trabaja el día (o la semana) elegido». Son tres variables visuales distintas a
  * propósito: color, trazo y opacidad no compiten entre sí.
  */
 import { useEffect, useState } from 'react';
 import { aFormaMapa, verticesDe } from '../../datos/bacheo/geometria.js';
 import { limitePartido } from '../../datos/geoportal.js';
 import { ETIQUETAS_TIPO } from '../../datos/bacheo/programacion.js';
-import { esProvisoria } from '../../datos/bacheo/semana.js';
+import { enFoco, esProvisoria } from '../../datos/bacheo/semana.js';
 
-export function formasDeTrabajos(trabajos, { fecha = '', idClave = 'id' } = {}) {
+export function formasDeTrabajos(trabajos, { fecha = '', foco = null, idClave = 'id' } = {}) {
   const formas = [];
   for (const t of trabajos) {
     const base = aFormaMapa(t.geometria);
     if (!base) continue;
-    const fuera = fecha && !t.fechas.includes(fecha);
+    const fuera = (fecha && !t.fechas.includes(fecha)) || (foco && !enFoco(t, foco));
     const clases = [
       'bacheo-trabajo',
       `bacheo-${t.tipo}`,

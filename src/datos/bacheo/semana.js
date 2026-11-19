@@ -41,12 +41,19 @@ export const diaYMes = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 /** «16/11 al 20/11» */
 export const rotuloSemana = (s) => `${diaYMes(s.desde)} al ${diaYMes(s.hasta)}`;
 
-/** ¿El trabajo pasa los filtros? `fecha` vacía = toda la semana. */
-export function pasaFiltros(trabajo, { fecha = '', tipos = null } = {}) {
+/**
+ * ¿El trabajo pasa los filtros? `fecha` vacía = toda la semana. `foco` es un
+ * rango `[desde, hasta]`: un día de la semana o una semana de un mes.
+ */
+export function pasaFiltros(trabajo, { fecha = '', tipos = null, foco = null } = {}) {
   if (tipos && !tipos.has(trabajo.tipo)) return false;
   if (fecha && !trabajo.fechas.includes(fecha)) return false;
+  if (foco && !enFoco(trabajo, foco)) return false;
   return true;
 }
+
+/** ¿Alguna fecha del trabajo cae en el rango `[desde, hasta]`? */
+export const enFoco = (trabajo, [desde, hasta]) => trabajo.fechas.some((f) => f >= desde && f <= hasta);
 
 /**
  * Trabajos agrupados por localidad oficial, en orden alfabético; los que no

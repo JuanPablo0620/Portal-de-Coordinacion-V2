@@ -87,7 +87,7 @@ const CON_DEMO = [
   // Bacheo lee solo de Supabase: en Node no hay base, así que se comprueba el
   // encabezado y que la ruta monte sin tocar `window` (pdf.js y Leaflet se
   // importan adentro de funciones, no al evaluar el módulo).
-  ['/bacheo', 'Programación semanal de asfalto y hormigón'],
+  ['/bacheo', 'Programación de asfalto y hormigón'],
   ['/reportes', 'Municipio de Tres de Febrero'],
   ['/reportes', 'Filtros aplicados'],
   ['/reportes', 'Cómo leer los colores'],

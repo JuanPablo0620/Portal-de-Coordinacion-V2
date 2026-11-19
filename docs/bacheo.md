@@ -17,9 +17,19 @@ claude.ai del 02/11 y el 04/11).
    confirma o se marca a mano en el mapa. Lo confirmado o marcado se recuerda.
 4. **Publicar** escribe la semana entera en una transacción. Volver a publicar la
    misma semana (reprogramación) reemplaza sus trabajos.
-5. **Todos los usuarios ven** la semana: mapa coloreado por tipo de trabajo y
+5. **Todos los usuarios ven** la programación: mapa coloreado por tipo de trabajo y
    panel por **localidad** (no por cuadrilla, a pedido de JP), con filtro por día y
    por tipo.
+6. **Semana, mes o trimestre** (19/11): un mini calendario elige el período. En un
+   mes o un trimestre se juntan las semanas que lo tocan, recortadas a sus días
+   (la semana del 27/04 aporta cuatro días a abril y uno a mayo), y cada lugar
+   aparece una vez por tipo de trabajo: el «Cuadrante 9» de Caseros está once
+   semanas en la planilla y no tiene sentido dibujarlo once veces. Al consolidar,
+   la ubicación es la más revisada que tuvo el lugar y los m² de hormigón no se
+   suman entre semanas (una obra que sigue repite el mismo total en la planilla):
+   se toma el mayor. Las semanas sin PDF cargado dentro del período se avisan.
+   El período va en la URL (`?semana=2026-11-16`, `?mes=2026-10`,
+   `?trimestre=2026-T3`).
 
 Fuera de esta etapa, por decisión de JP del 17/11/2026: **la capa de reclamos**.
 Va en una segunda etapa, cuando se defina la fuente (el My Maps del área o una
@@ -36,8 +46,9 @@ tabla propia).
 | `src/datos/bacheo/ubicar.js` | Ubicación contra el Geoportal y la memoria de lugares |
 | `src/datos/bacheo/geometria.js` | GeoJSON ↔ Leaflet, casco convexo, punto en polígono |
 | `src/datos/bacheo/semana.js` | Agrupar, filtrar, resumir y armar la publicación |
+| `src/datos/bacheo/periodo.js` | Semana, mes y trimestre: rangos, calendario, consolidación por lugar |
 | `src/datos/supabaseBacheo.js` | Lectura y publicación contra Supabase |
-| `src/modulos/bacheo/` | Pantallas: `Bacheo.jsx` (vista) y `CargaSemana.jsx` (carga y revisión) |
+| `src/modulos/bacheo/` | Pantallas: `Bacheo.jsx` (vista), `SelectorPeriodo.jsx` (calendario) y `CargaSemana.jsx` (carga y revisión) |
 | `supabase/migrations/0038_bacheo.sql` | Tablas, función `publicar_semana_bacheo` y permisos |
 | `supabase/datos/carga-inicial/06-bacheo-lugares.sql` | Memoria inicial: los 20 lugares de la maqueta del 02/11 |
 

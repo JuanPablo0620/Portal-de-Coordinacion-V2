@@ -27,25 +27,26 @@ que el otro no puede deducir leyendo el repo.
 
 ## 1. Dónde está parado el portal
 
-### Bacheo: programación semanal en el mapa (17/11, rama `feat/bacheo`)
+### Bacheo: programación en el mapa, por semana, mes o trimestre (17-19/11)
 
-Módulo nuevo `/bacheo` (Herramientas → Bacheo), a partir de las maquetas de
-Tomás. Coordinación sube los dos PDF semanales del área (asfalto y hormigón), el
-portal los lee en el navegador, ubica cada trabajo en el callejero oficial, se
-revisa lo dudoso y se publica la semana. Lo ven todos; carga Coordinación. Panel
-por localidad. Detalle en `docs/bacheo.md`; por qué vive fuera del store, en
+Módulo `/bacheo` (Herramientas → Bacheo), a partir de las maquetas de Tomás.
+Coordinación sube los dos PDF semanales del área (asfalto y hormigón), el portal
+los lee en el navegador, ubica cada trabajo en el callejero oficial, se revisa lo
+dudoso y se publica la semana. Lo ven todos; carga Coordinación. Panel por
+localidad. Detalle en `docs/bacheo.md`; por qué vive fuera del store, en
 `docs/decisiones/2026-11-17-bacheo-fuera-del-store.md`.
 
-Validado con `npm run verificar` y con `node scripts/verificar-bacheo.mjs` en
-Chrome (Supabase simulado, Geoportal real) sobre la semana del 16/11: 22 trabajos,
-21 ubicados solos, Altos de Podestá marcado a mano y recordado en la segunda carga.
+En producción desde el 17/11, con la migración corrida y las 36 semanas de enero
+a noviembre cargadas (SQL generado desde `Trabajo/analisis/mapas-seguridad-bacheo/`).
 
-**Pendiente para mergear:**
-1. JP corre `supabase/migrations/0038_bacheo.sql` y después
-   `supabase/datos/carga-inicial/06-bacheo-lugares.sql` en el editor SQL. Sin la
-   migración, la pantalla muestra el error de Supabase.
-2. Cargar la semana del 16/11 desde producción y revisar lo que quede punteado.
-3. Segunda etapa: la capa de reclamos (falta definir la fuente).
+**19/11:** el desplegable de semanas se reemplazó por un mini calendario
+(`SelectorPeriodo.jsx`) que elige semana, mes o trimestre; la lógica está en
+`src/datos/bacheo/periodo.js`. En un mes o trimestre cada lugar aparece una vez
+(se consolida por lugar y tipo) y la tira de días pasa a ser una tira de semanas.
+El período va en la URL (`?semana=`, `?mes=`, `?trimestre=`), así se puede pasar
+el link.
+
+**Pendiente:** la capa de reclamos (segunda etapa; falta definir la fuente).
 
 
 ### Invitar a la reunión: sólo el mail (03/11)

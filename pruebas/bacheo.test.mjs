@@ -39,6 +39,18 @@ import {
 } from '../src/datos/bacheo/nombresCalle.js';
 import { aFormaMapa, cascoConvexo, contiene, deLeaflet } from '../src/datos/bacheo/geometria.js';
 import { agruparPorLocalidad, armarPublicacion, diasDeSemana, resumenSemana } from '../src/datos/bacheo/semana.js';
+import {
+  conteoPorPeriodo,
+  consolidarPeriodo,
+  filasDelMes,
+  novedadesDelPeriodo,
+  periodoDeParametros,
+  periodoVecino,
+  rangoPeriodo,
+  rotuloPeriodo,
+  semanasDelPeriodo,
+  semanasFaltantes,
+} from '../src/datos/bacheo/periodo.js';
 
 /* ── Fixtures ───────────────────────────────────────────────────────── */
 
@@ -402,4 +414,100 @@ test('calles que empatan se devuelven todas («Zanella» en Caseros)', async () 
   ];
   assert.deepEqual(elegirCalles('Zanella', candidatos, 'Caseros'), ['Juan Zanella', 'Santiago Zanella']);
   assert.deepEqual(elegirCalles('Santiago Zanella', candidatos, 'Caseros'), ['Santiago Zanella']);
+});
+
+/* ── Períodos: semana, mes, trimestre ───────────────────────────────── */
+
+const semanaDe = (lunes, extra = {}) => {
+  const d = new Date(`${lunes}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 4);
+  return { id: `s${lunes}`, lunes, desde: lunes, hasta: d.toISOString().slice(0, 10), novedades: [], ...extra };
+};
+const SEMANAS = ['2026-11-16', '2026-11-02', '2026-10-26', '2026-04-27', '2026-04-20', '2026-03-30'].map((l) =>
+  semanaDe(l),
+);
+
+test('rango de mes y de trimestre, con fin de mes correcto', () => {
+  assert.deepEqual(rangoPeriodo({ tipo: 'mes', valor: '2026-02' }), { desde: '2026-02-01', hasta: '2026-02-28' });
+  assert.deepEqual(rangoPeriodo({ tipo: 'trimestre', valor: '2026-T4' }), { desde: '2026-10-01', hasta: '2026-12-31' });
+  assert.equal(rotuloPeriodo({ tipo: 'trimestre', valor: '2026-T3' }), '3.er trimestre 2026');
+  assert.equal(rotuloPeriodo({ tipo: 'mes', valor: '2026-11' }), 'Noviembre 2026');
+});
+
+test('una semana que cruza de mes cuenta para los dos', () => {
+  const mayo = semanasDelPeriodo(SEMANAS, { tipo: 'mes', valor: '2026-05' }).map((s) => s.lunes);
+  const abril = semanasDelPeriodo(SEMANAS, { tipo: 'mes', valor: '2026-04' }).map((s) => s.lunes);
+  assert.deepEqual(mayo, ['2026-04-27']);
+  assert.deepEqual(abril, ['2026-03-30', '2026-04-20', '2026-04-27']);
+});
+
+test('semanas faltantes: los huecos del período, sin el futuro', () => {
+  const nov = semanasFaltantes(SEMANAS, { tipo: 'mes', valor: '2026-11' }, '2026-11-19');
+  assert.deepEqual(nov, ['2026-11-09']);
+  // La semana del 26/10 arranca en octubre pero su viernes cae en octubre: no es de noviembre.
+  assert.ok(!nov.includes('2026-10-26'));
+});
+
+test('el vecino saltea los períodos sin datos', () => {
+  assert.deepEqual(periodoVecino(SEMANAS, { tipo: 'mes', valor: '2026-10' }, -1), { tipo: 'mes', valor: '2026-04' });
+  assert.equal(periodoVecino(SEMANAS, { tipo: 'semana', valor: '2026-11-16' }, 1), null);
+  assert.deepEqual(periodoVecino(SEMANAS, { tipo: 'semana', valor: '2026-11-09' }, -1), {
+    tipo: 'semana',
+    valor: '2026-11-02',
+  });
+});
+
+test('conteo por mes y filas del calendario de lunes a domingo', () => {
+  const meses = conteoPorPeriodo(SEMANAS, 'mes', 2026);
+  assert.equal(meses[10].semanas, 2); // noviembre
+  assert.equal(meses[0].semanas, 0);
+  const filas = filasDelMes(2026, 10);
+  assert.equal(filas[0].lunes, '2026-10-26');
+  assert.equal(filas[0].dias[0].delMes, false);
+  assert.ok(filas.every((f) => f.dias.length === 7));
+});
+
+test('el período sale de la URL y se ignora lo mal escrito', () => {
+  const p = (q) => periodoDeParametros(new URLSearchParams(q));
+  assert.deepEqual(p('semana=2026-11-18'), { tipo: 'semana', valor: '2026-11-16' });
+  assert.deepEqual(p('trimestre=2026-T2'), { tipo: 'trimestre', valor: '2026-T2' });
+  assert.equal(p('mes=2026-13'), null);
+  assert.equal(p(''), null);
+});
+
+test('consolidar: un lugar por tipo, fechas recortadas y m² sin duplicar', () => {
+  const area = { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] };
+  const t = (fechas, extra = {}) => ({
+    descripcion: 'Gral Hornos y W. de Tata',
+    localidad: 'Caseros',
+    tipo: 'hormigon',
+    cuadrilla: 'Hormigón',
+    fechas,
+    tareas: [],
+    m2: 459,
+    geometria: area,
+    ubicacion: 'automatica',
+    ...extra,
+  });
+  const porSemana = [
+    { semana: semanaDe('2026-05-25'), trabajos: [t(['2026-05-28', '2026-05-29'])] },
+    { semana: semanaDe('2026-06-01'), trabajos: [t(['2026-06-01'], { ubicacion: 'revisada' })] },
+  ];
+  const mayo = consolidarPeriodo(porSemana, rangoPeriodo({ tipo: 'mes', valor: '2026-05' }));
+  assert.equal(mayo.length, 1);
+  assert.deepEqual(mayo[0].fechas, ['2026-05-28', '2026-05-29']);
+  const trimestre = consolidarPeriodo(porSemana, rangoPeriodo({ tipo: 'trimestre', valor: '2026-T2' }));
+  assert.equal(trimestre.length, 1);
+  assert.equal(trimestre[0].m2, 459);
+  assert.equal(trimestre[0].ubicacion, 'revisada');
+  assert.deepEqual(trimestre[0].semanas, ['2026-05-25', '2026-06-01']);
+  assert.equal(trimestre[0].fechas.length, 3);
+});
+
+test('novedades del período sin los «-» de relleno', () => {
+  const semanas = [
+    semanaDe('2026-02-02', { novedades: [{ fecha: '2026-02-02', texto: '-' }, { fecha: '2026-02-04', texto: 'Lluvia' }] }),
+  ];
+  const n = novedadesDelPeriodo(semanas, rangoPeriodo({ tipo: 'mes', valor: '2026-02' }));
+  assert.deepEqual(n.map((x) => x.texto), ['Lluvia']);
 });
