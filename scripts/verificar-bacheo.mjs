@@ -14,7 +14,7 @@
  * carpeta temporal. Con `BACHEO_TESELAS=1` las capturas salen con el mapa de
  * fondo real (OpenFreeMap).
  */
-import { build, mergeConfig, preview } from 'vite';
+import { build, loadEnv, mergeConfig, preview } from 'vite';
 import { chromium } from 'playwright';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -84,6 +84,10 @@ try {
     // capturas con el aspecto real. Por defecto no: la prueba no depende de un
     // servicio externo.
     if (process.env.BACHEO_TESELAS && /openfreemap\.org|openmaptiles/.test(url)) return ruta.continue();
+    // Con BACHEO_RECLAMOS=1 (y el id del My Maps en `.env.local`) lee los
+    // reclamos reales. Por defecto el pedido se corta: así se prueba que sin
+    // My Maps la programación se sigue viendo.
+    if (process.env.BACHEO_RECLAMOS && url.startsWith('https://www.google.com/maps/d/kml')) return ruta.continue();
     return url.startsWith(local) ? ruta.continue() : ruta.abort();
   });
 
@@ -147,6 +151,25 @@ try {
   await dia.click();
   await pagina.waitForTimeout(300);
   await pagina.screenshot({ path: join(capturas, 'bacheo-un-dia.png'), fullPage: true });
+  await pagina.getByRole('group', { name: 'Día' }).getByRole('button', { name: 'Toda la semana' }).click();
+
+  // 5b. Reclamos: con el My Maps, la capa y su lista; sin él, un aviso y nada más.
+  if (process.env.BACHEO_RECLAMOS) {
+    const resumen = pagina.getByText(/reclamos? en \d+ puntos? del/);
+    await resumen.waitFor({ timeout: 30000 });
+    console.log(`  ${(await resumen.locator('xpath=..').innerText()).replace(/\s+/g, ' ')}`);
+    assert.ok(await pagina.locator('path.bacheo-reclamo').count(), 'la capa de reclamos se dibuja');
+    const alcanzados = pagina.getByText('Reclamos con trabajo cerca');
+    if (await alcanzados.count()) await alcanzados.click();
+    await pagina.waitForTimeout(400);
+    await pagina.screenshot({ path: join(capturas, 'bacheo-reclamos.png'), fullPage: true });
+    await pagina.getByRole('button', { name: 'Reclamos', exact: true }).click();
+    assert.equal(await pagina.locator('path.bacheo-reclamo').count(), 0, 'el botón oculta la capa');
+    await pagina.getByRole('button', { name: 'Reclamos', exact: true }).click();
+  } else if (loadEnv('production', process.cwd(), 'VITE_').VITE_MYMAPS_RECLAMOS_BACHEO) {
+    await pagina.getByText('No se pudieron leer los reclamos del My Maps').waitFor();
+    assert.ok(await pagina.locator('path.bacheo-trabajo').count(), 'sin My Maps la programación se ve igual');
+  }
 
   // 6. Volver a cargar la misma semana: avisa que la reemplaza y reusa lo marcado
   await cargar();

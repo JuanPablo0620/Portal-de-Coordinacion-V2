@@ -62,6 +62,12 @@ export const CAPAS_BASE = Object.freeze([
 
 const ESTILO_MAPA_CLARO = 'https://tiles.openfreemap.org/styles/liberty';
 
+function textoTooltip(texto) {
+  const nodo = document.createElement('span');
+  nodo.textContent = texto;
+  return nodo;
+}
+
 function crearCapaBase(L, cual, maplibreGL) {
   if (cual === 'municipal') {
     // La capa oficial del municipio. Es el respaldo natural si el servicio de
@@ -97,7 +103,7 @@ function crearCapaBase(L, cual, maplibreGL) {
  *   — `mascara` recibe anillos cerrados y pinta todo lo que queda AFUERA de ellos.
  *   — `poligono` recibe anillos cerrados y pinta lo que queda ADENTRO.
  *   — `puntos` es un array de polilíneas para `linea` y un `{lat,lng}` para `punto`.
- *   Opcionales: `grosor` (ancho del trazo), `interactiva: false` (no responde al
+ *   Opcionales: `grosor` (ancho del trazo), `radio` (de un punto; 8 si no se da), `interactiva: false` (no responde al
  *   clic) y `mostrarPuntas: false` (sin los círculos de los extremos).
  * @param {function} alClicMapa  recibe `{lat,lng}`. Su presencia activa el modo dibujo.
  * @param {function} alMoverse   recibe `{norte, sur, este, oeste, zoom}` al mover el mapa.
@@ -306,7 +312,8 @@ export function MapaLeaflet({
           );
         }
       } else if (forma.tipo === 'punto') {
-        if (forma.puntos) capas.push(L.circleMarker(forma.puntos, { radius: seleccion ? 11 : 8, className: clase }));
+        const radio = forma.radio ?? 8;
+        if (forma.puntos) capas.push(L.circleMarker(forma.puntos, { radius: seleccion ? radio + 3 : radio, className: clase }));
       } else if (forma.tipo === 'poligono') {
         // Un área entera (los cuadrantes de bacheo): relleno tenue y borde pleno,
         // para que las calles de abajo se sigan leyendo.
@@ -328,7 +335,10 @@ export function MapaLeaflet({
       }
 
       for (const capa of capas) {
-        if (forma.titulo) capa.bindTooltip(forma.titulo, { direction: 'top', sticky: true });
+        // Como texto y no como string: Leaflet mete un string con innerHTML, y
+        // los títulos de los reclamos de Bacheo vienen de un My Maps que edita
+        // gente de afuera del portal.
+        if (forma.titulo) capa.bindTooltip(() => textoTooltip(forma.titulo), { direction: 'top', sticky: true });
         if (forma.id && forma.interactiva !== false) {
           capa.on('click', (e) => {
             // Sin esto el clic también cae en el mapa y, en modo dibujo,

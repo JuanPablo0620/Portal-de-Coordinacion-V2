@@ -19,7 +19,7 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 17/11/2026 · Claude, por pedido de JP
+**Última actualización:** 20/11/2026 · Claude, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
@@ -46,7 +46,18 @@ a noviembre cargadas (SQL generado desde `Trabajo/analisis/mapas-seguridad-bache
 El período va en la URL (`?semana=`, `?mes=`, `?trimestre=`), así se puede pasar
 el link.
 
-**Pendiente:** la capa de reclamos (segunda etapa; falta definir la fuente).
+**20/11 — capa de reclamos:** el mapa suma los reclamos del My Maps de bacheo del
+área (Caseros y Ciudadela), leídos en vivo, y los cruza con los trabajos del
+período: con trabajo programado, cerca (a verificar) o sin trabajo. Panel con la
+lista de los alcanzados y, en cada trabajo, cuántos reclamos le caen encima. Por
+qué en vivo y no en Supabase: `docs/decisiones/2026-11-20-reclamos-bacheo-my-maps.md`.
+
+**Para que aparezca en producción:** cargar `VITE_MYMAPS_RECLAMOS_BACHEO` en Vercel
+(el valor lo tiene JP) y redesplegar sin caché. Sin la variable, la capa no se
+muestra y el resto anda igual.
+
+**Deuda vista al pasar:** `node scripts/verificar-mapa.mjs` falla también en
+`main` sin estos cambios («el mapa compilado está vacío»). No se investigó.
 
 
 ### Invitar a la reunión: sólo el mail (03/11)

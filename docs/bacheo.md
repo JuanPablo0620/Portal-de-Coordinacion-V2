@@ -31,9 +31,15 @@ claude.ai del 02/11 y el 04/11).
    El período va en la URL (`?semana=2026-11-16`, `?mes=2026-10`,
    `?trimestre=2026-T3`).
 
-Fuera de esta etapa, por decisión de JP del 17/11/2026: **la capa de reclamos**.
-Va en una segunda etapa, cuando se defina la fuente (el My Maps del área o una
-tabla propia).
+7. **Reclamos** (20/11, segunda etapa): los puntos del My Maps de bacheo del área
+   se leen en vivo y se cruzan con los trabajos del período, con la misma regla
+   del mapa de afuera del portal: **con trabajo** si caen dentro del cuadrante,
+   a 15 m o menos del tramo o a 25 m o menos de la esquina; **cerca, a
+   verificar** hasta 50 m más allá. En el mapa el estado se lee por la forma
+   (relleno, anillo, punto gris chico), no solo por el color. Clic en un reclamo
+   elige el trabajo que lo atiende. El My Maps cubre solo Caseros y Ciudadela, y
+   el resumen lo dice. Fuente y por qué en vivo:
+   `docs/decisiones/2026-11-20-reclamos-bacheo-my-maps.md`.
 
 ## Archivos
 
@@ -47,6 +53,8 @@ tabla propia).
 | `src/datos/bacheo/geometria.js` | GeoJSON ↔ Leaflet, casco convexo, punto en polígono |
 | `src/datos/bacheo/semana.js` | Agrupar, filtrar, resumir y armar la publicación |
 | `src/datos/bacheo/periodo.js` | Semana, mes y trimestre: rangos, calendario, consolidación por lugar |
+| `src/datos/bacheo/reclamos.js` | KML del My Maps → reclamos; cruce con los trabajos (metros) |
+| `src/datos/reclamosBacheo.js` | Pedido del KML (id en `VITE_MYMAPS_RECLAMOS_BACHEO`) |
 | `src/datos/supabaseBacheo.js` | Lectura y publicación contra Supabase |
 | `src/modulos/bacheo/` | Pantallas: `Bacheo.jsx` (vista), `SelectorPeriodo.jsx` (calendario) y `CargaSemana.jsx` (carga y revisión) |
 | `supabase/migrations/0038_bacheo.sql` | Tablas, función `publicar_semana_bacheo` y permisos |
@@ -100,13 +108,15 @@ pueden ubicar tal como están escritos, para el área.
 ## Cómo probarlo
 
 ```bash
-node --test pruebas/bacheo.test.mjs                               # lógica, sin red
+node --test pruebas/bacheo.test.mjs pruebas/bacheo-reclamos.test.mjs   # lógica, sin red
 node scripts/verificar-programacion-bacheo.mjs <carpeta de PDF>   # lector contra PDF reales
 node scripts/verificar-bacheo.mjs <carpeta con los 2 PDF de una semana>
 ```
 
 El último recorre la pantalla en Chrome (carga, revisión, marca a mano, error al
-publicar, publicación y republicación) con Supabase simulado y el Geoportal real.
+publicar, publicación y republicación) con Supabase simulado y el Geoportal real. Por defecto corta el pedido al My Maps
+(prueba que sin reclamos la programación se ve igual); con `BACHEO_RECLAMOS=1`
+lee el My Maps real y revisa la capa.
 
 ## Para ponerlo en producción
 

@@ -587,6 +587,26 @@ path.bacheo-atenuado {
   fill-opacity: 0.05;
 }
 
+/* Reclamos del My Maps. Tinta neutra y no un color de serie (esos son los
+   tipos de trabajo); el estado lo dice la forma: relleno, anillo o punto
+   chico. El borde blanco los despega de una línea de trabajo que pase abajo. */
+path.bacheo-reclamo {
+  stroke: var(--color-card);
+  stroke-width: 2;
+  fill-opacity: 1;
+}
+path.bacheo-reclamo-con_trabajo {
+  fill: var(--color-tinta);
+}
+path.bacheo-reclamo-cerca {
+  fill: var(--color-card);
+  stroke: var(--color-tinta);
+  stroke-width: 2.5;
+}
+path.bacheo-reclamo-sin_trabajo {
+  fill: var(--color-sindato);
+}
+
 /* Muestra de color en listas y leyendas. */
 .bacheo-muestra { background-color: var(--muestra); }
 .bacheo-muestra-caliente { --muestra: var(--color-bacheo-caliente); }

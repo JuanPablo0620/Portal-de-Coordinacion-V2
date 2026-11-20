@@ -11,6 +11,7 @@ import { aFormaMapa, verticesDe } from '../../datos/bacheo/geometria.js';
 import { limitePartido } from '../../datos/geoportal.js';
 import { ETIQUETAS_TIPO } from '../../datos/bacheo/programacion.js';
 import { enFoco, esProvisoria } from '../../datos/bacheo/semana.js';
+import { ESTADOS_RECLAMO } from '../../datos/bacheo/reclamos.js';
 
 export function formasDeTrabajos(trabajos, { fecha = '', foco = null, idClave = 'id' } = {}) {
   const formas = [];
@@ -39,6 +40,33 @@ export function formasDeTrabajos(trabajos, { fecha = '', foco = null, idClave = 
   // la esquina que tiene adentro.
   const peso = { poligono: 0, linea: 1, punto: 2 };
   return formas.sort((a, b) => peso[a.tipo] - peso[b.tipo]);
+}
+
+/** Prefijo del id de forma de un reclamo: el clic lo distingue de un trabajo. */
+export const PREFIJO_RECLAMO = 'reclamo:';
+
+const RADIO_RECLAMO = { con_trabajo: 6, cerca: 6, sin_trabajo: 4 };
+
+/**
+ * Reclamos del My Maps → formas. Van en tinta neutra y no en un color de
+ * serie: los ocho ya son los tipos de trabajo, y un reclamo no es un trabajo.
+ * El estado se lee por la FORMA y no por el color (relleno, anillo, punto
+ * chico), así se distingue también en blanco y negro o con daltonismo. Los
+ * que no tienen trabajo van chicos y grises: son la mayoría y no tienen que
+ * tapar la programación.
+ */
+export function formasDeReclamos(cruzados) {
+  const orden = { sin_trabajo: 0, cerca: 1, con_trabajo: 2 };
+  return [...cruzados]
+    .sort((a, b) => orden[a.estado] - orden[b.estado])
+    .map((r) => ({
+      tipo: 'punto',
+      id: `${PREFIJO_RECLAMO}${r.id}`,
+      puntos: { lat: r.lat, lng: r.lng },
+      radio: RADIO_RECLAMO[r.estado],
+      clase: `bacheo-reclamo bacheo-reclamo-${r.estado}`,
+      titulo: `${r.ubicacion} · ${r.cantidad === 1 ? '1 reclamo' : `${r.cantidad} reclamos`} · ${ESTADOS_RECLAMO[r.estado]}`,
+    }));
 }
 
 /** Puntos para encuadrar el mapa en un conjunto de trabajos. */

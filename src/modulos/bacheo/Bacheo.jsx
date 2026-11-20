@@ -10,8 +10,10 @@
  * mapa, lo atenúa, para que se siga viendo dónde se trabajó o se va a
  * trabajar.
  *
- * La capa de reclamos queda para una segunda etapa (decisión de JP del
- * 17/11/2026): primero la programación, después el cruce.
+ * La capa de reclamos (segunda etapa, 20/11/2026) se lee en vivo del My Maps
+ * del área y se cruza con los trabajos del período que se está mirando. Si el
+ * My Maps no responde, la programación se ve igual: los reclamos son una capa
+ * encima, no una condición.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -47,7 +49,16 @@ import {
   semanasDelPeriodo,
   semanasFaltantes,
 } from '../../datos/bacheo/periodo.js';
-import { encuadreDe, formasDeTrabajos, formasDelPartido, useLimitePartido } from './formas.js';
+import { enlaceMyMaps, leerReclamos, reclamosDisponibles } from '../../datos/reclamosBacheo.js';
+import { ESTADOS_RECLAMO, cruzarReclamos, reclamosPorTrabajo, resumenReclamos } from '../../datos/bacheo/reclamos.js';
+import {
+  PREFIJO_RECLAMO,
+  encuadreDe,
+  formasDeReclamos,
+  formasDeTrabajos,
+  formasDelPartido,
+  useLimitePartido,
+} from './formas.js';
 import { CargaSemana } from './CargaSemana.jsx';
 import { SelectorPeriodo } from './SelectorPeriodo.jsx';
 
@@ -71,6 +82,20 @@ export default function Bacheo() {
   const [seleccion, setSeleccion] = useState(null);
   // Trabajos ya leídos, por id de semana: volver a un período visto no vuelve a pedir nada.
   const memoria = useRef(new Map());
+  const [reclamos, setReclamos] = useState(null);
+  const [errorReclamos, setErrorReclamos] = useState(null);
+  const [verReclamos, setVerReclamos] = useState(true);
+
+  useEffect(() => {
+    if (!reclamosDisponibles()) return undefined;
+    let vivo = true;
+    leerReclamos()
+      .then((r) => vivo && setReclamos(r))
+      .catch((e) => vivo && setErrorReclamos(e));
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   // El período vive en la URL (?semana=, ?mes=, ?trimestre=): se puede pasar el link.
   const periodo = periodoDeParametros(parametros) ?? periodoInicial(semanas ?? []);
@@ -158,12 +183,32 @@ export default function Bacheo() {
   // En el mapa van los de los tipos elegidos de TODO el período; el día o la
   // semana elegida solo atenúa. En el panel, solo los que pasan todos los filtros.
   const enMapa = useMemo(() => trabajos.filter((t) => pasaFiltros(t, { tipos })), [trabajos, tipos]);
+  // El cruce va contra TODOS los trabajos del período, no contra los filtrados:
+  // que un reclamo tenga trabajo no cambia porque se oculte un tipo en el mapa.
+  const cruzados = useMemo(() => (reclamos ? cruzarReclamos(reclamos, trabajos) : []), [reclamos, trabajos]);
+  const porTrabajo = useMemo(() => reclamosPorTrabajo(cruzados), [cruzados]);
+  const capaReclamos = verReclamos && cruzados.length > 0;
   const limite = useLimitePartido();
   const formas = useMemo(
-    () => [...formasDelPartido(limite), ...formasDeTrabajos(enMapa, { foco: rangoFoco })],
+    () => [
+      ...formasDelPartido(limite),
+      ...formasDeTrabajos(enMapa, { foco: rangoFoco }),
+      ...(capaReclamos ? formasDeReclamos(cruzados) : []),
+    ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [limite, enMapa, foco],
+    [limite, enMapa, foco, cruzados, capaReclamos],
   );
+  // Clic en un reclamo: se elige el trabajo que lo atiende. Uno sin trabajo no
+  // tiene nada que elegir (el tooltip ya dice qué es).
+  const alSeleccionar = (id) => {
+    if (id.startsWith(PREFIJO_RECLAMO)) {
+      const r = cruzados.find((x) => `${PREFIJO_RECLAMO}${x.id}` === id);
+      const destino = r?.trabajos[0]?.id;
+      if (destino) setSeleccion(destino);
+      return;
+    }
+    setSeleccion(id === seleccion ? null : id);
+  };
   const grupos = useMemo(() => agruparPorLocalidad(visibles), [visibles]);
   const resumen = resumenSemana(visibles);
   const elegido = trabajos.find((t) => t.id === seleccion) ?? null;
@@ -317,7 +362,24 @@ export default function Bacheo() {
                     {ETIQUETAS_TIPO[t]}
                   </BotonAlternable>
                 ))}
+                {cruzados.length > 0 && (
+                  <BotonAlternable
+                    className="inline-flex items-center gap-1.5 sm:ml-2"
+                    activo={verReclamos}
+                    onClick={() => setVerReclamos(!verReclamos)}
+                  >
+                    <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-full bg-tinta" />
+                    Reclamos
+                  </BotonAlternable>
+                )}
               </div>
+              {capaReclamos && <ResumenReclamos cruzados={cruzados} esSemana={esSemana} />}
+              {errorReclamos && (
+                <p className="text-xs text-tenue">
+                  No se pudieron leer los reclamos del My Maps ({String(errorReclamos.message ?? errorReclamos)}). La
+                  programación se ve igual.
+                </p>
+              )}
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
@@ -325,7 +387,7 @@ export default function Bacheo() {
                 <MapaLeaflet
                   formas={formas}
                   seleccionada={seleccion}
-                  alSeleccionar={(id) => setSeleccion(id === seleccion ? null : id)}
+                  alSeleccionar={alSeleccionar}
                   encuadrar={encuadre}
                   alto={560}
                   etiqueta="Mapa de la programación de Bacheo"
@@ -341,6 +403,13 @@ export default function Bacheo() {
                   <Vacio compacto titulo="Sin trabajos" descripcion="No hay trabajos con estos filtros." />
                 )}
                 <div className="scroll-fino flex max-h-[620px] flex-col gap-2 overflow-y-auto pr-1">
+                  {capaReclamos && (
+                    <ReclamosAlcanzados
+                      cruzados={cruzados}
+                      trabajos={trabajos}
+                      alElegir={(id) => setSeleccion(id)}
+                    />
+                  )}
                   {grupos.map((g) => (
                     <details key={g.localidad} open className="rounded-card border border-borde bg-card">
                       <summary className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm font-semibold text-tinta">
@@ -357,6 +426,7 @@ export default function Bacheo() {
                             trabajo={t}
                             dias={esSemana ? dias : null}
                             elegido={seleccion === t.id}
+                            reclamos={capaReclamos ? porTrabajo.get(t.id) : null}
                             alElegir={() => setSeleccion(seleccion === t.id ? null : t.id)}
                           />
                         ))}
@@ -370,6 +440,96 @@ export default function Bacheo() {
         )}
       </Pagina>
     </>
+  );
+}
+
+/**
+ * Cuántos reclamos tienen trabajo, con la leyenda de los tres estados. Dice de
+ * qué localidades es el My Maps: hoy cubre solo Caseros y Ciudadela, y «sin
+ * trabajo» en el resto del partido no significaría nada.
+ */
+function ResumenReclamos({ cruzados, esSemana }) {
+  const r = resumenReclamos(cruzados);
+  const localidades = [...new Set(cruzados.map((x) => x.localidad).filter(Boolean))].sort();
+  const enlace = enlaceMyMaps();
+  const muestras = {
+    con_trabajo: 'h-2.5 w-2.5 bg-tinta',
+    cerca: 'h-2.5 w-2.5 border-2 border-tinta bg-card',
+    sin_trabajo: 'h-2 w-2 bg-sindato',
+  };
+  const sinTrabajo = esSemana ? 'sin trabajo esta semana' : 'sin trabajo en el período';
+  return (
+    <div className="flex flex-col gap-1 text-xs text-gris">
+      <p>
+        {plural(r.total, 'reclamo', 'reclamos')} en {plural(cruzados.length, 'punto', 'puntos')} del{' '}
+        {enlace ? (
+          <a href={enlace} target="_blank" rel="noreferrer" className="text-acento underline">
+            My Maps de Bacheo
+          </a>
+        ) : (
+          'My Maps de Bacheo'
+        )}
+        {localidades.length > 0 && ` (solo ${localidades.join(' y ')})`}.
+      </p>
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {Object.keys(ESTADOS_RECLAMO).map((e) => (
+          <span key={e} className="inline-flex items-center gap-1.5">
+            <span aria-hidden="true" className={`inline-block rounded-full ${muestras[e]}`} />
+            <span>
+              <strong className="font-semibold text-tinta">{r[e]}</strong>{' '}
+              {e === 'sin_trabajo' ? sinTrabajo : ESTADOS_RECLAMO[e].toLowerCase()}
+            </span>
+          </span>
+        ))}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Los reclamos que algún trabajo alcanza, con el trabajo al lado. Es la
+ * versión en texto de la capa (no todo el mundo lee un mapa) y la lista que
+ * Coordinación chequea con el área: los «cerca» son los que hay que confirmar.
+ */
+function ReclamosAlcanzados({ cruzados, trabajos, alElegir }) {
+  const alcanzados = cruzados
+    .filter((r) => r.estado !== 'sin_trabajo')
+    .sort((a, b) => (a.estado === b.estado ? a.ubicacion.localeCompare(b.ubicacion) : a.estado === 'con_trabajo' ? -1 : 1));
+  if (!alcanzados.length) return null;
+  const porId = new Map(trabajos.map((t) => [t.id, t]));
+  const total = alcanzados.reduce((s, r) => s + r.cantidad, 0);
+  return (
+    <details className="rounded-card border border-borde bg-card">
+      <summary className="flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm font-semibold text-tinta">
+        <span>Reclamos con trabajo cerca</span>
+        <span className="text-xs font-normal text-tenue">{plural(total, 'reclamo', 'reclamos')}</span>
+      </summary>
+      <ul className="flex flex-col border-t border-borde">
+        {alcanzados.map((r) => {
+          const t = porId.get(r.trabajos[0].id);
+          return (
+            <li key={r.id}>
+              <button
+                type="button"
+                onClick={() => alElegir(r.trabajos[0].id)}
+                className="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition hover:bg-paper"
+              >
+                <span className="text-sm font-medium text-tinta">
+                  {r.ubicacion}
+                  {r.cantidad > 1 && <span className="font-normal text-gris"> · {r.cantidad} reclamos</span>}
+                </span>
+                <span className="text-xs text-gris">{r.reclamo}</span>
+                <span className={`text-xs ${r.estado === 'cerca' ? 'text-proximo-texto' : 'text-gris'}`}>
+                  {ESTADOS_RECLAMO[r.estado]}
+                  {t ? `: ${t.descripcion}` : ''}
+                  {r.trabajos[0].metros > 0 ? ` (a ${r.trabajos[0].metros} m)` : ''}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </details>
   );
 }
 
@@ -388,7 +548,7 @@ function textoPie({ esSemana, archivos }) {
  * L-M-X-J-V; sin `dias` (mes o trimestre) dice cuántos días y semanas se
  * trabajó ese lugar y entre qué fechas.
  */
-function FilaTrabajo({ trabajo: t, dias, elegido, alElegir }) {
+function FilaTrabajo({ trabajo: t, dias, elegido, alElegir, reclamos }) {
   const fechas = new Set(t.fechas);
   const primera = t.fechas[0];
   const ultima = t.fechas[t.fechas.length - 1];
@@ -425,6 +585,16 @@ function FilaTrabajo({ trabajo: t, dias, elegido, alElegir }) {
             <span className="text-xs text-proximo-texto">
               {ESTADOS_UBICACION[t.geometria ? t.ubicacion : 'sin_ubicar']}
               {t.nota ? `: ${t.nota}` : ''}
+            </span>
+          )}
+          {reclamos && (
+            <span className="text-xs font-medium text-tinta">
+              {[
+                reclamos.con_trabajo ? plural(reclamos.con_trabajo, 'reclamo en el lugar', 'reclamos en el lugar') : '',
+                reclamos.cerca ? `${reclamos.cerca} cerca, a verificar` : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </span>
           )}
           {(t.novedades ?? []).map((n) => (
