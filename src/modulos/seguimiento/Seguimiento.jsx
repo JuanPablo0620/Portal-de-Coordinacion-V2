@@ -10,6 +10,7 @@ import {
   List,
   Mail,
   NotebookPen,
+  RefreshCw,
   X,
 } from 'lucide-react';
 import { EncabezadoPagina, Pagina } from '../../componentes/Layout.jsx';
@@ -37,6 +38,7 @@ import { CargarSeguimiento } from './CargarSeguimiento.jsx';
 import { HistorialArea } from './HistorialArea.jsx';
 import { ConvocarSeguimiento } from './ConvocarSeguimiento.jsx';
 import { ModificarFechaSeguimiento } from './ModificarFechaSeguimiento.jsx';
+import { SincronizarCalendar } from './SincronizarCalendar.jsx';
 import { COLUMNAS_COMPROMISO, nivelDe } from './columnasCompromiso.jsx';
 import { ESTADOS_COMPROMISO } from '../../datos/catalogos.js';
 import {
@@ -75,6 +77,7 @@ export default function Seguimiento() {
   const [aviso, setAviso] = useState('');
   const [convocando, setConvocando] = useState(null);
   const [enviandoCompromisos, setEnviandoCompromisos] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
 
   const pestanias = [
     { valor: 'calendario', titulo: 'Próximos seguimientos', icono: CalendarRange },
@@ -111,7 +114,7 @@ export default function Seguimiento() {
         <Pestanias opciones={pestanias} valor={filtros.tab} alCambiar={(v) => setFiltros({ tab: v })} />
 
         {filtros.tab === 'calendario' && (
-          <PanelCalendario bd={bd} filtros={filtros} setFiltros={setFiltros} alAgendar={() => setAgendando(true)} alConvocar={setConvocando} alModificarFecha={setModificandoFecha} />
+          <PanelCalendario bd={bd} filtros={filtros} setFiltros={setFiltros} alAgendar={() => setAgendando(true)} alConvocar={setConvocando} alModificarFecha={setModificandoFecha} alSincronizar={() => setSincronizando(true)} />
         )}
         {filtros.tab === 'cargar' && <CargarSeguimiento alTerminar={() => setFiltros({ tab: 'compromisos' })} />}
         {filtros.tab === 'compromisos' && <PanelCompromisos bd={bd} filtros={filtros} setFiltros={setFiltros} />}
@@ -122,13 +125,14 @@ export default function Seguimiento() {
       {modificandoFecha && <ModificarFechaSeguimiento key={modificandoFecha.id} seguimiento={modificandoFecha} alCerrar={() => setModificandoFecha(null)} alEliminar={() => setAviso('Seguimiento eliminado.')} />}
       {convocando && <ConvocarSeguimiento seguimiento={convocando.id ? convocando : null} alCerrar={() => setConvocando(null)} />}
       {enviandoCompromisos && <ConvocarSeguimiento tipo="compromisos" alCerrar={() => setEnviandoCompromisos(false)} />}
+      {sincronizando && <SincronizarCalendar alCerrar={() => setSincronizando(false)} />}
     </>
   );
 }
 
 /* ── Calendario y lista de próximos ─────────────────────────────────── */
 
-function PanelCalendario({ bd, filtros, setFiltros, alAgendar, alConvocar, alModificarFecha }) {
+function PanelCalendario({ bd, filtros, setFiltros, alAgendar, alConvocar, alModificarFecha, alSincronizar }) {
   const hoy = hoyISO();
   const mes = useMesVisible(hoy);
   const esLista = filtros.vista === 'lista';
@@ -185,16 +189,23 @@ function PanelCalendario({ bd, filtros, setFiltros, alAgendar, alConvocar, alMod
   // colores para los dos que se usan ocupa más de lo que explica.
   const areasDelMes = useMemo(() => new Set(items.map((i) => i.area ?? '')), [items]);
 
+  // «Actualizar desde Calendar» va junto a la vista y no en el encabezado de
+  // la página: corrige lo que muestra esta tarjeta, no el módulo entero.
   const conmutador = (
-    <Conmutador
-      etiqueta="Vista de los próximos seguimientos"
-      valor={filtros.vista}
-      alCambiar={(v) => setFiltros({ vista: v })}
-      opciones={[
-        { valor: 'calendario', titulo: 'Calendario', icono: CalendarRange },
-        { valor: 'lista', titulo: 'Lista', icono: List },
-      ]}
-    />
+    <div className="flex flex-wrap items-center gap-2">
+      <Boton icono={RefreshCw} onClick={alSincronizar} className="min-h-11">
+        Actualizar desde Calendar
+      </Boton>
+      <Conmutador
+        etiqueta="Vista de los próximos seguimientos"
+        valor={filtros.vista}
+        alCambiar={(v) => setFiltros({ vista: v })}
+        opciones={[
+          { valor: 'calendario', titulo: 'Calendario', icono: CalendarRange },
+          { valor: 'lista', titulo: 'Lista', icono: List },
+        ]}
+      />
+    </div>
   );
 
   const filtrosCalendario = (

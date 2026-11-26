@@ -49,8 +49,19 @@ export function prepararConexionGoogle() {
   return cargaBiblioteca;
 }
 
-/** Llamar desde el clic, con la biblioteca ya cargada: evita bloquear el popup. */
-export function conectarGoogleConvocatorias() {
+/**
+ * Corregir la agenda de seguimientos sólo lee Calendar: no se le piden Drive ni
+ * Gmail. Si una sesión así se filtrara, lo único expuesto es la agenda, y
+ * Google muestra un pedido de permiso que se entiende de un vistazo.
+ */
+export const PERMISOS_CALENDARIO = ['https://www.googleapis.com/auth/calendar.readonly'];
+
+/**
+ * Pide el token con el popup de Google y arma el cliente. `identificar` dice de
+ * quién es la cuenta con los permisos que se pidieron: la convocatoria lo lee
+ * de Gmail; la sincronización, del calendario principal (su id es el mail).
+ */
+function conectar(permisos, faltanPermisos, identificar) {
   return new Promise((resolver, rechazar) => {
     if (!GOOGLE_CLIENT_ID || !window.google?.accounts?.oauth2) {
       rechazar(new Error('La conexión con Google no está lista.'));
@@ -59,12 +70,12 @@ export function conectarGoogleConvocatorias() {
     const oauth = window.google.accounts.oauth2;
     const cliente = oauth.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
-      scope: PERMISOS_CONVOCATORIA.join(' '),
+      scope: permisos.join(' '),
       include_granted_scopes: false,
       error_callback: () => rechazar(new Error('No se conectó la cuenta. Podés volver a intentarlo.')),
       callback: async (respuesta) => {
-        if (respuesta.error || !respuesta.access_token || !oauth.hasGrantedAllScopes(respuesta, ...PERMISOS_CONVOCATORIA)) {
-          rechazar(new Error('Google necesita todos los permisos que pide —Calendar, Drive, borradores y firma de Gmail— para preparar el mail y agendar. Tildalos todos.'));
+        if (respuesta.error || !respuesta.access_token || !oauth.hasGrantedAllScopes(respuesta, ...permisos)) {
+          rechazar(new Error(faltanPermisos));
           return;
         }
         const duracion = Number(respuesta.expires_in);
@@ -74,14 +85,31 @@ export function conectarGoogleConvocatorias() {
         }
         const sesion = crearClienteConvocatorias(respuesta.access_token, Date.now() + duracion * 1000);
         try {
-          const perfil = await sesion.perfil();
-          sesion.email = perfil.emailAddress;
+          sesion.email = await identificar(sesion);
           resolver(sesion);
         } catch (error) { sesion.cerrar(); rechazar(error); }
       },
     });
     cliente.requestAccessToken({ prompt: 'select_account' });
   });
+}
+
+/** Llamar desde el clic, con la biblioteca ya cargada: evita bloquear el popup. */
+export function conectarGoogleConvocatorias() {
+  return conectar(
+    PERMISOS_CONVOCATORIA,
+    'Google necesita todos los permisos que pide —Calendar, Drive, borradores y firma de Gmail— para preparar el mail y agendar. Tildalos todos.',
+    async (sesion) => (await sesion.perfil()).emailAddress,
+  );
+}
+
+/** Igual que la anterior: se llama desde el clic. */
+export function conectarGoogleCalendario() {
+  return conectar(
+    PERMISOS_CALENDARIO,
+    'Para revisar la agenda, Google tiene que dar permiso de lectura de Calendar. Volvé a conectar y tildalo.',
+    async (sesion) => (await sesion.calendarioPrincipal()).id ?? '',
+  );
 }
 
 const nombreDeCarpeta = (patron) => patron.source.replace(/[^a-z ]/gi, '').replace(/^./, (l) => l.toUpperCase());
@@ -181,6 +209,7 @@ export function crearClienteConvocatorias(tokenInicial, vence, consultar = globa
       return typeof cuenta?.signature === 'string' ? cuenta.signature : '';
     },
     calendarios: () => paginas('calendar', 'users/me/calendarList', { maxResults: '100', minAccessRole: 'reader' }, 'items'),
+    calendarioPrincipal: () => pedir('calendar', 'calendars/primary'),
     reuniones: (calendario, fechaDesde, fechaHasta, patron = /seguimiento/) => paginas('calendar', `calendars/${encodeURIComponent(calendario)}/events`, {
       timeMin: `${fechaDesde}T00:00:00-03:00`, timeMax: `${fechaHasta}T00:00:00-03:00`,
       singleEvents: 'true', orderBy: 'startTime', maxResults: '250', timeZone: 'America/Argentina/Buenos_Aires',

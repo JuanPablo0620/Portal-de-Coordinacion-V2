@@ -19,13 +19,37 @@ que el otro no puede deducir leyendo el repo.
 
 ---
 
-**Última actualización:** 20/11/2026 · Claude, por pedido de JP
+**Última actualización:** 26/11/2026 · Claude, por pedido de JP
 **Traspasos que continúa:** `traspaso-07-09-autenticacion.md` (Tomás),
 `traspaso-04-09-supabase-en-vivo.md` (JP)
 
 ---
 
 ## 1. Dónde está parado el portal
+
+### Seguimiento: «Actualizar desde Calendar» (26/11)
+
+Botón en la tarjeta «Próximos seguimientos». Con la cuenta de Google de quien
+lo toca (sólo permiso `calendar.readonly`), lee los eventos con «seguimiento»
+en el título de los próximos 90 días del calendario principal y propone tres
+tipos de corrección: reprogramar (fecha u hora), agendar lo que falta y dar de
+baja lo agendado sin evento. Se aplica sólo lo tildado; las bajas vienen
+destildadas. El portal nunca escribe en Google.
+
+Como `seguimientos` no guarda el id del evento, el cruce es por secretaría
+(deducida del título con `coincidenciaUnica`) y fecha, emparejando por
+cercanía hasta 21 días. Lógica en `src/datos/sincronizarCalendar.js`; prueba en
+Chrome con Google ficticio en `scripts/verificar-sincronizar-calendar.mjs`.
+
+**Pendiente:**
+
+- Es el disparo manual de la sincronización de los sábados que se decidió el
+  16/11 para la previa del lunes. La automática (Edge Function + cuenta de
+  servicio) sigue sin hacer. Guardar `id_evento` en `seguimientos` volvería
+  exacto el cruce en las dos.
+- Encontrado de paso, sin corregir: `ConvocarSeguimiento.jsx` busca las áreas
+  en `bd.areas`, que no existe (están en `bd.catalogos.areas`). Por eso la
+  convocatoria nunca propone la secretaría a partir del título.
 
 ### Bacheo: programación en el mapa, por semana, mes o trimestre (17-19/11)
 

@@ -24,6 +24,7 @@ export {
   GOOGLE_CLIENT_ID,
   prepararConexionGoogle,
   conectarGoogleConvocatorias,
+  conectarGoogleCalendario,
 } from './googleConvocatorias.js';
 import { bdVacia, normalizarBD, claveDe } from './esquema.js';
 import { crearAsiento, diffCampos } from './bitacora.js';
